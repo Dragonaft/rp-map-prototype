@@ -1,0 +1,9 @@
+{
+  "name": "map-project",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "web-map",
+    "map-generator"
+  ]
+}

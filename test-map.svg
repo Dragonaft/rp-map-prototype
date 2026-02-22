@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+
+  <!-- Море (фон, не парсится как провинция, без id) -->
+  <rect x="0" y="0" width="800" height="600" fill="#7ec8ff" />
+
+  <!-- Континент: три провинции рядом -->
+
+  <!-- Западная часть континента -->
+  <path
+    id="continent-west"
+    d="M80 180
+       L220 150
+       L260 210
+       L240 320
+       L140 360
+       L70 280
+       Z"
+    fill="#c8e6c9"
+    stroke="#333"
+    stroke-width="2"
+    data-type="land"
+    data-landscape="forest"
+  />
+
+  <!-- Центральная часть континента -->
+  <path
+    id="continent-center"
+    d="M220 150
+       L360 130
+       L420 190
+       L410 290
+       L260 310
+       L260 210
+       Z"
+    fill="#ffe0b2"
+    stroke="#333"
+    stroke-width="2"
+    data-type="land"
+    data-landscape="plains"
+  />
+
+  <!-- Восточная часть континента -->
+  <path
+    id="continent-east"
+    d="M360 130
+       L500 150
+       L540 230
+       L520 320
+       L410 290
+       L420 190
+       Z"
+    fill="#d7ccc8"
+    stroke="#333"
+    stroke-width="2"
+    data-type="coastal"
+    data-landscape="hills"
+  />
+
+  <!-- Остров 1 (северо-запад) -->
+  <path
+    id="island-nw"
+    d="M150 60
+       L210 40
+       L250 70
+       L230 110
+       L170 120
+       L140 90
+       Z"
+    fill="#c5e1a5"
+    stroke="#333"
+    stroke-width="2"
+    data-type="coastal"
+    data-landscape="mountain"
+  />
+
+  <!-- Остров 2 (юго-восток) -->
+  <path
+    id="island-se"
+    d="M560 380
+       L630 360
+       L680 390
+       L670 440
+       L600 470
+       L550 430
+       Z"
+    fill="#fff9c4"
+    stroke="#333"
+    stroke-width="2"
+    data-type="coastal"
+    data-landscape="plains"
+  />
+
+</svg>
