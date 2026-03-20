@@ -17,8 +17,4 @@ export function parseMap(options: ParseOptions) {
   const provinces = JSON.parse(raw) as Province[];
 
   console.log(`Total provinces: ${provinces.length}`);
-  console.log('First 10 provinces:');
-  provinces.slice(0, 10).forEach((p) => {
-    console.log(`- ${p.id} [type=${p.type}] region=${p.regionId}`);
-  });
 }

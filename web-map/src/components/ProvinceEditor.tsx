@@ -2,7 +2,6 @@ import React from 'react';
 import type { Province, ProvinceType, Landscape } from '../types';
 
 interface Props {
-  provinces: Province[];
   selected: Province[];
   onUpdate: (province: Province) => void;
   onMergeRegions: () => void;
@@ -14,7 +13,6 @@ const landscapes: Landscape[] = ['plains', 'forest', 'mountain', 'desert', 'hill
 const types: ProvinceType[] = ['land', 'coastal', 'water'];
 
 export const ProvinceEditor: React.FC<Props> = ({
-  provinces,
   selected,
   onUpdate,
   onMergeRegions,
@@ -22,7 +20,6 @@ export const ProvinceEditor: React.FC<Props> = ({
   onDownload,
 }) => {
   const first = selected[0];
-  const isWater = first?.type === 'water';
 
   const handleFieldChange = (field: keyof Province, value: any) => {
     if (!first) return;
@@ -108,26 +105,17 @@ export const ProvinceEditor: React.FC<Props> = ({
               <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 Владелец (userId)
                 <input
-                  value={first.ownerId ?? ''}
-                  onChange={(e) => handleFieldChange('ownerId', e.target.value || null)}
+                  value={first.id ?? ''}
+                  onChange={(e) => handleFieldChange('userId', e.target.value || null)}
                   style={{ padding: 4, borderRadius: 4, border: '1px solid #64748b', background: '#0f172a', color: 'white' }}
                 />
               </label>
 
               <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                Ресурс (resourceId)
+                Ресурс (resourceType)
                 <input
-                  value={first.resourceId ?? ''}
-                  onChange={(e) => handleFieldChange('resourceId', e.target.value || null)}
-                  style={{ padding: 4, borderRadius: 4, border: '1px solid #64748b', background: '#0f172a', color: 'white' }}
-                />
-              </label>
-
-              <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                Цвет провинции (hex)
-                <input
-                  value={first.userColor ?? ''}
-                  onChange={(e) => handleFieldChange('userColor', e.target.value || null)}
+                  value={first.resourceType ?? ''}
+                  onChange={(e) => handleFieldChange('resourceType', e.target.value || '')}
                   style={{ padding: 4, borderRadius: 4, border: '1px solid #64748b', background: '#0f172a', color: 'white' }}
                 />
               </label>
@@ -138,8 +126,8 @@ export const ProvinceEditor: React.FC<Props> = ({
             Войска
             <input
               type="number"
-              value={first.troops}
-              onChange={(e) => handleFieldChange('troops', Number(e.target.value) || 0)}
+              value={first.localTroops}
+              onChange={(e) => handleFieldChange('localTroops', Number(e.target.value) || 0)}
               style={{ padding: 4, borderRadius: 4, border: '1px solid #64748b', background: '#0f172a', color: 'white' }}
             />
           </label>

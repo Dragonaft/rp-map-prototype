@@ -4,13 +4,11 @@ export type Landscape = 'plains' | 'forest' | 'mountain' | 'desert' | 'hills' | 
 
 export interface Province {
   id: string;
-  resourceId: string | null;
-  buildings: string[];
-  ownerId: string | null;
-  userColor: string | null;
-  landscape: Landscape;
-  troops: number;
   type: ProvinceType;
+  landscape: Landscape;
   polygon: string;
-  regionId: string; // логический регион для объединения/деления
+  resourceType: string;
+  regionId: string;
+  userId: string | null;
+  localTroops: number;
 }

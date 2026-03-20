@@ -1,7 +1,10 @@
 .idea
 
 web-map/node_modules
+web-map/.env
 
 api/node_modules
+api/dist
+api/.env
 
 /node_modules/

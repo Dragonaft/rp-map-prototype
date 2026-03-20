@@ -1,14 +1,32 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import type { Province } from '../types';
-import provincesData from '../data/provinces.json';
+import { provincesApi } from '../api/provinces';
 import { ProvinceShape } from './ProvinceShape';
 import { ProvinceEditor } from './ProvinceEditor';
 
-const typedProvinces = provincesData as Province[];
-
 export const MapView: React.FC = () => {
-  const [provinces, setProvinces] = useState<Province[]>(typedProvinces);
+  const [provinces, setProvinces] = useState<Province[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchProvinces = async () => {
+      try {
+        setLoading(true);
+        const data = await provincesApi.getAll();
+        setProvinces(data);
+        setError(null);
+      } catch (err) {
+        setError('Failed to load provinces');
+        console.error('Error fetching provinces:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProvinces();
+  }, []);
 
   const selectedProvinces = useMemo(
     () => provinces.filter((p) => selectedIds.includes(p.id)),
@@ -65,6 +83,22 @@ export const MapView: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a', color: 'white' }}>
+        Loading provinces...
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a', color: 'red' }}>
+        {error}
+      </div>
+    );
+  }
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#0f172a' }}>
       <svg
@@ -88,7 +122,6 @@ export const MapView: React.FC = () => {
       </svg>
 
       <ProvinceEditor
-        provinces={provinces}
         selected={selectedProvinces}
         onUpdate={updateProvince}
         onMergeRegions={mergeSelectedRegions}

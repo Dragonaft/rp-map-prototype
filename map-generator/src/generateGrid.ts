@@ -12,7 +12,8 @@ interface GenerateGridOptions {
 }
 
 const landscapes: Landscape[] = ['plains', 'forest', 'mountain', 'desert', 'hills', 'swamp'];
-const resources = [null, 'iron', 'wood', 'grain', 'stone', 'gold'];
+const resources = ['iron', 'wood', 'grain', 'stone', 'gold'];
+const resourcesSea = ['fish'];
 
 const randomFrom = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
@@ -43,16 +44,13 @@ export function generateGridMap(options: GenerateGridOptions) {
       const isWater = type === 'water';
 
       const province: Province = {
-        id,
-        type,
         polygon: `M${x1} ${y1} H${x2} V${y2} H${x1} Z`,
+        type,
         landscape: randomFrom(landscapes),
-        troops: isWater ? 0 : Math.floor(Math.random() * 200),
-        resourceId: isWater ? null : randomFrom(resources),
-        buildings: isWater ? [] : [],
-        ownerId: isWater ? null : null,
-        userColor: isWater ? null : null,
-        regionId: id,
+        local_troops: 0,
+        resource_type: isWater ? randomFrom(resourcesSea) : randomFrom(resources),
+        user_id: null,
+        region_id: id,
       };
 
       provinces.push(province);

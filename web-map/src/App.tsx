@@ -1,6 +1,5 @@
-import React from 'react';
-import { MapView } from './components/MapView';
+import { Outlet } from 'react-router-dom';
 
 export default function App() {
-  return <MapView />;
+  return <Outlet />;
 }

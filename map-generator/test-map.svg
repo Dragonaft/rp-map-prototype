@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" style="background: #e3f2fd;">
+
+    <rect x="0" y="0" width="800" height="600" fill="#4fc3f7" rx="10"/>
+
+    <path id="sea-1"
+          d="M50 450 Q100 480 150 460 L180 420 L120 400 Z"
+          fill="#81d4fa" stroke="#0277bd" stroke-width="2"
+          data-type="water"/>
+
+    <path id="sea-2"
+          d="M200 480 Q280 500 360 470 L400 430 L300 410 Z"
+          fill="#81d4fa" stroke="#0277bd" stroke-width="2"
+          data-type="water"/>
+
+    <path id="sea-3"
+          d="M420 460 Q500 490 580 450 L620 410 L520 390 Z"
+          fill="#81d4fa" stroke="#0277bd" stroke-width="2"
+          data-type="water"/>
+
+
+    <path id="prov-1"
+          d="M80 320 L160 280 L200 340 L170 400 L110 380 Z"
+          fill="#c8e6c9" stroke="#2e7d32" stroke-width="2"
+          data-type="land" data-landscape="forest"/>
+
+    <path id="prov-2"
+          d="M160 280 L260 250 L320 310 L280 370 L200 340 Z"
+          fill="#a5d6a7" stroke="#2e7d32" stroke-width="2"
+          data-type="land" data-landscape="plains"/>
+
+    <path id="prov-3"
+          d="M260 250 L380 270 L420 340 L360 390 L320 310 Z"
+          fill="#dcedc8" stroke="#2e7d32" stroke-width="2"
+          data-type="land" data-landscape="hills"/>
+
+    <path id="prov-4"
+          d="M80 320 L120 450 L200 480 L170 400 Z"
+          fill="#e8f5e8" stroke="#2e7d32" stroke-width="2"
+          data-type="coastal" data-landscape="swamp"/>
+
+    <path id="prov-5"
+          d="M170 400 L280 370 L360 390 L280 450 L200 480 Z"
+          fill="#c8e6c9" stroke="#2e7d32" stroke-width="2"
+          data-type="land" data-landscape="mountain"/>
+
+    <path id="prov-6"
+          d="M360 390 L420 340 L500 370 L480 450 L360 450 Z"
+          fill="#a5d6a7" stroke="#2e7d32" stroke-width="2"
+          data-type="coastal" data-landscape="desert"/>
+
+    <path id="prov-7"
+          d="M120 450 L200 520 L280 510 L220 480 Z"
+          fill="#dcedc8" stroke="#2e7d32" stroke-width="2"
+          data-type="coastal" data-landscape="plains"/>
+
+    <path id="prov-8"
+          d="M200 520 L360 550 L420 510 L280 510 Z"
+          fill="#e8f5e8" stroke="#2e7d32" stroke-width="2"
+          data-type="land" data-landscape="forest"/>
+
+    <path id="prov-9"
+          d="M360 550 L480 530 L500 450 L420 510 Z"
+          fill="#c8e6c9" stroke="#2e7d32" stroke-width="2"
+          data-type="coastal" data-landscape="hills"/>
+
+    <path id="island-1"
+          d="M100 150 Q130 130 160 150 Q140 180 110 170 Z"
+          fill="#a5d6a7" stroke="#2e7d32" stroke-width="2"
+          data-type="coastal" data-landscape="plains"/>
+
+    <path id="island-2"
+          d="M650 200 Q680 180 710 200 Q690 230 660 220 Z"
+          fill="#dcedc8" stroke="#2e7d32" stroke-width="2"
+          data-type="coastal" data-landscape="mountain"/>
+
+    <path id="island-3"
+          d="M450 100 Q480 80 510 100 Q490 130 460 120 Z"
+          fill="#e8f5e8" stroke="#2e7d32" stroke-width="2"
+          data-type="coastal" data-landscape="forest"/>
+
+</svg>
