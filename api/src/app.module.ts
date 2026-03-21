@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './auth/auth.module';
 import { BuildingsModule } from './buildings/buildings.module';
 import { ProvincesModule } from './provinces/provinces.module';
 import { UsersModule } from './users/users.module';
@@ -25,6 +26,7 @@ import { Building } from './buildings/entities/building.entity';
       entities: [Province, User, Building],
       synchronize: false,
     }),
+    AuthModule,
     UsersModule,
     ProvincesModule,
     BuildingsModule,

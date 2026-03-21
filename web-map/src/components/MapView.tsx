@@ -105,7 +105,7 @@ export const MapView: React.FC = () => {
         viewBox="0 0 800 600"
         style={{ width: '100%', height: '100%' }}
         onClick={(e) => {
-          // клик по пустому месту снимает выделение
+          // remove selection by click
           if (e.target instanceof SVGSVGElement) {
             setSelectedIds([]);
           }

@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, ClassSerializerInterceptor, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, ClassSerializerInterceptor, UseInterceptors, UseGuards } from '@nestjs/common';
 import { ProvincesService } from './provinces.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('provinces')
+@UseGuards(JwtAuthGuard)
 @UseInterceptors(ClassSerializerInterceptor)
 export class ProvincesController {
   constructor(private readonly provincesService: ProvincesService) {}
