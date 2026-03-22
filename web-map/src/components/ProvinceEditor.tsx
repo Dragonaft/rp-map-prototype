@@ -6,7 +6,6 @@ interface Props {
   onUpdate: (province: Province) => void;
   onMergeRegions: () => void;
   onSplitRegions: () => void;
-  onDownload: () => void;
 }
 
 const landscapes: Landscape[] = ['plains', 'forest', 'mountain', 'desert', 'hills', 'swamp'];
@@ -17,7 +16,6 @@ export const ProvinceEditor: React.FC<Props> = ({
   onUpdate,
   onMergeRegions,
   onSplitRegions,
-  onDownload,
 }) => {
   const first = selected[0];
 
@@ -50,19 +48,6 @@ export const ProvinceEditor: React.FC<Props> = ({
             Выделено: {selected.length}
           </div>
         </div>
-        <button
-          style={{
-            background: '#0f172a',
-            color: 'white',
-            border: '1px solid #64748b',
-            borderRadius: 4,
-            padding: '4px 8px',
-            fontSize: 12,
-          }}
-          onClick={onDownload}
-        >
-          Сохранить JSON
-        </button>
       </div>
 
       {!first && <div>Кликните по провинции, чтобы редактировать.</div>}

@@ -1,35 +1,17 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import type { Province } from '../types';
 import { provincesApi } from '../api/provinces';
 import { ProvinceShape } from './ProvinceShape';
 import { ProvinceEditor } from './ProvinceEditor';
+import { useQuery } from '../hooks/useApi';
 
 export const MapView: React.FC = () => {
-  const [provinces, setProvinces] = useState<Province[]>([]);
+  const fetchProvinces = useCallback(() => provincesApi.getAll(), []);
+  const { data: provinces, loading, error, setData: setProvinces } = useQuery(fetchProvinces, []);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchProvinces = async () => {
-      try {
-        setLoading(true);
-        const data = await provincesApi.getAll();
-        setProvinces(data);
-        setError(null);
-      } catch (err) {
-        setError('Failed to load provinces');
-        console.error('Error fetching provinces:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProvinces();
-  }, []);
 
   const selectedProvinces = useMemo(
-    () => provinces.filter((p) => selectedIds.includes(p.id)),
+    () => provinces?.filter((p) => selectedIds.includes(p.id)) ?? [],
     [provinces, selectedIds]
   );
 
@@ -73,16 +55,6 @@ export const MapView: React.FC = () => {
     );
   };
 
-  const downloadJson = () => {
-    const blob = new Blob([JSON.stringify(provinces, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'provinces.json';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#0f172a', color: 'white' }}>
@@ -111,7 +83,7 @@ export const MapView: React.FC = () => {
           }
         }}
       >
-        {provinces.map((p) => (
+        {provinces?.map((p) => (
           <ProvinceShape
             key={p.id}
             province={p}
@@ -126,7 +98,6 @@ export const MapView: React.FC = () => {
         onUpdate={updateProvince}
         onMergeRegions={mergeSelectedRegions}
         onSplitRegions={splitSelectedRegions}
-        onDownload={downloadJson}
       />
     </div>
   );

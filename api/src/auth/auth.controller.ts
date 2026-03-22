@@ -12,7 +12,7 @@ export class AuthController {
 
   @Post('register')
   async register(@Body() registerDto: RegisterDto, @Res({ passthrough: true }) response: Response) {
-    const result = await this.authService.register(registerDto.login, registerDto.password);
+    const result = await this.authService.register(registerDto.login, registerDto.password, registerDto.country_name, registerDto.color);
     return result;
   }
 

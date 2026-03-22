@@ -15,7 +15,7 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async register(login: string, password: string) {
+  async register(login: string, password: string, country_name: string, color: string) {
     const existingUser = await this.usersRepository.findOne({ where: { login } });
     if (existingUser) {
       throw new ConflictException('User with this login already exists');
@@ -25,6 +25,8 @@ export class AuthService {
     const user = this.usersRepository.create({
       login,
       password: hashedPassword,
+      country_name,
+      color,
     });
 
     await this.usersRepository.save(user);
