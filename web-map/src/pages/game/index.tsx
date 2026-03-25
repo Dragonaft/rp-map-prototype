@@ -8,6 +8,7 @@ import { useAppDispatch } from "../../store/hooks.ts";
 import { setUser } from "../../store/slices/userSlice.ts";
 import { provincesApi } from "../../api/provinces.ts";
 import { setProvinces } from "../../store/slices/provincesSlice.ts";
+import { setOtherUsers } from "../../store/slices/otherUsersSlice.ts";
 
 function MenuIcon() {
   return null;
@@ -29,8 +30,11 @@ export const GamePage: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [isMapHovered, setIsMapHovered] = useState(false);
   const { user: authUser } = useAuth();
-  const fetchUser = useCallback(() => usersApi.getOne(authUser!.userId), []);
+  // TODO: Fix auth context and this abomination
+  const fetchUser = useCallback(() => usersApi.getOne(authUser?.userId || authUser?.id || ""), []);
   const { data: userData } = useQuery(fetchUser);
+  const fetchOtherUsers = useCallback(() => usersApi.getAll(), []);
+  const { data: otherUsersData } = useQuery(fetchOtherUsers);
   const dispatch = useAppDispatch();
   const [openIsNewModal, setOpenIsNewModal] = useState(false);
   const fetchProvinces = useCallback(() => provincesApi.getAll(), []);
@@ -41,7 +45,13 @@ export const GamePage: React.FC = () => {
 
     setOpenIsNewModal(userData.isNew)
     dispatch(setUser(userData));
-  }, [userData, fetchUser]);
+  }, [userData]);
+
+  useEffect(() => {
+    if (!otherUsersData) return;
+
+    dispatch(setOtherUsers(otherUsersData));
+  }, [otherUsersData]);
 
   useEffect(() => {
     dispatch(setProvinces(provinces))

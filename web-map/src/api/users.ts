@@ -1,7 +1,12 @@
 import { apiClient } from './config';
-import { User } from '../types';
+import { PartialUser, User } from '../types';
 
 export const usersApi = {
+  getAll: async (): Promise<PartialUser[]> => {
+    const response = await apiClient.get<PartialUser[]>(`/users/`);
+    return response.data;
+  },
+
   getOne: async (id: string): Promise<User> => {
     const response = await apiClient.get<User>(`/users/${id}`);
     return response.data;

@@ -2,6 +2,15 @@ export type ProvinceType = 'land' | 'coastal' | 'water';
 
 export type Landscape = 'plains' | 'forest' | 'mountain' | 'desert' | 'hills' | 'swamp';
 
+export interface Building {
+  id: string;
+  type: string;
+  name: string;
+  income: string | null;
+  upkeep: string | null;
+  modifier: string | null;
+}
+
 export interface Province {
   id: string;
   type: ProvinceType;
@@ -11,6 +20,7 @@ export interface Province {
   regionId: string;
   userId: string | null;
   localTroops: number;
+  buildings?: Building[];
 }
 
 export interface User {
@@ -21,6 +31,12 @@ export interface User {
   troops: number;
   money: number;
   isNew: boolean;
+}
+
+export interface PartialUser {
+  id: string;
+  countryName: string;
+  color: string;
 }
 
 export interface SetupUserResponse {

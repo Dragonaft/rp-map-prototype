@@ -11,7 +11,7 @@ export class ProvincesController {
 
   @Get()
   getAll(@Request() req) {
-    return this.provincesService.getAll(req.user.id);
+    return this.provincesService.getAll(req.user.userId);
   }
 
   @Get(':id')

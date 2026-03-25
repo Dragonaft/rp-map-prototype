@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UsersCreateBodyRequest } from "./requests/users-create-body.request";
 import { UsersUpdateBodyRequest } from "./requests/users-update-body.request";
+import { PartialUser } from "./types/users.types";
 
 @Injectable()
 export class UsersService {
@@ -21,8 +22,13 @@ export class UsersService {
     return await this.usersRepository.save(user);
   }
 
-  async findAll(): Promise<User[]> {
-    return await this.usersRepository.find();
+  async findAll(): Promise<PartialUser[]> {
+    const users = await this.usersRepository.find();
+    return users.map(user => ({
+      id: user.id,
+      countryName: user.country_name,
+      color: user.color,
+    }));
   }
 
   async findOne(id: string): Promise<User> {

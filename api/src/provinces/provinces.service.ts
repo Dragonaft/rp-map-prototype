@@ -19,15 +19,15 @@ export class ProvincesService {
   ) {}
 
   async getAll(userId: string) {
-    const provinces = await this.provinceRepository.find();
+    // TODO: maybe optimize some to FE
+    const provinces = await this.provinceRepository.find({
+      relations: ['buildings']
+    });
 
     // Hide local_troops for provinces not owned by the user
     return provinces.map(province => {
       if (province.user_id !== userId) {
-        return {
-          ...province,
-          local_troops: null,
-        };
+        province.local_troops = null;
       }
       return province;
     });
@@ -54,8 +54,6 @@ export class ProvincesService {
       where: { id },
       relations: ['buildings']
     });
-
-    console.log(user, 'user_TEST')
 
     const foundUser = await this.userRepository.findOne({ where: { id: user.userId } });
 
@@ -94,8 +92,6 @@ export class ProvincesService {
       troops: 3000,
       money: 5000,
     }
-
-    console.log(updatedUser, 'updatedUser-TEST')
 
     await this.userRepository.save(updatedUser);
     await this.provinceRepository.save(province);

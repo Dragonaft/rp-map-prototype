@@ -40,8 +40,6 @@ export const SelectedProvinceHover = () => {
     }
   };
 
-  console.log(selectedProvince, 'SEL_PROV')
-
   if (!selectedProvince) return null;
 
   return (
