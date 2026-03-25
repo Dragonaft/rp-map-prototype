@@ -1,7 +1,7 @@
 import { Expose } from 'class-transformer';
 import {
   IsNotEmpty,
-  IsOptional,
+  IsNumber,
   IsString,
   Length,
 } from 'class-validator';
@@ -19,7 +19,15 @@ export class UsersCreateBodyRequest {
 
   @IsString()
   @Length(1, 190)
-  @IsOptional()
   @Expose({ name: 'countryName' })
   public readonly country_name?: string;
+
+  @IsString()
+  public readonly color: string;
+
+  @IsNumber()
+  public readonly troops: number;
+
+  @IsNumber()
+  public readonly money: number;
 }

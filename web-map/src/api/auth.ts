@@ -15,6 +15,13 @@ export const authApi = {
     await apiClient.post('/auth/logout');
   },
 
+  refresh: async (): Promise<void> => {
+    await apiClient.post('/auth/refresh', {}, {
+      // @ts-ignore - custom flag for interceptor
+      _skipAuthRedirect: true,
+    });
+  },
+
   getMe: async (): Promise<any> => {
     const response = await apiClient.get('/auth/me', {
       // @ts-ignore - custom flag for interceptor

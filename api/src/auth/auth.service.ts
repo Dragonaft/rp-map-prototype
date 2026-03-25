@@ -5,12 +5,14 @@ import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private usersRepository: Repository<User>,
+    private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
@@ -22,18 +24,23 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = this.usersRepository.create({
+    const user = await this.usersService.create({
       login,
       password: hashedPassword,
       country_name,
       color,
+      troops: 0,
+      money: 0,
     });
-
-    await this.usersRepository.save(user);
 
     return {
       id: user.id,
       login: user.login,
+      countryName: user.country_name,
+      color: user.color,
+      troops: user.troops,
+      money: user.money,
+      isNew: user.is_new,
     };
   }
 

@@ -3,6 +3,7 @@ import { authApi } from '../api/auth';
 
 interface User {
   id: string;
+  userId: string;
   login: string;
 }
 
@@ -26,14 +27,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const userData = await authApi.getMe();
       setUser(userData);
     } catch (error) {
-      setUser(null);
+      // If getMe fails, try to refresh the token first
+      try {
+        await authApi.refresh();
+        // After successful refresh, try getMe again
+        const userData = await authApi.getMe();
+        setUser(userData);
+      } catch (refreshError) {
+        // If refresh also fails, user is not authenticated
+        setUser(null);
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    checkAuth();
+    void checkAuth();
   }, []);
 
   const login = (userData: User) => {

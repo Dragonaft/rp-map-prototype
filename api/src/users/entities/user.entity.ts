@@ -5,6 +5,7 @@ import {
   OneToMany,
   PrimaryColumn,
 } from 'typeorm';
+import { Expose, Exclude } from 'class-transformer';
 import { Province } from '../../provinces/entities/province.entity';
 
 @Entity({ name: 'users' })
@@ -16,9 +17,15 @@ export class User extends BaseEntity {
   public login: string;
 
   @Column()
+  @Exclude({ toPlainOnly: true })
   public password: string;
 
+  @Column()
+  @Expose({ name: 'isNew' })
+  public is_new: boolean;
+
   @Column({ nullable: true })
+  @Expose({ name: 'countryName' })
   public country_name: string;
 
   @Column({ nullable: true })

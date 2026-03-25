@@ -1,9 +1,11 @@
 import { configureStore } from '@reduxjs/toolkit';
-import mapReducer from './slices/mapSlice';
+import userReducer from './slices/userSlice.ts';
+import provincesReducer from './slices/provincesSlice.ts';
 
 export const store = configureStore({
   reducer: {
-    map: mapReducer,
+    user: userReducer,
+    provinces: provincesReducer,
   },
   devTools: process.env.NODE_ENV !== 'production',
 });
