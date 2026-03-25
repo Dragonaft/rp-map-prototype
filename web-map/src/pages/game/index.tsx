@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { AppBar, Box, Button, IconButton, Modal, Toolbar, Typography } from "@mui/material";
+import { Box, Button, Modal, Typography } from "@mui/material";
 import { MapView } from "../../components/MapView.tsx";
 import { useAuth } from "../../context/AuthContext.tsx";
 import { useQuery } from "../../hooks/useApi.ts";
@@ -9,10 +9,8 @@ import { setUser } from "../../store/slices/userSlice.ts";
 import { provincesApi } from "../../api/provinces.ts";
 import { setProvinces } from "../../store/slices/provincesSlice.ts";
 import { setOtherUsers } from "../../store/slices/otherUsersSlice.ts";
+import { TopBar } from "../../components/TopBar.tsx";
 
-function MenuIcon() {
-  return null;
-}
 
 const style = {
   position: 'absolute',
@@ -30,13 +28,15 @@ export const GamePage: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [isMapHovered, setIsMapHovered] = useState(false);
   const { user: authUser } = useAuth();
+  const dispatch = useAppDispatch();
+  const [openIsNewModal, setOpenIsNewModal] = useState(false);
+
   // TODO: Fix auth context and this abomination
-  const fetchUser = useCallback(() => usersApi.getOne(authUser?.userId || authUser?.id || ""), []);
+  const userId = authUser?.userId || authUser?.id || "";
+  const fetchUser = useCallback(() => usersApi.getOne(userId), [userId]);
   const { data: userData } = useQuery(fetchUser);
   const fetchOtherUsers = useCallback(() => usersApi.getAll(), []);
   const { data: otherUsersData } = useQuery(fetchOtherUsers);
-  const dispatch = useAppDispatch();
-  const [openIsNewModal, setOpenIsNewModal] = useState(false);
   const fetchProvinces = useCallback(() => provincesApi.getAll(), []);
   const { data: provinces, loading, error } = useQuery(fetchProvinces, []);
 
@@ -45,17 +45,17 @@ export const GamePage: React.FC = () => {
 
     setOpenIsNewModal(userData.isNew)
     dispatch(setUser(userData));
-  }, [userData]);
+  }, [userData, dispatch]);
 
   useEffect(() => {
     if (!otherUsersData) return;
 
     dispatch(setOtherUsers(otherUsersData));
-  }, [otherUsersData]);
+  }, [otherUsersData, dispatch]);
 
   useEffect(() => {
     dispatch(setProvinces(provinces))
-  }, [provinces]);
+  }, [provinces, dispatch]);
 
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
@@ -91,23 +91,7 @@ export const GamePage: React.FC = () => {
           </Button>
         </Box>
       </Modal>
-      <AppBar position="static">
-        <Toolbar>
-          <IconButton
-            size="large"
-            edge="start"
-            color="inherit"
-            aria-label="menu"
-            sx={{ mr: 2 }}
-          >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            News
-          </Typography>
-          <Button color="inherit">Login</Button>
-        </Toolbar>
-      </AppBar>
+      <TopBar />
       <div
         ref={mapContainerRef}
         onMouseEnter={() => setIsMapHovered(true)}

@@ -14,16 +14,19 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   // Camera state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
   const [isPanning, setIsPanning] = useState(false);
-  const [startPan, setStartPan] = useState({ x: 0, y: 0 });
+  const isPanningRef = useRef(false);
+  const startPanRef = useRef({ x: 0, y: 0 });
+  const mouseDownPosRef = useRef({ x: 0, y: 0 });
+  const hasMovedRef = useRef(false);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  const toggleSelect = (prov: Province) => {
+  const toggleSelect = useCallback((prov: Province) => {
     if (selectedProvinceId === prov.id) {
       dispatch(setSelectedProvinceId(null));
     } else {
       dispatch(setSelectedProvinceId(prov.id));
     }
-  };
+  }, [dispatch, selectedProvinceId]);
 
   // Handle mouse wheel zoom with Ctrl
   const handleWheel = useCallback((e: WheelEvent) => {
@@ -40,11 +43,11 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // Convert to viewBox coordinates
-    const mouseXInViewBox = viewBox.x + (mouseX / rect.width) * viewBox.width;
-    const mouseYInViewBox = viewBox.y + (mouseY / rect.height) * viewBox.height;
-
     setViewBox((prev) => {
+      // Convert to viewBox coordinates
+      const mouseXInViewBox = prev.x + (mouseX / rect.width) * prev.width;
+      const mouseYInViewBox = prev.y + (mouseY / rect.height) * prev.height;
+
       const newWidth = prev.width * zoomFactor;
       const newHeight = prev.height * zoomFactor;
 
@@ -59,36 +62,52 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
         height: newHeight,
       };
     });
-  }, [viewBox]);
+  }, []);
 
   // Handle mouse down for panning
   const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (e.button !== 0) return; // Only left mouse button
-    if (e.target !== svgRef.current) return; // Only when clicking on background
 
-    setIsPanning(true);
-    setStartPan({ x: e.clientX, y: e.clientY });
+    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
+    startPanRef.current = { x: e.clientX, y: e.clientY };
+    hasMovedRef.current = false;
+    isPanningRef.current = true;
   }, []);
 
   // Handle mouse move for panning
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isPanning || !svgRef.current) return;
+    if (!isPanningRef.current || !svgRef.current) return;
+
+    // Check if we've moved enough to start panning (drag threshold)
+    const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
+    const dy = Math.abs(e.clientY - mouseDownPosRef.current.y);
+
+    if (!hasMovedRef.current && (dx > 3 || dy > 3)) {
+      hasMovedRef.current = true;
+      setIsPanning(true);
+    }
+
+    if (!hasMovedRef.current) return;
 
     const rect = svgRef.current.getBoundingClientRect();
-    const dx = (e.clientX - startPan.x) * (viewBox.width / rect.width);
-    const dy = (e.clientY - startPan.y) * (viewBox.height / rect.height);
 
-    setViewBox((prev) => ({
-      ...prev,
-      x: prev.x - dx,
-      y: prev.y - dy,
-    }));
+    setViewBox((prevViewBox) => {
+      const dx = (e.clientX - startPanRef.current.x) * (prevViewBox.width / rect.width);
+      const dy = (e.clientY - startPanRef.current.y) * (prevViewBox.height / rect.height);
 
-    setStartPan({ x: e.clientX, y: e.clientY });
-  }, [isPanning, startPan, viewBox.width, viewBox.height]);
+      return {
+        ...prevViewBox,
+        x: prevViewBox.x - dx,
+        y: prevViewBox.y - dy,
+      };
+    });
+
+    startPanRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
 
   // Handle mouse up for panning
   const handleMouseUp = useCallback(() => {
+    isPanningRef.current = false;
     setIsPanning(false);
   }, []);
 

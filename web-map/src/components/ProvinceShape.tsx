@@ -11,47 +11,49 @@ interface Props {
 const WATER_COLOR = '#7ec8ff';
 const DEFAULT_LAND_COLOR = '#cccccc';
 
-export const ProvinceShape: React.FC<Props> = ({ province, isSelected, onSelect }) => {
+const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelect }) => {
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
-  const currentUser = useAppSelector((state) => state.user);
+  const currentUserId = useAppSelector((state) => state.user.id);
+  const currentUserColor = useAppSelector((state) => state.user.color);
 
   const isWater = province.type === 'water';
 
   // Find the owner of this province
-  const provinceOwner = useMemo(() => {
+  const provinceOwnerColor = useMemo(() => {
     if (!province.userId) return null;
 
     // Check if it's the current user's province
-    if (province.userId === currentUser.id) {
-      return currentUser;
+    if (province.userId === currentUserId) {
+      return currentUserColor;
     }
 
     // Check if it's another user's province
-    return otherUsers.find(user => user.id === province.userId);
-  }, [province.userId, currentUser, otherUsers]);
+    const owner = otherUsers.find(user => user.id === province.userId);
+    return owner?.color;
+  }, [province.userId, currentUserId, currentUserColor, otherUsers]);
 
-  const fillColor = isWater ? WATER_COLOR : (provinceOwner?.color || DEFAULT_LAND_COLOR);
+  const fillColor = isWater ? WATER_COLOR : (provinceOwnerColor || DEFAULT_LAND_COLOR);
   const strokeColor = isSelected ? '#ffff00' : '#333333';
   const strokeWidth = isSelected ? 4 : 1.5;
 
-  const handleClick: React.MouseEventHandler<SVGPathElement> = (e) => {
+  const handleClick: React.MouseEventHandler<SVGPathElement> = React.useCallback((e) => {
     e.stopPropagation();
     const multi = e.ctrlKey || e.metaKey || e.shiftKey;
     onSelect(province, multi);
-  };
+  }, [onSelect, province]);
 
   // Calculate the bounding box to position text near the bottom
   const [pathBBox, setPathBBox] = React.useState<DOMRect | null>(null);
   const pathRef = React.useRef<SVGPathElement>(null);
 
   React.useEffect(() => {
-    if (pathRef.current) {
+    if (pathRef.current && !pathBBox) {
       const bbox = pathRef.current.getBBox();
       setPathBBox(bbox as DOMRect);
     }
-  }, [province.polygon]);
+  }, [pathBBox]);
 
-  const isCurrentUserProvince = province.userId === currentUser.id;
+  const isCurrentUserProvince = province.userId === currentUserId;
 
   // Building icons (simple shapes for different building types)
   const buildingIcons = ['🏰', '⚔️', '🏭', '🌾', '⛏️', '🏛️', '🛡️', '💰'];
@@ -121,3 +123,13 @@ export const ProvinceShape: React.FC<Props> = ({ province, isSelected, onSelect 
     </g>
   );
 };
+
+export const ProvinceShape = React.memo(ProvinceShapeComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.province.id === nextProps.province.id &&
+    prevProps.isSelected === nextProps.isSelected &&
+    prevProps.province.userId === nextProps.province.userId &&
+    prevProps.province.localTroops === nextProps.province.localTroops &&
+    prevProps.province.buildings?.length === nextProps.province.buildings?.length
+  );
+});
