@@ -1,1 +1,1 @@
-export type AuthTokenType = { userId: string, login: string };
+export type AuthTokenType = { id: string, login: string };

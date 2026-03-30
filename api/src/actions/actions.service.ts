@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { LessThanOrEqual, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { ActionQueue, ActionStatus, ActionType } from './entities/action-queue.entity';
 import { ActionsLog } from './entities/actions-log.entity';
+import { Province } from '../provinces/entities/province.entity';
 
 @Injectable()
 export class ActionsService {
@@ -11,6 +12,8 @@ export class ActionsService {
     private readonly actionQueueRepo: Repository<ActionQueue>,
     @InjectRepository(ActionsLog)
     private readonly actionsLogRepo: Repository<ActionsLog>,
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
   ) {}
 
   async createAction(
@@ -18,6 +21,43 @@ export class ActionsService {
     actionType: ActionType,
     actionData: any,
   ): Promise<ActionQueue> {
+    // Validate neighbor provinces for INVADE and TRANSFER_TROOPS actions
+    if (actionType === ActionType.INVADE || actionType === ActionType.TRANSFER_TROOPS) {
+      const { from_province_id, to_province_id } = actionData;
+
+      if (!from_province_id || !to_province_id) {
+        throw new BadRequestException('from_province_id and to_province_id are required');
+      }
+
+      // Fetch the source province
+      const fromProvince = await this.provinceRepo.findOne({
+        where: { id: from_province_id },
+      });
+
+      if (!fromProvince) {
+        throw new NotFoundException('Source province not found');
+      }
+
+      // Validate that the user owns the source province
+      if (fromProvince.user_id !== userId) {
+        throw new BadRequestException('You do not own the source province');
+      }
+
+      // Validate that the target province is a neighbor
+      if (!fromProvince.neighbor_ids || !fromProvince.neighbor_ids.includes(to_province_id)) {
+        throw new BadRequestException('Target province is not a neighbor of the source province');
+      }
+
+      // Validate troop count
+      if (!actionData.troops_number || actionData.troops_number <= 0) {
+        throw new BadRequestException('troops_number must be greater than 0');
+      }
+
+      if (actionData.troops_number > fromProvince.local_troops) {
+        throw new BadRequestException('Not enough troops in the source province');
+      }
+    }
+
     const allActions = await this.actionQueueRepo.find();
 
     const action = this.actionQueueRepo.create({

@@ -10,14 +10,9 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ActionsService } from './actions.service';
-import { ActionQueue, ActionType } from './entities/action-queue.entity';
+import { ActionQueue } from './entities/action-queue.entity';
 import { ActionsLog } from './entities/actions-log.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-
-class CreateActionDto {
-  actionType: ActionType;
-  actionData: any;
-}
 
 @Controller('actions')
 @UseGuards(JwtAuthGuard)
@@ -27,11 +22,13 @@ export class ActionsController {
   @Post()
   async createAction(
     @Request() req,
-    @Body() createActionDto: CreateActionDto,
+    @Body() createActionDto: any,
   ): Promise<ActionQueue> {
+    console.log(createActionDto, 'createActionDto_TEST')
+
     return await this.actionsService.createAction(
       req.user.id,
-      createActionDto.actionType,
+      createActionDto.type,
       createActionDto.actionData,
     );
   }

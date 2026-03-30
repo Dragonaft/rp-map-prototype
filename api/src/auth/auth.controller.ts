@@ -1,5 +1,5 @@
-import { Controller, Post, Body, Res, UseGuards, Req, Get } from '@nestjs/common';
-import { Response, Request } from 'express';
+import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
+import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -12,8 +12,7 @@ export class AuthController {
 
   @Post('register')
   async register(@Body() registerDto: RegisterDto, @Res({ passthrough: true }) response: Response) {
-    const result = await this.authService.register(registerDto.login, registerDto.password, registerDto.country_name, registerDto.color);
-    return result;
+    return await this.authService.register(registerDto.login, registerDto.password, registerDto.country_name, registerDto.color);
   }
 
   @Post('login')
@@ -45,7 +44,7 @@ export class AuthController {
   @Post('refresh')
   async refresh(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     const user = request.user as any;
-    const tokens = await this.authService.refreshTokens(user.userId);
+    const tokens = await this.authService.refreshTokens(user.id);
 
     // Set new httpOnly cookies
     response.cookie('access_token', tokens.accessToken, {

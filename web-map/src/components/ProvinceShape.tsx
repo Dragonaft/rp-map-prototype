@@ -1,20 +1,25 @@
 import React, { useMemo } from 'react';
 import { Building, Province } from '../types';
-import { useAppSelector } from '../store/hooks';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { setSelectedTroops } from '../store/slices/provincesSlice';
 
 interface Props {
   province: Province;
   isSelected: boolean;
   onSelect: (province: Province, multi: boolean) => void;
+  onRightClick: (province: Province) => void;
+  renderTroopBox?: boolean;
 }
 
 const WATER_COLOR = 'rgb(174, 226, 255)'; // Match the PNG color rgb(174,226,255)
 const DEFAULT_LAND_COLOR = 'rgb(255, 255, 255)'; // White for unclaimed land provinces
 
-const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelect }) => {
+const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelect, onRightClick, renderTroopBox = false }) => {
+  const dispatch = useAppDispatch();
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
   const currentUserId = useAppSelector((state) => state.user.id);
   const currentUserColor = useAppSelector((state) => state.user.color);
+  const selectedTroops = useAppSelector((state) => state.provinces.selectedTroops);
 
   const isWater = province.type === 'water';
 
@@ -38,9 +43,22 @@ const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelec
 
   const handleClick: React.MouseEventHandler<SVGPathElement> = React.useCallback((e) => {
     e.stopPropagation();
+
+    // Deselect troops when clicking on a province
+    dispatch(setSelectedTroops(null));
+
     const multi = e.ctrlKey || e.metaKey || e.shiftKey;
     onSelect(province, multi);
-  }, [onSelect, province]);
+  }, [onSelect, province, dispatch]);
+
+  const handleRightClick: React.MouseEventHandler<SVGPathElement> = React.useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    onRightClick(province);
+  }, [onRightClick, province]);
+
+  // Don't add any mousedown handler - let it naturally bubble to SVG
 
   // Calculate the bounding box to position text near the bottom
   const [pathBBox, setPathBBox] = React.useState<DOMRect | null>(null);
@@ -54,6 +72,23 @@ const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelec
   }, [pathBBox]);
 
   const isCurrentUserProvince = province.userId === currentUserId;
+  const isTroopSelected = selectedTroops?.provinceId === province.id;
+
+  // Handle troop box click
+  const handleTroopClick = React.useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    if (isTroopSelected) {
+      // Deselect if already selected
+      dispatch(setSelectedTroops(null));
+    } else {
+      // Select this troop
+      dispatch(setSelectedTroops({
+        provinceId: province.id,
+        troopCount: province.localTroops || 0,
+      }));
+    }
+  }, [dispatch, province.id, province.localTroops, isTroopSelected]);
 
   // Building icons (simple shapes for different building types)
   const buildingIcons = ['🏰', '⚔️', '🏭', '🌾', '⛏️', '🏛️', '🛡️', '💰'];
@@ -93,43 +128,59 @@ const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelec
       <path
         ref={pathRef}
         d={province.polygon}
-        fill={fillColor}
-        stroke={strokeColor}
-        strokeWidth={strokeWidth}
-        onClick={handleClick}
-        style={{ cursor: 'pointer', transition: 'stroke 0.2s, stroke-width 0.2s' }}
+        fill={renderTroopBox ? 'none' : fillColor}
+        stroke={renderTroopBox ? 'none' : strokeColor}
+        strokeWidth={renderTroopBox ? 0 : strokeWidth}
+        onClick={renderTroopBox ? undefined : handleClick}
+        onContextMenu={renderTroopBox ? undefined : handleRightClick}
+        style={renderTroopBox ? { pointerEvents: 'none' } : { cursor: 'pointer', transition: 'stroke 0.2s, stroke-width 0.2s' }}
       />
 
-      {/* Show building icons if province has buildings */}
-      {province.buildings && province.buildings.length > 0 &&
-        province.buildings.map((building, index) => renderBuildingIcon(building, index))
-      }
+      {!renderTroopBox && (
+        <>
+          {/* Show building icons if province has buildings */}
+          {province.buildings && province.buildings.length > 0 &&
+            province.buildings.map((building, index) => renderBuildingIcon(building, index))
+          }
+        </>
+      )}
 
-      {/* Show local troops count for current user's provinces */}
-      {isCurrentUserProvince && pathBBox && (
-        <text
-          x={pathBBox.x + pathBBox.width / 2}
-          y={pathBBox.y + pathBBox.height / 2 + (province.buildings && province.buildings.length > 0 ? 25 : 0)}
-          fontSize="12"
-          fill="#000"
-          textAnchor="middle"
-          fontWeight="bold"
-          pointerEvents="none"
-          style={{ userSelect: 'none' }}
+      {/* Show local troops count for current user's provinces in a white box */}
+      {renderTroopBox && isCurrentUserProvince && pathBBox && province.localTroops !== undefined && (
+        <g
+          onClick={handleTroopClick}
+          style={{ cursor: 'pointer' }}
         >
-          {province.localTroops}
-        </text>
+          {/* White background box */}
+          <rect
+            x={pathBBox.x + pathBBox.width / 2 - 20}
+            y={pathBBox.y + pathBBox.height / 2 + (province.buildings && province.buildings.length > 0 ? 25 : 0) - 10}
+            width="40"
+            height="20"
+            fill="white"
+            stroke={isTroopSelected ? 'rgb(255, 215, 0)' : 'rgb(0, 0, 0)'}
+            strokeWidth={isTroopSelected ? 3 : 1}
+            rx="3"
+            ry="3"
+          />
+          {/* Troop count text */}
+          <text
+            x={pathBBox.x + pathBBox.width / 2}
+            y={pathBBox.y + pathBBox.height / 2 + (province.buildings && province.buildings.length > 0 ? 25 : 0)}
+            fontSize="12"
+            fill="#000"
+            textAnchor="middle"
+            dominantBaseline="middle"
+            fontWeight="bold"
+            pointerEvents="none"
+            style={{ userSelect: 'none' }}
+          >
+            {province.localTroops}
+          </text>
+        </g>
       )}
     </g>
   );
 };
 
-export const ProvinceShape = React.memo(ProvinceShapeComponent, (prevProps, nextProps) => {
-  return (
-    prevProps.province.id === nextProps.province.id &&
-    prevProps.isSelected === nextProps.isSelected &&
-    prevProps.province.userId === nextProps.province.userId &&
-    prevProps.province.localTroops === nextProps.province.localTroops &&
-    prevProps.province.buildings?.length === nextProps.province.buildings?.length
-  );
-});
+export const ProvinceShape = React.memo(ProvinceShapeComponent);

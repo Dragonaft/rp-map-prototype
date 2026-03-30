@@ -15,11 +15,12 @@ import {
 import { ActionQueue } from './entities/action-queue.entity';
 import { ActionsLog } from './entities/actions-log.entity';
 import { ExecutionLock } from './entities/execution-lock.entity';
+import { Province } from '../provinces/entities/province.entity';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
-    TypeOrmModule.forFeature([ActionQueue, ActionsLog, ExecutionLock]),
+    TypeOrmModule.forFeature([ActionQueue, ActionsLog, ExecutionLock, Province]),
   ],
   controllers: [ActionsController],
   providers: [

@@ -55,10 +55,10 @@ export class ProvincesService {
       relations: ['buildings']
     });
 
-    const foundUser = await this.userRepository.findOne({ where: { id: user.userId } });
+    const foundUser = await this.userRepository.findOne({ where: { id: user.id } });
 
     if (!foundUser) {
-      throw new NotFoundException(`User with id ${user.userId} not found`);
+      throw new NotFoundException(`User with id ${user.id} not found`);
     }
 
     if (!province) {
@@ -81,7 +81,7 @@ export class ProvincesService {
     const updatedProvince = {
       ...province,
       local_troops: 1000,
-      user_id: user.userId
+      user_id: user.id
     };
 
     Object.assign(province, updatedProvince);

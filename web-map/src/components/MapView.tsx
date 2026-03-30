@@ -2,7 +2,8 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { Province } from '../types';
 import { ProvinceShape } from './ProvinceShape';
 import { SelectedProvinceHover } from "./SelectedProvinceHover.tsx";
-import { setSelectedProvinceId } from '../store/slices/provincesSlice';
+import { TroopMovementModal } from './TroopMovementModal';
+import { setSelectedProvinceId, setSelectedTroops } from '../store/slices/provincesSlice';
 import type { RootState } from '../store/store';
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 
@@ -10,17 +11,32 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const dispatch = useAppDispatch();
   const provinces = useAppSelector((state: RootState) => state.provinces.provinces);
   const selectedProvinceId = useAppSelector((state: RootState) => state.provinces.selectedProvinceId);
+  const selectedTroops = useAppSelector((state: RootState) => state.provinces.selectedTroops);
+  const currentUserId = useAppSelector((state: RootState) => state.user.id);
 
   // Camera state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
-  const [isPanning, setIsPanning] = useState(false);
-  const isPanningRef = useRef(false);
-  const startPanRef = useRef({ x: 0, y: 0 });
-  const mouseDownPosRef = useRef({ x: 0, y: 0 });
-  const hasMovedRef = useRef(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
+  const hasDraggedRef = useRef(false);
   const svgRef = useRef<SVGSVGElement>(null);
 
+  // Troop movement modal state
+  const [modalState, setModalState] = useState<{
+    open: boolean;
+    fromProvinceId: string;
+    toProvinceId: string;
+    maxTroops: number;
+    isInvasion: boolean;
+  } | null>(null);
+
   const toggleSelect = useCallback((prov: Province) => {
+    // Prevent selection if we just finished dragging
+    if (hasDraggedRef.current) {
+      return;
+    }
+
     if (selectedProvinceId === prov.id) {
       dispatch(setSelectedProvinceId(null));
     } else {
@@ -28,104 +44,129 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     }
   }, [dispatch, selectedProvinceId]);
 
-  // Handle mouse wheel zoom with Ctrl
-  const handleWheel = useCallback((e: WheelEvent) => {
-    if (!e.ctrlKey) return;
+  const handleProvinceRightClick = useCallback((targetProvince: Province) => {
+    // Check if troops are selected
+    if (!selectedTroops) return;
 
-    e.preventDefault();
+    // Find the source province
+    const sourceProvince = provinces.find(p => p.id === selectedTroops.provinceId);
+    if (!sourceProvince) return;
 
-    const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
-    const svg = svgRef.current;
-    if (!svg) return;
-
-    // Get mouse position relative to SVG
-    const rect = svg.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    setViewBox((prev) => {
-      // Convert to viewBox coordinates
-      const mouseXInViewBox = prev.x + (mouseX / rect.width) * prev.width;
-      const mouseYInViewBox = prev.y + (mouseY / rect.height) * prev.height;
-
-      const newWidth = prev.width * zoomFactor;
-      const newHeight = prev.height * zoomFactor;
-
-      // Zoom towards mouse position
-      const newX = mouseXInViewBox - (mouseX / rect.width) * newWidth;
-      const newY = mouseYInViewBox - (mouseY / rect.height) * newHeight;
-
-      return {
-        x: newX,
-        y: newY,
-        width: newWidth,
-        height: newHeight,
-      };
-    });
-  }, []);
-
-  // Handle mouse down for panning
-  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (e.button !== 0) return; // Only left mouse button
-
-    mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
-    startPanRef.current = { x: e.clientX, y: e.clientY };
-    hasMovedRef.current = false;
-    isPanningRef.current = true;
-  }, []);
-
-  // Handle mouse move for panning
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isPanningRef.current || !svgRef.current) return;
-
-    // Check if we've moved enough to start panning (drag threshold)
-    const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
-    const dy = Math.abs(e.clientY - mouseDownPosRef.current.y);
-
-    if (!hasMovedRef.current && (dx > 3 || dy > 3)) {
-      hasMovedRef.current = true;
-      setIsPanning(true);
+    // Check if target province is a neighbor
+    if (!sourceProvince.neighbors?.includes(targetProvince.id)) {
+      return; // Not a neighbor, do nothing
     }
 
-    if (!hasMovedRef.current) return;
+    // Determine if it's an invasion or transfer
+    const isInvasion = targetProvince.userId !== currentUserId;
 
-    const rect = svgRef.current.getBoundingClientRect();
-
-    setViewBox((prevViewBox) => {
-      const dx = (e.clientX - startPanRef.current.x) * (prevViewBox.width / rect.width);
-      const dy = (e.clientY - startPanRef.current.y) * (prevViewBox.height / rect.height);
-
-      return {
-        ...prevViewBox,
-        x: prevViewBox.x - dx,
-        y: prevViewBox.y - dy,
-      };
+    // Open modal
+    setModalState({
+      open: true,
+      fromProvinceId: sourceProvince.id,
+      toProvinceId: targetProvince.id,
+      maxTroops: selectedTroops.troopCount,
+      isInvasion,
     });
+  }, [selectedTroops, provinces, currentUserId]);
 
-    startPanRef.current = { x: e.clientX, y: e.clientY };
+  const handleCloseModal = useCallback(() => {
+    setModalState(null);
   }, []);
 
-  // Handle mouse up for panning
-  const handleMouseUp = useCallback(() => {
-    isPanningRef.current = false;
-    setIsPanning(false);
-  }, []);
-
-  // Add/remove event listeners
+  // Add/remove event listeners for wheel zoom
   useEffect(() => {
     const svg = svgRef.current;
-    if (!svg) return;
+    if (!svg || loading) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey) return;
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
+      const rect = svg.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      setViewBox((prev) => {
+        const mouseXInViewBox = prev.x + (mouseX / rect.width) * prev.width;
+        const mouseYInViewBox = prev.y + (mouseY / rect.height) * prev.height;
+
+        const newWidth = prev.width * zoomFactor;
+        const newHeight = prev.height * zoomFactor;
+
+        const newX = mouseXInViewBox - (mouseX / rect.width) * newWidth;
+        const newY = mouseYInViewBox - (mouseY / rect.height) * newHeight;
+
+        return { x: newX, y: newY, width: newWidth, height: newHeight };
+      });
+    };
 
     svg.addEventListener('wheel', handleWheel, { passive: false });
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
+    return () => svg.removeEventListener('wheel', handleWheel);
+  }, [loading]);
 
-    return () => {
-      svg.removeEventListener('wheel', handleWheel);
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
+  // Handle dragging with document-level listeners
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging || !lastMousePosRef.current || !svgRef.current) return;
+
+      const deltaX = e.clientX - lastMousePosRef.current.x;
+      const deltaY = e.clientY - lastMousePosRef.current.y;
+
+      // Mark as dragged if moved more than threshold
+      if (!hasDraggedRef.current && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
+        hasDraggedRef.current = true;
+      }
+
+      if (hasDraggedRef.current) {
+        const rect = svgRef.current.getBoundingClientRect();
+        const scaleX = viewBox.width / rect.width;
+        const scaleY = viewBox.height / rect.height;
+
+        setViewBox((prev) => ({
+          ...prev,
+          x: prev.x - deltaX * scaleX,
+          y: prev.y - deltaY * scaleY,
+        }));
+      }
+
+      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
     };
-  }, [handleWheel, handleMouseMove, handleMouseUp]);
+
+    const handleMouseUp = () => {
+      if (isDragging) {
+        setIsDragging(false);
+        dragStartRef.current = null;
+        lastMousePosRef.current = null;
+
+        // Reset drag flag after a short delay
+        setTimeout(() => {
+          hasDraggedRef.current = false;
+        }, 50);
+      }
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        document.removeEventListener('mousemove', handleMouseMove);
+        document.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, viewBox.width, viewBox.height]);
+
+  const handleSvgMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (e.button !== 0) return; // Only left button
+
+    setIsDragging(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+    hasDraggedRef.current = false;
+  };
 
   if (loading) {
     return (
@@ -146,29 +187,58 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#1e293b' }}>
       <SelectedProvinceHover />
+
+      {/* Troop Movement Modal */}
+      {modalState && (
+        <TroopMovementModal
+          open={modalState.open}
+          onClose={handleCloseModal}
+          fromProvinceId={modalState.fromProvinceId}
+          toProvinceId={modalState.toProvinceId}
+          maxTroops={modalState.maxTroops}
+          isInvasion={modalState.isInvasion}
+        />
+      )}
+
       <svg
         ref={svgRef}
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
         style={{
           width: '100%',
           height: '100%',
-          cursor: isPanning ? 'grabbing' : 'grab',
+          cursor: isDragging ? 'grabbing' : 'grab',
           background: '#334155' // Lighter background for better province visibility
         }}
-        onMouseDown={handleMouseDown}
+        onMouseDown={handleSvgMouseDown}
         onClick={(e) => {
-          // remove selection by click
+          // remove selection by click on background
           if (e.target instanceof SVGSVGElement) {
             dispatch(setSelectedProvinceId(null));
+            dispatch(setSelectedTroops(null));
           }
         }}
       >
+        {/* Render provinces first */}
         {provinces?.map((p) => (
           <ProvinceShape
             key={p.id}
             province={p}
             isSelected={selectedProvinceId === p.id}
             onSelect={(prov) => toggleSelect(prov)}
+            onRightClick={(prov) => handleProvinceRightClick(prov)}
+            renderTroopBox={false}
+          />
+        ))}
+
+        {/* Render troop boxes on top layer */}
+        {provinces?.map((p) => (
+          <ProvinceShape
+            key={`${p.id}-troops`}
+            province={p}
+            isSelected={selectedProvinceId === p.id}
+            onSelect={(prov) => toggleSelect(prov)}
+            onRightClick={(prov) => handleProvinceRightClick(prov)}
+            renderTroopBox={true}
           />
         ))}
       </svg>

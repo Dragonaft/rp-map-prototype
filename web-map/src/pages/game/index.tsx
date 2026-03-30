@@ -26,13 +26,11 @@ const style = {
 
 export const GamePage: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const [isMapHovered, setIsMapHovered] = useState(false);
   const { user: authUser } = useAuth();
   const dispatch = useAppDispatch();
   const [openIsNewModal, setOpenIsNewModal] = useState(false);
 
-  // TODO: Fix auth context and this abomination
-  const userId = authUser?.userId || authUser?.id || "";
+  const userId = authUser?.id || "";
   const fetchUser = useCallback(() => usersApi.getOne(userId), [userId]);
   const { data: userData } = useQuery(fetchUser);
   const fetchOtherUsers = useCallback(() => usersApi.getAll(), []);
@@ -57,20 +55,17 @@ export const GamePage: React.FC = () => {
     dispatch(setProvinces(provinces))
   }, [provinces, dispatch]);
 
+  // Prevent browser zoom when Ctrl+wheel anywhere on the page
   useEffect(() => {
     const handleWheel = (e: WheelEvent) => {
-      if (isMapHovered && e.ctrlKey) {
+      if (e.ctrlKey) {
         e.preventDefault();
       }
     };
 
-    // Prevent browser zoom when hovering over map
     document.addEventListener('wheel', handleWheel, { passive: false });
-
-    return () => {
-      document.removeEventListener('wheel', handleWheel);
-    };
-  }, [isMapHovered]);
+    return () => document.removeEventListener('wheel', handleWheel);
+  }, []);
 
   return (
     <div>
@@ -92,11 +87,7 @@ export const GamePage: React.FC = () => {
         </Box>
       </Modal>
       <TopBar />
-      <div
-        ref={mapContainerRef}
-        onMouseEnter={() => setIsMapHovered(true)}
-        onMouseLeave={() => setIsMapHovered(false)}
-      >
+      <div ref={mapContainerRef}>
         <MapView
           loading={loading}
           error={error}

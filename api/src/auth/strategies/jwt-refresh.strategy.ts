@@ -22,6 +22,6 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
     if (!payload) {
       throw new UnauthorizedException();
     }
-    return { userId: payload.sub, login: payload.login };
+    return { id: payload.sub, login: payload.login };
   }
 }
