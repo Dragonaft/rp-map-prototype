@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 
 export interface ExecutedAction {
-  id: number;
+  id: string;
   userId: string;
   actionType: string;
   actionData: any;

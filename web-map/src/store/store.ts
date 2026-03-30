@@ -2,12 +2,14 @@ import { configureStore } from '@reduxjs/toolkit';
 import userReducer from './slices/userSlice.ts';
 import provincesReducer from './slices/provincesSlice.ts';
 import otherUsersReducer from "./slices/otherUsersSlice.ts";
+import actionsReducer from "./slices/actionsSlice.ts";
 
 export const store = configureStore({
   reducer: {
     user: userReducer,
     otherUsers: otherUsersReducer,
     provinces: provincesReducer,
+    actions: actionsReducer,
   },
   devTools: process.env.NODE_ENV !== 'production',
 });

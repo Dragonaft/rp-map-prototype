@@ -5,7 +5,6 @@ import type { RootState } from "../store/store.ts";
 import { Button } from "@mui/material";
 import { useMutation } from "../hooks/useApi.ts";
 import { provincesApi } from "../api/provinces.ts";
-import { actionsApi } from "../api/actions.ts";
 
 export const SelectedProvinceHover = () => {
   const dispatch = useAppDispatch();
@@ -13,15 +12,10 @@ export const SelectedProvinceHover = () => {
   const user = useAppSelector((state: RootState) => state.user);
   const otherUsers = useAppSelector((state: RootState) => state.otherUsers.otherUsers);
   const { mutate } = useMutation(provincesApi.setupUser);
-  const { mutate: newAction } = useMutation(actionsApi.createAction);
   const isUserOwner = user.id === selectedProvince?.userId;
 
   const handleGetProvinceOwner = () => {
    return otherUsers.find((user) => user.id === selectedProvince?.userId);
-  }
-
-  const handleInvade = () => {
-
   }
 
   const handleOnSetupSelect = async () => {
@@ -42,12 +36,13 @@ export const SelectedProvinceHover = () => {
       }));
     }
 
+    console.log(response?.province, 'response?.province_TEST')
+
     if (response?.province) {
       dispatch(updateProvinceById({
         id: response.province.id,
         updates: {
-          localTroops: response.province.local_troops,
-          userId: response.province.user_id,
+          ...response?.province,
         },
       }));
     }
@@ -76,7 +71,6 @@ export const SelectedProvinceHover = () => {
             <p>Resource: {selectedProvince.resourceType}</p>
             {handleGetProvinceOwner() && <p>Owner: {handleGetProvinceOwner()?.countryName}</p>}
           </div>
-          <Button variant="contained" color="primary" onClick={handleInvade}>INVADE</Button>
         </div>
       )}
     </div>

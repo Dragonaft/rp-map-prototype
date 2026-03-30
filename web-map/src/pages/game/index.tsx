@@ -10,6 +10,8 @@ import { provincesApi } from "../../api/provinces.ts";
 import { setProvinces } from "../../store/slices/provincesSlice.ts";
 import { setOtherUsers } from "../../store/slices/otherUsersSlice.ts";
 import { TopBar } from "../../components/TopBar.tsx";
+import { actionsApi } from "../../api/actions.ts";
+import { setActions } from "../../store/slices/actionsSlice.ts";
 
 
 const style = {
@@ -37,6 +39,10 @@ export const GamePage: React.FC = () => {
   const { data: otherUsersData } = useQuery(fetchOtherUsers);
   const fetchProvinces = useCallback(() => provincesApi.getAll(), []);
   const { data: provinces, loading, error } = useQuery(fetchProvinces, []);
+  const fetchUserActions = useCallback(() => actionsApi.getUserActions(), []);
+  const { data: actions } = useQuery(fetchUserActions, []);
+
+  console.log(actions, 'actions_TEST')
 
   useEffect(() => {
     if (!userData) return;
@@ -54,6 +60,10 @@ export const GamePage: React.FC = () => {
   useEffect(() => {
     dispatch(setProvinces(provinces))
   }, [provinces, dispatch]);
+
+  useEffect(() => {
+    dispatch(setActions(actions))
+  }, [actions, dispatch]);
 
   // Prevent browser zoom when Ctrl+wheel anywhere on the page
   useEffect(() => {

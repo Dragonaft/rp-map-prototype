@@ -3,7 +3,7 @@ import { ActionData, ActionType } from "../types.ts";
 
 export const actionsApi = {
   getUserActions: async (): Promise<any[]> => {
-    const response = await apiClient.get<any[]>(`/actions/`);
+    const response = await apiClient.get<any[]>(`/actions`);
     return response.data;
   },
 

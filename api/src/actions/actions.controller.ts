@@ -24,8 +24,6 @@ export class ActionsController {
     @Request() req,
     @Body() createActionDto: any,
   ): Promise<ActionQueue> {
-    console.log(createActionDto, 'createActionDto_TEST')
-
     return await this.actionsService.createAction(
       req.user.id,
       createActionDto.type,
@@ -46,7 +44,7 @@ export class ActionsController {
   @Delete(':id')
   async retractAction(
     @Request() req,
-    @Param('id') actionId: number,
+    @Param('id') actionId: string,
   ): Promise<ActionQueue> {
     return await this.actionsService.retractAction(req.user.id, actionId);
   }

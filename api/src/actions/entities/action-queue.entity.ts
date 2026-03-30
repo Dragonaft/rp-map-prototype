@@ -3,7 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  ManyToOne,
+  ManyToOne, PrimaryColumn,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -37,8 +37,8 @@ export interface ActionData {
 
 @Entity({ name: 'action_queue' })
 export class ActionQueue extends BaseEntity {
-  @PrimaryGeneratedColumn()
-  public readonly id: number;
+  @PrimaryColumn({ generated: 'uuid' })
+  public readonly id: string;
 
   @ManyToOne(() => User, { eager: true })
   public user: User;

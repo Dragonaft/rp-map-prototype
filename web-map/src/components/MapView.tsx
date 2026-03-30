@@ -6,6 +6,7 @@ import { TroopMovementModal } from './TroopMovementModal';
 import { setSelectedProvinceId, setSelectedTroops } from '../store/slices/provincesSlice';
 import type { RootState } from '../store/store';
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
+import { UserActionsHover } from "./UserActionsHover.tsx";
 
 export const MapView = ({ loading, error }: { loading: boolean, error: string | null }) => {
   const dispatch = useAppDispatch();
@@ -187,6 +188,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#1e293b' }}>
       <SelectedProvinceHover />
+      <UserActionsHover />
 
       {/* Troop Movement Modal */}
       {modalState && (

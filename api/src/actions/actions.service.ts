@@ -85,7 +85,7 @@ export class ActionsService {
     });
   }
 
-  async retractAction(userId: string, actionId: number): Promise<ActionQueue> {
+  async retractAction(userId: string, actionId: string): Promise<ActionQueue> {
     const action = await this.actionQueueRepo.findOne({
       where: {
         id: actionId,
@@ -114,7 +114,7 @@ export class ActionsService {
   }
 
   async updateActionStatus(
-    actionId: number,
+    actionId: string,
     status: ActionStatus,
     failureReason?: string,
   ): Promise<void> {
