@@ -7,11 +7,14 @@
     "start": "ts-node src/index.ts"
   },
   "dependencies": {
-    "fast-xml-parser": "^4.3.0"
+    "fast-xml-parser": "^4.3.0",
+    "pngjs": "^7.0.0",
+    "potrace": "^2.1.8"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0",
+    "@types/pngjs": "^6.0.5",
     "ts-node": "^10.0.0",
-    "@types/node": "^20.0.0"
+    "typescript": "^5.0.0"
   }
 }

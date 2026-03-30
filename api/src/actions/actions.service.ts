@@ -17,13 +17,14 @@ export class ActionsService {
     userId: string,
     actionType: ActionType,
     actionData: any,
-    scheduledFor: Date,
   ): Promise<ActionQueue> {
+    const allActions = await this.actionQueueRepo.find();
+
     const action = this.actionQueueRepo.create({
       userId,
       actionType,
       actionData,
-      scheduledFor,
+      order: allActions.length + 1,
       status: ActionStatus.PENDING,
     });
 
@@ -33,14 +34,14 @@ export class ActionsService {
   async getUserActions(userId: string): Promise<ActionQueue[]> {
     return await this.actionQueueRepo.find({
       where: { userId },
-      order: { createdAt: 'ASC' },
+      order: { order: 'ASC' },
     });
   }
 
   async getUserPendingActions(userId: string): Promise<ActionQueue[]> {
     return await this.actionQueueRepo.find({
       where: { userId, status: ActionStatus.PENDING },
-      order: { createdAt: 'ASC' },
+      order: { order: 'ASC' },
     });
   }
 
@@ -67,9 +68,8 @@ export class ActionsService {
     return await this.actionQueueRepo.find({
       where: {
         status: ActionStatus.PENDING,
-        scheduledFor: LessThanOrEqual(new Date()),
       },
-      order: { createdAt: 'ASC' },
+      order: { order: 'ASC' },
     });
   }
 

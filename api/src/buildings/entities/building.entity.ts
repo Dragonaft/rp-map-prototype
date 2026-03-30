@@ -6,6 +6,7 @@ import {
   PrimaryColumn,
 } from 'typeorm';
 import { Province } from '../../provinces/entities/province.entity';
+import { BuildingTypes } from "../types/building.types";
 
 @Entity({ name: 'buildings' })
 export class Building extends BaseEntity {
@@ -13,7 +14,7 @@ export class Building extends BaseEntity {
   public readonly id: string;
 
   @Column()
-  public type: string;
+  public type: BuildingTypes;
 
   @Column()
   public name: string;

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Box, Button, TextField } from '@mui/material';
 import { SubmitHandler, useForm } from 'react-hook-form';
 import { useMutation } from '../../../hooks/useApi.ts';
@@ -14,7 +14,7 @@ interface ILoginFormInput {
 export const LoginPage: React.FC = () => {
   const { register, handleSubmit } = useForm<ILoginFormInput>()
   const { mutate } = useMutation(authApi.login);
-  const { login: setUser } = useAuth();
+  const { login: setUser, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   const onSubmit: SubmitHandler<ILoginFormInput> = async (data) => {
@@ -32,6 +32,12 @@ export const LoginPage: React.FC = () => {
   const onRegisterClick = () => {
     navigate('/register');
   }
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated]);
 
   return (
     <div className="flex items-center justify-center w-full h-screen bg-neutral-600">

@@ -5,12 +5,24 @@ import type { RootState } from "../store/store.ts";
 import { Button } from "@mui/material";
 import { useMutation } from "../hooks/useApi.ts";
 import { provincesApi } from "../api/provinces.ts";
+import { actionsApi } from "../api/actions.ts";
 
 export const SelectedProvinceHover = () => {
   const dispatch = useAppDispatch();
   const selectedProvince = useAppSelector(selectSelectedProvince);
   const user = useAppSelector((state: RootState) => state.user);
+  const otherUsers = useAppSelector((state: RootState) => state.otherUsers.otherUsers);
   const { mutate } = useMutation(provincesApi.setupUser);
+  const { mutate: newAction } = useMutation(actionsApi.createAction);
+  const isUserOwner = user.id === selectedProvince?.userId;
+
+  const handleGetProvinceOwner = () => {
+   return otherUsers.find((user) => user.id === selectedProvince?.userId);
+  }
+
+  const handleInvade = () => {
+
+  }
 
   const handleOnSetupSelect = async () => {
     if (!selectedProvince) return;
@@ -26,6 +38,7 @@ export const SelectedProvinceHover = () => {
         money: response.user.money,
         troops: response.user.troops,
         isNew: response.user.is_new,
+        provinces: response.user.provinces,
       }));
     }
 
@@ -44,7 +57,7 @@ export const SelectedProvinceHover = () => {
 
   return (
     <div className="w-60 h-80 p-2 bg-white absolute right-1 top-1">
-      {user.isNew ? (
+      {user.isNew && (
         <div className="flex flex-col justify-between h-full">
           <div>
             <span>Province Data</span>
@@ -54,8 +67,17 @@ export const SelectedProvinceHover = () => {
           </div>
           <Button variant="contained" color="primary" onClick={handleOnSetupSelect}>SELECT</Button>
         </div>
-      ) : (
-        <div></div>
+      )}
+      {!user.isNew && !isUserOwner && (
+        <div className="flex flex-col justify-between h-full">
+          <div>
+            <span>Province Data</span>
+            <p>Landscape: {selectedProvince.landscape}</p>
+            <p>Resource: {selectedProvince.resourceType}</p>
+            {handleGetProvinceOwner() && <p>Owner: {handleGetProvinceOwner()?.countryName}</p>}
+          </div>
+          <Button variant="contained" color="primary" onClick={handleInvade}>INVADE</Button>
+        </div>
       )}
     </div>
   );

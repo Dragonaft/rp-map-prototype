@@ -144,7 +144,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#0f172a' }}>
+    <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#1e293b' }}>
       <SelectedProvinceHover />
       <svg
         ref={svgRef}
@@ -152,7 +152,8 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
         style={{
           width: '100%',
           height: '100%',
-          cursor: isPanning ? 'grabbing' : 'grab'
+          cursor: isPanning ? 'grabbing' : 'grab',
+          background: '#334155' // Lighter background for better province visibility
         }}
         onMouseDown={handleMouseDown}
         onClick={(e) => {

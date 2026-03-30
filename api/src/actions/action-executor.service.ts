@@ -48,15 +48,15 @@ export class InvadeActionHandler implements ActionHandler {
 }
 
 @Injectable()
-export class RecruitActionHandler implements ActionHandler {
-  private readonly logger = new Logger(RecruitActionHandler.name);
+export class DeployActionHandler implements ActionHandler {
+  private readonly logger = new Logger(DeployActionHandler.name);
 
   async handle(action: ActionQueue): Promise<void> {
     this.logger.log(
-      `Executing RECRUIT action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
+      `Executing DEPLOY action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
     );
 
-    // TODO: Implement actual recruitment logic
+    // TODO: Implement actual DEPLOY logic
 
     // Simulated execution
     await new Promise((resolve) => setTimeout(resolve, 100));
@@ -103,13 +103,13 @@ export class ActionExecutorService {
   constructor(
     private buildHandler: BuildActionHandler,
     private invadeHandler: InvadeActionHandler,
-    private recruitHandler: RecruitActionHandler,
+    private deployHandler: DeployActionHandler,
     private upgradeHandler: UpgradeActionHandler,
     private transferTroopsHandler: TransferTroopsActionHandler,
   ) {
     this.handlers.set(ActionType.BUILD, buildHandler);
     this.handlers.set(ActionType.INVADE, invadeHandler);
-    this.handlers.set(ActionType.RECRUIT, recruitHandler);
+    this.handlers.set(ActionType.DEPLOY, deployHandler);
     this.handlers.set(ActionType.UPGRADE, upgradeHandler);
     this.handlers.set(ActionType.TRANSFER_TROOPS, transferTroopsHandler);
   }

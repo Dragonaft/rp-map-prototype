@@ -8,7 +8,7 @@ import {
   ActionExecutorService,
   BuildActionHandler,
   InvadeActionHandler,
-  RecruitActionHandler,
+  DeployActionHandler,
   UpgradeActionHandler,
   TransferTroopsActionHandler,
 } from './action-executor.service';
@@ -28,7 +28,7 @@ import { ExecutionLock } from './entities/execution-lock.entity';
     ActionExecutorService,
     BuildActionHandler,
     InvadeActionHandler,
-    RecruitActionHandler,
+    DeployActionHandler,
     UpgradeActionHandler,
     TransferTroopsActionHandler,
   ],

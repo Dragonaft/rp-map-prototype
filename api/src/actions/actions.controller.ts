@@ -17,7 +17,6 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 class CreateActionDto {
   actionType: ActionType;
   actionData: any;
-  scheduledFor: Date;
 }
 
 @Controller('actions')
@@ -34,7 +33,6 @@ export class ActionsController {
       req.user.id,
       createActionDto.actionType,
       createActionDto.actionData,
-      new Date(createActionDto.scheduledFor),
     );
   }
 

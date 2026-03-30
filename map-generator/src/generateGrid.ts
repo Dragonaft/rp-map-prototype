@@ -51,9 +51,38 @@ export function generateGridMap(options: GenerateGridOptions) {
         resource_type: isWater ? randomFrom(resourcesSea) : randomFrom(resources),
         user_id: null,
         region_id: id,
+        neighbor_regions: [], // Will be populated below
       };
 
       provinces.push(province);
+    }
+  }
+
+  // Calculate neighbors for grid-based provinces
+  console.log('Calculating grid neighbors...');
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const index = r * cols + c;
+      const neighbors: string[] = [];
+
+      // Top neighbor
+      if (r > 0) {
+        neighbors.push(`prov-${r-1}-${c}`);
+      }
+      // Bottom neighbor
+      if (r < rows - 1) {
+        neighbors.push(`prov-${r+1}-${c}`);
+      }
+      // Left neighbor
+      if (c > 0) {
+        neighbors.push(`prov-${r}-${c-1}`);
+      }
+      // Right neighbor
+      if (c < cols - 1) {
+        neighbors.push(`prov-${r}-${c+1}`);
+      }
+
+      provinces[index].neighbor_regions = neighbors;
     }
   }
 
@@ -63,4 +92,7 @@ export function generateGridMap(options: GenerateGridOptions) {
 
   const provincesPath = path.join(outputDir, 'provinces.json');
   fs.writeFileSync(provincesPath, JSON.stringify(provinces, null, 2), 'utf-8');
+
+  console.log(`Generated ${provinces.length} provinces in ${rows}x${cols} grid`);
+  console.log(`Saved: ${provincesPath}`);
 }

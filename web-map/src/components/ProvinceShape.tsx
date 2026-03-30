@@ -8,8 +8,8 @@ interface Props {
   onSelect: (province: Province, multi: boolean) => void;
 }
 
-const WATER_COLOR = '#7ec8ff';
-const DEFAULT_LAND_COLOR = '#cccccc';
+const WATER_COLOR = 'rgb(174, 226, 255)'; // Match the PNG color rgb(174,226,255)
+const DEFAULT_LAND_COLOR = 'rgb(255, 255, 255)'; // White for unclaimed land provinces
 
 const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelect }) => {
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
@@ -33,8 +33,8 @@ const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelec
   }, [province.userId, currentUserId, currentUserColor, otherUsers]);
 
   const fillColor = isWater ? WATER_COLOR : (provinceOwnerColor || DEFAULT_LAND_COLOR);
-  const strokeColor = isSelected ? '#ffff00' : '#333333';
-  const strokeWidth = isSelected ? 4 : 1.5;
+  const strokeColor = isSelected ? 'rgb(255, 255, 0)' : 'rgb(0, 0, 0)'; // Yellow selection, black borders
+  const strokeWidth = isSelected ? 4 : 2; // Thicker borders for visibility
 
   const handleClick: React.MouseEventHandler<SVGPathElement> = React.useCallback((e) => {
     e.stopPropagation();

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Box, Button, TextField } from '@mui/material';
 import { SubmitHandler, useForm } from 'react-hook-form';
 import { useMutation } from '../../../hooks/useApi.ts';
 import { authApi } from '../../../api/auth.ts';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from "../../../context/AuthContext.tsx";
 
 interface IRegisterFormInput {
   login: string
@@ -15,6 +16,7 @@ interface IRegisterFormInput {
 export const RegisterPage: React.FC = () => {
   const { register, handleSubmit } = useForm<IRegisterFormInput>()
   const { mutate } = useMutation(authApi.register);
+  const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
   const onSubmit: SubmitHandler<IRegisterFormInput> = async (data) => {
@@ -24,6 +26,12 @@ export const RegisterPage: React.FC = () => {
   const onBackToLogin = () => {
     navigate('/login');
   }
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/');
+    }
+  }, [isAuthenticated]);
 
   return (
     <div className="flex items-center justify-center w-full h-screen bg-neutral-600">

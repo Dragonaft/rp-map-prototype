@@ -1,3 +1,5 @@
+// TODO: sort types
+
 export type ProvinceType = 'land' | 'coastal' | 'water';
 
 export type Landscape = 'plains' | 'forest' | 'mountain' | 'desert' | 'hills' | 'swamp';
@@ -21,6 +23,7 @@ export interface Province {
   userId: string | null;
   localTroops: number;
   buildings?: Building[];
+  neighbors?: string[] | null;
 }
 
 export interface User {
@@ -31,6 +34,7 @@ export interface User {
   troops: number;
   money: number;
   isNew: boolean;
+  provinces: Province[];
 }
 
 export interface PartialUser {
@@ -48,6 +52,7 @@ export interface SetupUserResponse {
     troops: number;
     money: number;
     is_new: boolean;
+    provinces: Province[];
   };
   province: {
     id: string;
@@ -59,4 +64,22 @@ export interface SetupUserResponse {
     user_id: string;
     local_troops: number;
   };
+}
+
+export enum ActionType {
+  BUILD = 'BUILD',
+  INVADE = 'INVADE',
+  DEPLOY = 'DEPLOY',
+  UPGRADE = 'UPGRADE',
+  TRANSFER_TROOPS = 'TRANSFER_TROOPS',
+}
+
+export interface ActionData {
+  provinceId?: number;
+  buildingType?: string;
+  buildingId?: number;
+  targetProvinceId?: number;
+  troopCount?: number;
+  upgradeLevel?: number;
+  [key: string]: any; // Flexible for future action types
 }

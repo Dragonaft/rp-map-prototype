@@ -12,7 +12,7 @@ import { User } from '../../users/entities/user.entity';
 export enum ActionType {
   BUILD = 'BUILD',
   INVADE = 'INVADE',
-  RECRUIT = 'RECRUIT',
+  DEPLOY = 'DEPLOY',
   UPGRADE = 'UPGRADE',
   TRANSFER_TROOPS = 'TRANSFER_TROOPS',
 }
@@ -46,6 +46,9 @@ export class ActionQueue extends BaseEntity {
   @Column()
   public userId: string;
 
+  @Column()
+  public order: number;
+
   @Column({
     type: 'enum',
     enum: ActionType,
@@ -61,9 +64,6 @@ export class ActionQueue extends BaseEntity {
     default: ActionStatus.PENDING,
   })
   public status: ActionStatus;
-
-  @Column({ type: 'timestamp' })
-  public scheduledFor: Date;
 
   @Column({ type: 'text', nullable: true })
   public failureReason?: string;

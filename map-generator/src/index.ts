@@ -1,5 +1,6 @@
 import { generateGridMap } from './generateGrid';
 import { importSvgAsMap } from './importSvg';
+import { importPngAsMap } from './importPng';
 import { parseMap } from './parseMap';
 
 const [,, command, ...restArgs] = process.argv;
@@ -21,6 +22,7 @@ async function main() {
     console.log('Usage:');
     console.log('  generate --rows 10 --cols 15 --width 800 --height 600 --out ./out');
     console.log('  import-svg --svg ./map.svg --out ./out');
+    console.log('  import-png --png ./map.png --out ./out [--min-size 10] [--simplify 2.0]');
     console.log('  parse --file ./out/provinces.json');
     process.exit(0);
   }
@@ -43,6 +45,16 @@ async function main() {
       process.exit(1);
     }
     importSvgAsMap({ svgFile: svg, outputDir: out });
+  } else if (command === 'import-png') {
+    const png = args.png;
+    const out = args.out ?? './out';
+    const minSize = args['min-size'] ? Number(args['min-size']) : undefined;
+    const simplify = args['simplify'] ? Number(args['simplify']) : undefined;
+    if (!png) {
+      console.error('Missing --png argument');
+      process.exit(1);
+    }
+    importPngAsMap({ pngFile: png, outputDir: out, minProvinceSize: minSize, simplifyTolerance: simplify });
   } else if (command === 'parse') {
     const file = args.file;
     if (!file) {

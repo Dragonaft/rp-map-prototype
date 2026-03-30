@@ -91,6 +91,7 @@ export class ProvincesService {
       is_new: false,
       troops: 3000,
       money: 5000,
+      provinces: [province]
     }
 
     await this.userRepository.save(updatedUser);

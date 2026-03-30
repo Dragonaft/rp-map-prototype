@@ -12,7 +12,7 @@ export interface ExecutedAction {
   actionType: string;
   actionData: any;
   status: string;
-  scheduledFor: Date;
+  order: number;
   executedAt: Date;
 }
 

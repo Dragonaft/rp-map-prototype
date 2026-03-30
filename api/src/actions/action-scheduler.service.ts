@@ -88,7 +88,7 @@ export class ActionSchedulerService {
               actionType: action.actionType,
               actionData: action.actionData,
               status: ActionStatus.COMPLETED,
-              scheduledFor: action.scheduledFor,
+              order: action.order,
               executedAt: new Date(),
             });
           } else {
@@ -106,7 +106,7 @@ export class ActionSchedulerService {
               actionType: action.actionType,
               actionData: action.actionData,
               status: ActionStatus.FAILED,
-              scheduledFor: action.scheduledFor,
+              order: action.order,
               executedAt: new Date(),
             });
           }
@@ -126,7 +126,7 @@ export class ActionSchedulerService {
             actionType: action.actionType,
             actionData: action.actionData,
             status: ActionStatus.FAILED,
-            scheduledFor: action.scheduledFor,
+            order: action.order,
             executedAt: new Date(),
           });
         }
