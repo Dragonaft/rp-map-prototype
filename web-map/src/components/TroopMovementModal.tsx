@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import { Modal, Box, Typography, Slider, Button, Alert } from '@mui/material';
 import { ActionType } from '../types';
 import { actionsApi } from '../api/actions';
+import { useAppDispatch } from "../store/hooks.ts";
+import { addAction } from "../store/slices/actionsSlice.ts";
+import { updateProvinceById } from "../store/slices/provincesSlice.ts";
 
 interface Props {
   open: boolean;
@@ -35,6 +38,7 @@ export const TroopMovementModal: React.FC<Props> = ({
   const [troopCount, setTroopCount] = useState(Math.min(1, maxTroops));
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
 
   const handleConfirm = async () => {
     setLoading(true);
@@ -43,7 +47,7 @@ export const TroopMovementModal: React.FC<Props> = ({
     try {
       const actionType = isInvasion ? ActionType.INVADE : ActionType.TRANSFER_TROOPS;
 
-      await actionsApi.createAction({
+      const response = await actionsApi.createAction({
         type: actionType,
         actionData: {
           from_province_id: fromProvinceId,
@@ -51,6 +55,14 @@ export const TroopMovementModal: React.FC<Props> = ({
           troops_number: troopCount,
         },
       });
+
+      dispatch(addAction(response.action));
+      dispatch(updateProvinceById({
+        id: response.province.id,
+        updates: {
+          localTroops: response.province.localTroops,
+        },
+      }));
 
       onClose();
     } catch (err: any) {

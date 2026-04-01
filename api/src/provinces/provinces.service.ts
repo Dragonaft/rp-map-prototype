@@ -6,6 +6,7 @@ import { ProvincesUpdateBodyRequest } from './requests/provinces-update-body.req
 import { User } from "../users/entities/user.entity";
 import { Building } from '../buildings/entities/building.entity';
 import { AuthTokenType } from "../auth/types/auth.types";
+import { ActionsService } from '../actions/actions.service';
 
 @Injectable()
 export class ProvincesService {
@@ -16,6 +17,7 @@ export class ProvincesService {
     private readonly buildingRepository: Repository<Building>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    private readonly actionsService: ActionsService,
   ) {}
 
   async getAll(userId: string) {
@@ -24,11 +26,22 @@ export class ProvincesService {
       relations: ['buildings']
     });
 
-    // Hide local_troops for provinces not owned by the user
+    const reservedByFromProvince =
+      await this.actionsService.getReservedTroopMovesByFromProvince(userId);
+
+    // Hide local_troops for provinces not owned by the user;
+    // for own provinces, subtract troops already committed to INVADE / TRANSFER actions
     return provinces.map(province => {
       if (province.user_id !== userId) {
         province.local_troops = null;
+        return province;
       }
+
+      const reserved = reservedByFromProvince.get(province.id) ?? 0;
+      if (reserved > 0 && province.local_troops != null) {
+        province.local_troops = Math.max(0, province.local_troops - reserved);
+      }
+
       return province;
     });
   }

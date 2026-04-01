@@ -42,8 +42,6 @@ export const GamePage: React.FC = () => {
   const fetchUserActions = useCallback(() => actionsApi.getUserActions(), []);
   const { data: actions } = useQuery(fetchUserActions, []);
 
-  console.log(actions, 'actions_TEST')
-
   useEffect(() => {
     if (!userData) return;
 

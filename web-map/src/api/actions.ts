@@ -11,4 +11,9 @@ export const actionsApi = {
     const response = await apiClient.post(`/actions`, data);
     return response.data;
   },
+
+  removeAction: async (actionId: string): Promise<any> => {
+    const response = await apiClient.delete(`/actions/pending/${actionId}`);
+    return response.data;
+  },
 };

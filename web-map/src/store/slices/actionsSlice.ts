@@ -28,8 +28,14 @@ const actionsSlice = createSlice({
     setActions: (state, action: PayloadAction<ActionI[]>) => {
       state.actions = action.payload;
     },
+    addAction: (state, action: PayloadAction<ActionI>) => {
+      state.actions = [...state.actions, action.payload];
+    },
+    removeActionById: (state, action: PayloadAction<string>) => {
+      state.actions = state.actions.filter((a) => a.id !== action.payload);
+    },
   },
 });
 
-export const { setActions } = actionsSlice.actions;
+export const { setActions, addAction, removeActionById } = actionsSlice.actions;
 export default actionsSlice.reducer;

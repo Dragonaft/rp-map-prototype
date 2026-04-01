@@ -1,8 +1,10 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
+  ParseIntPipe,
   Param,
   Post,
   Query,
@@ -19,11 +21,20 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class ActionsController {
   constructor(private readonly actionsService: ActionsService) {}
 
+  private parsePositiveIntOrDefault(value: unknown, fallback: number): number {
+    if (value === undefined || value === null || value === '') return fallback;
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      throw new BadRequestException('Query params limit/offset must be non-negative integers');
+    }
+    return parsed;
+  }
+
   @Post()
   async createAction(
     @Request() req,
     @Body() createActionDto: any,
-  ): Promise<ActionQueue> {
+  ): Promise<any> {
     return await this.actionsService.createAction(
       req.user.id,
       createActionDto.type,
@@ -41,33 +52,33 @@ export class ActionsController {
     return await this.actionsService.getUserPendingActions(req.user.id);
   }
 
-  @Delete(':id')
+  @Delete('pending/:id')
   async retractAction(
     @Request() req,
     @Param('id') actionId: string,
-  ): Promise<ActionQueue> {
+  ): Promise<any> {
     return await this.actionsService.retractAction(req.user.id, actionId);
   }
 
   @Get('logs')
   async getAllLogs(
-    @Query('limit') limit?: number,
-    @Query('offset') offset?: number,
+    @Query('limit') limit?: string,
+    @Query('offset') offset?: string,
   ): Promise<{ logs: ActionsLog[]; total: number }> {
     return await this.actionsService.getAllLogs(
-      limit ? Number(limit) : 50,
-      offset ? Number(offset) : 0,
+      this.parsePositiveIntOrDefault(limit, 50),
+      this.parsePositiveIntOrDefault(offset, 0),
     );
   }
 
   @Get('logs/my-actions')
   async getMyActionsFromLogs(
     @Request() req,
-    @Query('limit') limit?: number,
+    @Query('limit') limit?: string,
   ): Promise<{ logs: any[]; total: number }> {
     return await this.actionsService.getUserActionsFromLogs(
       req.user.id,
-      limit ? Number(limit) : 50,
+      this.parsePositiveIntOrDefault(limit, 50),
     );
   }
 
@@ -79,7 +90,7 @@ export class ActionsController {
   }
 
   @Get('logs/:id')
-  async getLogById(@Param('id') id: number): Promise<ActionsLog> {
-    return await this.actionsService.getLogById(Number(id));
+  async getLogById(@Param('id', ParseIntPipe) id: number): Promise<ActionsLog> {
+    return await this.actionsService.getLogById(id);
   }
 }

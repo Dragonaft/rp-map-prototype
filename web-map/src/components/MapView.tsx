@@ -1,12 +1,15 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { Province } from '../types';
+import { ActionType } from '../types';
+import { Box, Button, Modal, Typography } from '@mui/material';
 import { ProvinceShape } from './ProvinceShape';
 import { SelectedProvinceHover } from "./SelectedProvinceHover.tsx";
 import { TroopMovementModal } from './TroopMovementModal';
-import { setSelectedProvinceId, setSelectedTroops } from '../store/slices/provincesSlice';
+import { setSelectedProvinceId, setSelectedTroops, updateProvinceById } from '../store/slices/provincesSlice';
 import type { RootState } from '../store/store';
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
-import { UserActionsHover } from "./UserActionsHover.tsx";
+import { actionsApi } from '../api/actions.ts';
+import { removeActionById } from '../store/slices/actionsSlice.ts';
 
 export const MapView = ({ loading, error }: { loading: boolean, error: string | null }) => {
   const dispatch = useAppDispatch();
@@ -14,6 +17,8 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const selectedProvinceId = useAppSelector((state: RootState) => state.provinces.selectedProvinceId);
   const selectedTroops = useAppSelector((state: RootState) => state.provinces.selectedTroops);
   const currentUserId = useAppSelector((state: RootState) => state.user.id);
+  const userActions = useAppSelector((state: RootState) => state.actions.actions);
+  const provinceCentersById = useAppSelector((state: RootState) => state.provinces.provinceCentersById);
 
   // Camera state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
@@ -31,6 +36,9 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     maxTroops: number;
     isInvasion: boolean;
   } | null>(null);
+  const [cancelActionId, setCancelActionId] = useState<string | null>(null);
+  const [isCancellingAction, setIsCancellingAction] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const toggleSelect = useCallback((prov: Province) => {
     // Prevent selection if we just finished dragging
@@ -74,6 +82,46 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const handleCloseModal = useCallback(() => {
     setModalState(null);
   }, []);
+
+  const handleOpenCancelModal = useCallback((actionId: string) => {
+    setCancelError(null);
+    setCancelActionId(actionId);
+  }, []);
+
+  const handleCloseCancelModal = useCallback(() => {
+    if (isCancellingAction) return;
+    setCancelActionId(null);
+    setCancelError(null);
+  }, [isCancellingAction]);
+
+  const handleConfirmCancelAction = useCallback(async () => {
+    if (!cancelActionId) return;
+    setIsCancellingAction(true);
+    setCancelError(null);
+    try {
+      const response = await actionsApi.removeAction(cancelActionId);
+      dispatch(removeActionById(cancelActionId));
+      console.log(response, 'response_TEST')
+      dispatch(updateProvinceById({
+        id: response.province.id,
+        updates: {
+          localTroops: response.province.localTroops,
+        },
+      }));
+      setCancelActionId(null);
+    } catch (err: any) {
+      setCancelError(err?.response?.data?.message || 'Failed to cancel action');
+    } finally {
+      setIsCancellingAction(false);
+    }
+  }, [cancelActionId, dispatch]);
+
+  const troopMovementOverlays = useMemo(() => {
+    if (!userActions?.length) return [];
+    return userActions.filter(
+      (a) => a.actionType === ActionType.INVADE || a.actionType === ActionType.TRANSFER_TROOPS,
+    );
+  }, [userActions]);
 
   // Add/remove event listeners for wheel zoom
   useEffect(() => {
@@ -188,7 +236,6 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#1e293b' }}>
       <SelectedProvinceHover />
-      <UserActionsHover />
 
       {/* Troop Movement Modal */}
       {modalState && (
@@ -201,6 +248,49 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
           isInvasion={modalState.isInvasion}
         />
       )}
+      <Modal open={Boolean(cancelActionId)} onClose={handleCloseCancelModal}>
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: 360,
+            bgcolor: 'background.paper',
+            border: '2px solid #000',
+            boxShadow: 24,
+            p: 3,
+          }}
+        >
+          <Typography variant="h6" component="h2" gutterBottom>
+            Do you want to cancel this action?
+          </Typography>
+          {cancelError && (
+            <Typography sx={{ color: 'error.main', mt: 1 }}>
+              {cancelError}
+            </Typography>
+          )}
+          <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleConfirmCancelAction}
+              disabled={isCancellingAction}
+              fullWidth
+            >
+              {isCancellingAction ? 'Cancelling...' : 'Yes'}
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={handleCloseCancelModal}
+              disabled={isCancellingAction}
+              fullWidth
+            >
+              No
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
 
       <svg
         ref={svgRef}
@@ -220,6 +310,19 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
           }
         }}
       >
+        <defs>
+          <marker
+            id="troop-action-arrowhead"
+            markerWidth="10"
+            markerHeight="10"
+            refX="9"
+            refY="3"
+            orient="auto"
+            markerUnits="strokeWidth"
+          >
+            <path d="M0,0 L0,6 L9,3 z" fill="#ffffff" />
+          </marker>
+        </defs>
         {/* Render provinces first */}
         {provinces?.map((p) => (
           <ProvinceShape
@@ -243,6 +346,78 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
             renderTroopBox={true}
           />
         ))}
+
+        <g>
+          {troopMovementOverlays.map((action) => {
+            const raw = action.actionData as {
+              from_province_id?: string;
+              to_province_id?: string;
+              troops_number?: number;
+              fromProvinceId?: string;
+              toProvinceId?: string;
+              troopCount?: number;
+            } | undefined;
+            const fromId = raw?.from_province_id ?? raw?.fromProvinceId;
+            const toId = raw?.to_province_id ?? raw?.toProvinceId;
+            const troops = raw?.troops_number ?? raw?.troopCount;
+            if (fromId == null || toId == null || troops == null) return null;
+            const fromC = provinceCentersById[fromId];
+            const toC = provinceCentersById[toId];
+            if (!fromC || !toC) return null;
+            const mx = (fromC.x + toC.x) / 2;
+            const my = (fromC.y + toC.y) / 2;
+            const label = String(troops);
+            const boxW = Math.max(28, 8 + label.length * 8);
+            return (
+              <g key={action.id}>
+                <line
+                  x1={fromC.x}
+                  y1={fromC.y}
+                  x2={toC.x}
+                  y2={toC.y}
+                  stroke="#ffffff"
+                  strokeWidth={2}
+                  markerEnd="url(#troop-action-arrowhead)"
+                  style={{ pointerEvents: 'none' }}
+                />
+                <rect
+                  x={mx - boxW / 2}
+                  y={my - 10}
+                  width={boxW}
+                  height={20}
+                  fill="#ffffff"
+                  stroke="#000000"
+                  strokeWidth={1}
+                  rx={3}
+                  ry={3}
+                  style={{ cursor: 'pointer' }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenCancelModal(action.id);
+                  }}
+                />
+                <text
+                  x={mx}
+                  y={my}
+                  fontSize={12}
+                  fill="#000000"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontWeight="bold"
+                  style={{ userSelect: 'none', cursor: 'pointer' }}
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleOpenCancelModal(action.id);
+                  }}
+                >
+                  {label}
+                </text>
+              </g>
+            );
+          })}
+        </g>
       </svg>
     </div>
   );

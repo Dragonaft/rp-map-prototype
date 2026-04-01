@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Building, Province } from '../types';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
-import { setSelectedTroops } from '../store/slices/provincesSlice';
+import { setProvinceCenter, setSelectedTroops } from '../store/slices/provincesSlice';
 
 interface Props {
   province: Province;
@@ -20,6 +20,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelec
   const currentUserId = useAppSelector((state) => state.user.id);
   const currentUserColor = useAppSelector((state) => state.user.color);
   const selectedTroops = useAppSelector((state) => state.provinces.selectedTroops);
+  const provincesLayoutVersion = useAppSelector((state) => state.provinces.provincesLayoutVersion);
 
   const isWater = province.type === 'water';
 
@@ -65,11 +66,19 @@ const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelec
   const pathRef = React.useRef<SVGPathElement>(null);
 
   React.useEffect(() => {
-    if (pathRef.current && !pathBBox) {
-      const bbox = pathRef.current.getBBox();
-      setPathBBox(bbox as DOMRect);
+    if (!pathRef.current) return;
+    const bbox = pathRef.current.getBBox();
+    setPathBBox(bbox as DOMRect);
+    if (!renderTroopBox) {
+      dispatch(
+        setProvinceCenter({
+          id: province.id,
+          x: bbox.x + bbox.width / 2,
+          y: bbox.y + bbox.height / 2,
+        }),
+      );
     }
-  }, [pathBBox]);
+  }, [province.polygon, provincesLayoutVersion, renderTroopBox, province.id, dispatch]);
 
   const isCurrentUserProvince = province.userId === currentUserId;
   const isTroopSelected = selectedTroops?.provinceId === province.id;

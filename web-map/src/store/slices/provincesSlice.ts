@@ -11,12 +11,17 @@ interface ProvincesState {
   provinces: Province[];
   selectedProvinceId: string | null;
   selectedTroops: SelectedTroops | null;
+  /** Bumped when setProvinces runs so shapes re-measure and re-register centers */
+  provincesLayoutVersion: number;
+  provinceCentersById: Record<string, { x: number; y: number }>;
 }
 
 const initialState: ProvincesState = {
   provinces: [],
   selectedProvinceId: null,
   selectedTroops: null,
+  provincesLayoutVersion: 0,
+  provinceCentersById: {},
 };
 
 const provincesSlice = createSlice({
@@ -31,6 +36,15 @@ const provincesSlice = createSlice({
     },
     setProvinces: (state, action: PayloadAction<any[]>) => {
       state.provinces = action.payload;
+      state.provinceCentersById = {};
+      state.provincesLayoutVersion += 1;
+    },
+    setProvinceCenter: (
+      state,
+      action: PayloadAction<{ id: string; x: number; y: number }>,
+    ) => {
+      const { id, x, y } = action.payload;
+      state.provinceCentersById[id] = { x, y };
     },
     updateProvinceById: (state, action: PayloadAction<{ id: string; updates: Partial<Province> }>) => {
       const { id, updates } = action.payload;
@@ -46,11 +60,20 @@ const provincesSlice = createSlice({
       state.selectedProvinceId = null;
       state.selectedTroops = null;
       state.provinces = [];
+      state.provinceCentersById = {};
+      state.provincesLayoutVersion += 1;
     },
   },
 });
 
-export const { setSelectedProvinceId, setSelectedTroops, setProvinces, updateProvinceById, resetProvincesState } = provincesSlice.actions;
+export const {
+  setSelectedProvinceId,
+  setSelectedTroops,
+  setProvinces,
+  setProvinceCenter,
+  updateProvinceById,
+  resetProvincesState,
+} = provincesSlice.actions;
 
 // Selector to get the selected province object
 export const selectSelectedProvince = (state: RootState) => {
