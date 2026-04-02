@@ -11,6 +11,7 @@ export interface Building {
   income: string | null;
   upkeep: string | null;
   modifier: string | null;
+  cost: number;
 }
 
 export interface Province {

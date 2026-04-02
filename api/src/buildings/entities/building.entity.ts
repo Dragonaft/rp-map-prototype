@@ -28,6 +28,9 @@ export class Building extends BaseEntity {
   @Column({ nullable: true })
   public modifier: string;
 
+  @Column({ nullable: true })
+  public cost: number;
+
   @ManyToMany(() => Province, (province) => province.buildings)
   public provinces: Province[];
 }

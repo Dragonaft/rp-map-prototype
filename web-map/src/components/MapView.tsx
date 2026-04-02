@@ -118,8 +118,10 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
 
   const troopMovementOverlays = useMemo(() => {
     if (!userActions?.length) return [];
+    console.log(userActions, 'userActions_TEST')
+
     return userActions.filter(
-      (a) => a.actionType === ActionType.INVADE || a.actionType === ActionType.TRANSFER_TROOPS,
+      (a) => a.actionType === ActionType.INVADE,
     );
   }, [userActions]);
 

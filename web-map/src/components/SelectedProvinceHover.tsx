@@ -1,11 +1,15 @@
-import { useAppSelector, useAppDispatch } from "../store/hooks.ts";
+import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { selectSelectedProvince, updateProvinceById } from "../store/slices/provincesSlice.ts";
 import { setUser } from "../store/slices/userSlice.ts";
 import type { RootState } from "../store/store.ts";
-import { Button } from "@mui/material";
-import { useMutation } from "../hooks/useApi.ts";
+import { Box, Button, Slider, Tooltip } from "@mui/material";
+import { useMutation, useQuery } from "../hooks/useApi.ts";
 import { provincesApi } from "../api/provinces.ts";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { buildingsApi } from "../api/buildings.ts";
+import { ActionType, Building } from "../types.ts";
+import { actionsApi } from "../api/actions.ts";
+import { addAction } from "../store/slices/actionsSlice.ts";
 
 export const SelectedProvinceHover = () => {
   const dispatch = useAppDispatch();
@@ -16,6 +20,24 @@ export const SelectedProvinceHover = () => {
   const isUserOwner = user.id === selectedProvince?.userId;
   const [isOpenBuildMenu, setIsOpenBuildMenu] = useState<boolean>(false);
   const [isOpenDeployMenu, setIsOpenDeployMenu] = useState<boolean>(false);
+  const [buildingsState, setBuildingsState] = useState<Building[]>([]);
+  const fetchBuildings = useCallback(() => buildingsApi.getAll(), []);
+  const { data: buildings, loading } = useQuery(fetchBuildings, []);
+  const [troopCount, setTroopCount] = useState<number>(0);
+
+  console.log(selectedProvince, 'PROV')
+
+  useEffect(() => {
+    if (buildings) {
+      setBuildingsState(buildings);
+    }
+  }, [buildings]);
+
+  useEffect(() => {
+    setIsOpenBuildMenu(false);
+    setIsOpenDeployMenu(false);
+    setTroopCount(0);
+  }, [selectedProvince]);
 
   const handleGetProvinceOwner = () => {
    return otherUsers.find((user) => user.id === selectedProvince?.userId);
@@ -49,10 +71,91 @@ export const SelectedProvinceHover = () => {
     }
   };
 
-  const DeployMenu = () => (<div></div>)
-  const BuildMenu = () => (
-    <div>
+  const handleBuildAction = async (buildingId: string) => {
+    if (!selectedProvince || !user.id) return;
 
+    try {
+      const response = await actionsApi.createAction({
+        type: ActionType.BUILD,
+        actionData: {
+          province_id: selectedProvince.id,
+          building_id: buildingId,
+        },
+      });
+
+      dispatch(addAction(response));
+    } catch (err: any) {
+      console.log(err.response?.data?.message || 'Failed to create action');
+    }
+  }
+
+  const handleDeployAction = async () => {
+    if (!selectedProvince || !user.id) return;
+
+    try {
+      const response = await actionsApi.createAction({
+        type: ActionType.DEPLOY,
+        actionData: {
+          province_id: selectedProvince.id,
+          troops_number: troopCount,
+        },
+      });
+
+      dispatch(addAction(response));
+    } catch (err: any) {
+      console.log(err.response?.data?.message || 'Failed to create action');
+    }
+  }
+
+  const handleSliderChange = (_event: Event, newValue: number | number[]) => {
+    setTroopCount(newValue as number);
+  };
+
+  const DeployMenu = () => (
+    <div className="flex flex-col justify-between h-full">
+      <div className="flex flex-col gap-2">
+        <p>Reserve troops</p>
+        <Box sx={{ px: 2 }}>
+          <Slider
+            value={troopCount}
+            onChange={handleSliderChange}
+            min={1}
+            max={user.troops}
+            marks
+            valueLabelDisplay="on"
+            disabled={loading}
+          />
+        </Box>
+        <Button variant="contained" color="primary" onClick={handleDeployAction}>DEPLOY</Button>
+      </div>
+      <Button variant="contained" color="primary" onClick={() => setIsOpenDeployMenu(false)}>BACK</Button>
+    </div>
+  )
+  const BuildMenu = () => (
+    <div className="flex flex-col justify-between h-full">
+      {loading && <p>Loading...</p>}
+      <div className="flex flex-col gap-2">
+        {!loading && buildingsState.map((building) => (
+          <Tooltip title={
+            <>
+              <p>Cost: {building.cost}</p>
+              {building.modifier && <p>Modifier: {building.modifier}</p>}
+              {building.income && <p>Income: {building.income}</p>}
+              {building.upkeep && <p>Upkeep: {building.upkeep}</p>}
+            </>
+          }>
+            <Button
+              key={building.id}
+              variant="contained"
+              color="primary"
+              disabled={!user.money || user.money < building.cost}
+              onClick={() => handleBuildAction(building.id)}
+            >
+              {building.name}
+            </Button>
+          </Tooltip>
+        ))}
+      </div>
       <Button variant="contained" color="primary" onClick={() => setIsOpenBuildMenu(false)}>BACK</Button>
     </div>
   )
@@ -72,6 +175,7 @@ export const SelectedProvinceHover = () => {
           <Button variant="contained" color="primary" onClick={handleOnSetupSelect}>SELECT</Button>
         </div>
       )}
+
       {!user.isNew && !isUserOwner && (
         <div className="flex flex-col justify-between h-full">
           <div>
@@ -82,6 +186,7 @@ export const SelectedProvinceHover = () => {
           </div>
         </div>
       )}
+
       {!user.isNew && isUserOwner && (
         <div className="flex flex-col justify-between h-full">
           {isOpenDeployMenu && <DeployMenu />}
@@ -92,6 +197,10 @@ export const SelectedProvinceHover = () => {
               <span>Province Data</span>
               <p>Landscape: {selectedProvince.landscape}</p>
               <p>Resource: {selectedProvince.resourceType}</p>
+              <p>Local buildings: </p>
+              {selectedProvince && selectedProvince.buildings && selectedProvince.buildings.map((building) => (
+                <span key={building.id}>{building.name}</span>
+              ))}
             </div>
             <div className="flex flex-col gap-2">
               <Button variant="contained" color="primary" onClick={() => setIsOpenDeployMenu(true)}>DEPLOY TROOPS</Button>

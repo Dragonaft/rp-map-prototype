@@ -4,13 +4,17 @@ import { Repository } from 'typeorm';
 import { BuildingTypes } from '../buildings/types/building.types';
 import { Building } from '../buildings/entities/building.entity';
 import { Province } from '../provinces/entities/province.entity';
+import { User } from '../users/entities/user.entity';
 import { ActionQueue, ActionType } from './entities/action-queue.entity';
 
 const DEFENSIVE_BUILDING_TYPES = new Set<string>([
   BuildingTypes.FORT,
   BuildingTypes.CAPITOL,
-  'CAPITAL',
+  BuildingTypes.CAPITAL,
 ]);
+
+/** Server-side money cost per troop when moving troops from the global pool into a province. Maybe transfer to env or db */
+const DEPLOY_MONEY_PER_TROOP = 1;
 
 function parseBuildingModifier(modifier: string | null | undefined): number {
   const n = Number(modifier);
@@ -38,20 +42,82 @@ export interface ActionHandler {
 export class BuildActionHandler implements ActionHandler {
   private readonly logger = new Logger(BuildActionHandler.name);
 
+  constructor(
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
+  ) {}
+
   async handle(action: ActionQueue): Promise<void> {
     this.logger.log(
       `Executing BUILD action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
     );
 
-    // TODO: Implement actual building logic
-    // Example:
-    // - Validate user has resources
-    // - Check province ownership
-    // - Create building in database
-    // - Deduct resources from user
+    const provinceId = action.actionData?.province_id as string | undefined;
+    const buildingId = action.actionData?.building_id as string | undefined;
 
-    // Simulated execution
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    if (!provinceId || !buildingId) {
+      throw new Error('province_id and building_id are required');
+    }
+
+    await this.provinceRepo.manager.transaction(async (manager) => {
+      const province = await manager.findOne(Province, {
+        where: { id: provinceId },
+        relations: ['buildings'],
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!province) {
+        throw new Error('Province not found');
+      }
+
+      if (province.user_id !== action.userId) {
+        throw new Error('User does not own this province');
+      }
+
+      const buildingTemplate = await manager.findOne(Building, {
+        where: { id: buildingId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!buildingTemplate) {
+        throw new Error('Building not found');
+      }
+
+      const cost = Number(buildingTemplate.cost ?? 0);
+      if (!Number.isFinite(cost) || cost < 0) {
+        throw new Error('Invalid building cost');
+      }
+
+      const user = await manager.findOne(User, {
+        where: { id: action.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const currentMoney = Number(user.money ?? 0);
+      if (currentMoney < cost) {
+        throw new Error('Not enough money to build');
+      }
+
+      const alreadyHasType = province.buildings?.some(
+        (b) => b.type === buildingTemplate.type,
+      );
+      if (alreadyHasType) {
+        throw new Error('This building type is already built in this province');
+      }
+
+      user.money = currentMoney - cost;
+      await manager.save(User, user);
+
+      await manager
+        .createQueryBuilder()
+        .relation(Province, 'buildings')
+        .of(provinceId)
+        .add(buildingId);
+    });
   }
 }
 
@@ -153,15 +219,71 @@ export class InvadeActionHandler implements ActionHandler {
 export class DeployActionHandler implements ActionHandler {
   private readonly logger = new Logger(DeployActionHandler.name);
 
+  constructor(
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
+  ) {}
+
   async handle(action: ActionQueue): Promise<void> {
     this.logger.log(
       `Executing DEPLOY action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
     );
 
-    // TODO: Implement actual DEPLOY logic
+    const provinceId = action.actionData?.province_id as string | undefined;
+    const troopsNumber = Number(action.actionData?.troops_number ?? 0);
 
-    // Simulated execution
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    if (!provinceId) {
+      throw new Error('province_id is required');
+    }
+    if (!Number.isFinite(troopsNumber) || troopsNumber <= 0) {
+      throw new Error('troops_number must be a positive number');
+    }
+
+    const deployMoneyCost = troopsNumber * DEPLOY_MONEY_PER_TROOP;
+
+    await this.provinceRepo.manager.transaction(async (manager) => {
+      const province = await manager.findOne(Province, {
+        where: { id: provinceId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!province) {
+        throw new Error('Province not found');
+      }
+
+      if (province.user_id !== action.userId) {
+        throw new Error('User does not own this province');
+      }
+
+      const user = await manager.findOne(User, {
+        where: { id: action.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const currentMoney = Number(user.money ?? 0);
+      if (currentMoney < deployMoneyCost) {
+        throw new Error('Not enough money to deploy');
+      }
+
+      const poolTroops = Number(user.troops ?? 0);
+      if (!Number.isFinite(poolTroops) || poolTroops < troopsNumber) {
+        throw new Error('Not enough troops to deploy');
+      }
+
+      const localTroops = Number(province.local_troops ?? 0);
+      const safeLocal = Number.isFinite(localTroops) ? localTroops : 0;
+
+      user.money = currentMoney - deployMoneyCost;
+      user.troops = poolTroops - troopsNumber;
+      province.local_troops = safeLocal + troopsNumber;
+
+      await manager.save(Province, province);
+      await manager.save(User, user);
+    });
   }
 }
 
