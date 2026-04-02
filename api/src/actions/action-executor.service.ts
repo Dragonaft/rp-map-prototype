@@ -1,5 +1,34 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ActionQueue, ActionStatus, ActionType } from './entities/action-queue.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { BuildingTypes } from '../buildings/types/building.types';
+import { Building } from '../buildings/entities/building.entity';
+import { Province } from '../provinces/entities/province.entity';
+import { ActionQueue, ActionType } from './entities/action-queue.entity';
+
+const DEFENSIVE_BUILDING_TYPES = new Set<string>([
+  BuildingTypes.FORT,
+  BuildingTypes.CAPITOL,
+  'CAPITAL',
+]);
+
+function parseBuildingModifier(modifier: string | null | undefined): number {
+  const n = Number(modifier);
+  return Number.isFinite(n) && n > 0 ? n : 0;
+}
+
+function computeBuildModifier(buildings: Building[] | undefined): number {
+  if (!buildings?.length) {
+    return 1;
+  }
+  let sum = 0;
+  for (const b of buildings) {
+    if (DEFENSIVE_BUILDING_TYPES.has(b.type)) {
+      sum += parseBuildingModifier(b.modifier);
+    }
+  }
+  return sum > 0 ? sum : 1;
+}
 
 export interface ActionHandler {
   handle(action: ActionQueue): Promise<void>;
@@ -30,20 +59,93 @@ export class BuildActionHandler implements ActionHandler {
 export class InvadeActionHandler implements ActionHandler {
   private readonly logger = new Logger(InvadeActionHandler.name);
 
+  constructor(
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
+  ) {}
+
   async handle(action: ActionQueue): Promise<void> {
     this.logger.log(
       `Executing INVADE action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
     );
 
-    // TODO: Implement actual invasion logic
-    // Example:
-    // - Validate user has troops
-    // - Calculate battle outcome
-    // - Update province ownership
-    // - Update troop counts
+    const fromId = action.actionData?.from_province_id as string | undefined;
+    const toId = action.actionData?.to_province_id as string | undefined;
+    const troopsNumber = Number(action.actionData?.troops_number ?? 0);
 
-    // Simulated execution
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    if (!fromId || !toId) {
+      throw new Error('from_province_id and to_province_id are required');
+    }
+    if (!Number.isFinite(troopsNumber) || troopsNumber <= 0) {
+      throw new Error('troops_number must be a positive number');
+    }
+
+    await this.provinceRepo.manager.transaction(async (manager) => {
+      const fromProvince = await manager.findOne(Province, {
+        where: { id: fromId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!fromProvince) {
+        throw new Error('Source province not found');
+      }
+
+      if (fromProvince.user_id !== action.userId) {
+        throw new Error('User do not own the source province');
+      }
+
+      const fromTroops = Number(fromProvince.local_troops ?? 0);
+      if (!Number.isFinite(fromTroops) || fromTroops < troopsNumber) {
+        throw new Error('Not enough troops in the source province');
+      }
+
+      const toProvince = await manager.findOne(Province, {
+        where: { id: toId },
+        relations: ['buildings'],
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!toProvince) {
+        throw new Error('Target province not found');
+      }
+
+      const defenderTroops = Number(toProvince.local_troops ?? 0);
+      if (!Number.isFinite(defenderTroops)) {
+        throw new Error('Invalid defender troop count on target province');
+      }
+
+      if (action.userId != null && action.userId !== action.userId) {
+        throw new Error('actionData.userId does not match action user');
+      }
+      if (
+        toProvince.user_id != null &&
+        action.userId === toProvince.user_id
+      ) {
+        fromProvince.local_troops = fromTroops - troopsNumber;
+        toProvince.local_troops = defenderTroops + troopsNumber;
+        await manager.save(Province, [fromProvince, toProvince]);
+        return;
+      }
+
+      const buildModifier = computeBuildModifier(toProvince.buildings);
+      const battleResult = troopsNumber / buildModifier - defenderTroops;
+
+      fromProvince.local_troops = fromTroops - troopsNumber;
+
+      if (battleResult > 0) {
+        const isWater = toProvince.type?.toLowerCase() === 'water';
+        if (!isWater) {
+          toProvince.user_id = action.userId;
+        }
+        toProvince.local_troops = Math.round(battleResult);
+      } else if (battleResult < 0) {
+        toProvince.local_troops = Math.round(-battleResult);
+      } else {
+        toProvince.local_troops = 0;
+      }
+
+      await manager.save(Province, [fromProvince, toProvince]);
+    });
   }
 }
 

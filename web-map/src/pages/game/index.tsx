@@ -11,6 +11,7 @@ import { setProvinces } from "../../store/slices/provincesSlice.ts";
 import { setOtherUsers } from "../../store/slices/otherUsersSlice.ts";
 import { TopBar } from "../../components/TopBar.tsx";
 import { actionsApi } from "../../api/actions.ts";
+import { useActionExecutionReload } from "../../hooks/useActionExecutionReload.ts";
 import { setActions } from "../../store/slices/actionsSlice.ts";
 
 
@@ -30,6 +31,7 @@ export const GamePage: React.FC = () => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const { user: authUser } = useAuth();
   const dispatch = useAppDispatch();
+  useActionExecutionReload();
   const [openIsNewModal, setOpenIsNewModal] = useState(false);
 
   const userId = authUser?.id || "";

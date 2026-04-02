@@ -236,12 +236,25 @@ export class ActionsService {
     });
   }
 
+  /**
+   * All pending rows sorted for inspection; global execution order is `order` ASC, then `createdAt` ASC.
+   */
   async getPendingActionsForExecution(): Promise<ActionQueue[]> {
     return await this.actionQueueRepo.find({
       where: {
         status: ActionStatus.PENDING,
       },
-      order: { order: 'ASC' },
+      order: { order: 'ASC', createdAt: 'ASC' },
+    });
+  }
+
+  /**
+   * Next action to run: lowest `order` among PENDING rows, then oldest `createdAt` if `order` ties.
+   */
+  async findNextPendingActionInOrder(): Promise<ActionQueue | null> {
+    return await this.actionQueueRepo.findOne({
+      where: { status: ActionStatus.PENDING },
+      order: { order: 'ASC', createdAt: 'ASC' },
     });
   }
 

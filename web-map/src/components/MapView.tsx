@@ -67,7 +67,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     }
 
     // Determine if it's an invasion or transfer
-    const isInvasion = targetProvince.userId !== currentUserId;
+    // const isInvasion = targetProvince.userId !== currentUserId;
 
     // Open modal
     setModalState({
@@ -75,7 +75,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
       fromProvinceId: sourceProvince.id,
       toProvinceId: targetProvince.id,
       maxTroops: selectedTroops.troopCount,
-      isInvasion,
+      isInvasion: true,
     });
   }, [selectedTroops, provinces, currentUserId]);
 

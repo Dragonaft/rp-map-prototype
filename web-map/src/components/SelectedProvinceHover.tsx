@@ -5,6 +5,7 @@ import type { RootState } from "../store/store.ts";
 import { Button } from "@mui/material";
 import { useMutation } from "../hooks/useApi.ts";
 import { provincesApi } from "../api/provinces.ts";
+import { useState } from "react";
 
 export const SelectedProvinceHover = () => {
   const dispatch = useAppDispatch();
@@ -13,6 +14,8 @@ export const SelectedProvinceHover = () => {
   const otherUsers = useAppSelector((state: RootState) => state.otherUsers.otherUsers);
   const { mutate } = useMutation(provincesApi.setupUser);
   const isUserOwner = user.id === selectedProvince?.userId;
+  const [isOpenBuildMenu, setIsOpenBuildMenu] = useState<boolean>(false);
+  const [isOpenDeployMenu, setIsOpenDeployMenu] = useState<boolean>(false);
 
   const handleGetProvinceOwner = () => {
    return otherUsers.find((user) => user.id === selectedProvince?.userId);
@@ -36,8 +39,6 @@ export const SelectedProvinceHover = () => {
       }));
     }
 
-    console.log(response?.province, 'response?.province_TEST')
-
     if (response?.province) {
       dispatch(updateProvinceById({
         id: response.province.id,
@@ -47,6 +48,14 @@ export const SelectedProvinceHover = () => {
       }));
     }
   };
+
+  const DeployMenu = () => (<div></div>)
+  const BuildMenu = () => (
+    <div>
+
+      <Button variant="contained" color="primary" onClick={() => setIsOpenBuildMenu(false)}>BACK</Button>
+    </div>
+  )
 
   if (!selectedProvince) return null;
 
@@ -71,6 +80,25 @@ export const SelectedProvinceHover = () => {
             <p>Resource: {selectedProvince.resourceType}</p>
             {handleGetProvinceOwner() && <p>Owner: {handleGetProvinceOwner()?.countryName}</p>}
           </div>
+        </div>
+      )}
+      {!user.isNew && isUserOwner && (
+        <div className="flex flex-col justify-between h-full">
+          {isOpenDeployMenu && <DeployMenu />}
+          {isOpenBuildMenu && <BuildMenu />}
+          {!isOpenDeployMenu && !isOpenBuildMenu &&
+          <>
+            <div>
+              <span>Province Data</span>
+              <p>Landscape: {selectedProvince.landscape}</p>
+              <p>Resource: {selectedProvince.resourceType}</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button variant="contained" color="primary" onClick={() => setIsOpenDeployMenu(true)}>DEPLOY TROOPS</Button>
+              <Button variant="contained" color="primary" onClick={() => setIsOpenBuildMenu(true)}>BUILD</Button>
+            </div>
+          </>
+          }
         </div>
       )}
     </div>

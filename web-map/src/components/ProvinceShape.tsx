@@ -155,7 +155,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelec
       )}
 
       {/* Show local troops count for current user's provinces in a white box */}
-      {renderTroopBox && isCurrentUserProvince && pathBBox && province.localTroops !== undefined && (
+      {renderTroopBox && isCurrentUserProvince && pathBBox && province.localTroops !== undefined && province.localTroops > 0 && (
         <g
           onClick={handleTroopClick}
           style={{ cursor: 'pointer' }}

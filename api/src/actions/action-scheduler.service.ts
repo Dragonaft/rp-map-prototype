@@ -3,7 +3,10 @@ import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { ActionsService } from './actions.service';
+import { ActionExecutionStateService } from './action-execution-state.service';
 import { ActionExecutorService } from './action-executor.service';
+import { UpkeepActionService } from './upkeep-action.service';
+import { IncomeActionService } from './income-action.service';
 import { ActionsLog, ExecutedAction } from './entities/actions-log.entity';
 import { ExecutionLock } from './entities/execution-lock.entity';
 import { ActionQueue, ActionStatus } from './entities/action-queue.entity';
@@ -24,6 +27,9 @@ export class ActionSchedulerService {
     private readonly actionQueueRepo: Repository<ActionQueue>,
     private readonly actionsService: ActionsService,
     private readonly actionExecutor: ActionExecutorService,
+    private readonly incomeAction: IncomeActionService,
+    private readonly upkeepAction: UpkeepActionService,
+    private readonly actionExecutionState: ActionExecutionStateService,
     private readonly dataSource: DataSource,
   ) {
     // Create unique instance ID (hostname + process ID)
@@ -41,6 +47,37 @@ export class ActionSchedulerService {
     await this.executeScheduledActions('18:00');
   }
 
+  /**
+   * Non-production only: runs pending actions every 2 minutes for local testing.
+   * Uses the same timetable/lock as the 5-minute cron so both ticks cannot drain the queue twice at once.
+   * Set NODE_ENV=production to disable; set DISABLE_FAST_ACTION_CRON=true to disable while keeping other non-prod behavior.
+   */
+  @Cron('*/2 * * * *')
+  async executeDevFastActionsEvery2Min(): Promise<void> {
+    if (!this.isFastDevCronEnabled()) {
+      return;
+    }
+    await this.executeScheduledActions('dev-fast');
+  }
+
+  /**
+   * Non-production only: same as every-2-minute dev cron, alternate cadence for manual testing.
+   */
+  @Cron('*/5 * * * *')
+  async executeDevFastActionsEvery5Min(): Promise<void> {
+    if (!this.isFastDevCronEnabled()) {
+      return;
+    }
+    await this.executeScheduledActions('dev-fast');
+  }
+
+  private isFastDevCronEnabled(): boolean {
+    if (process.env.DISABLE_FAST_ACTION_CRON === 'true') {
+      return false;
+    }
+    return process.env.NODE_ENV !== 'production';
+  }
+
   private async executeScheduledActions(timetable: string): Promise<void> {
     const lockKey = `action-execution-${timetable}`;
 
@@ -54,7 +91,23 @@ export class ActionSchedulerService {
       return;
     }
 
-    this.logger.log(`Starting action execution for ${timetable} (Instance: ${this.instanceId})`);
+    this.logger.log(
+      `Starting action execution for ${timetable} (Instance: ${this.instanceId}); strict global queue order (order ASC, createdAt ASC)`,
+    );
+
+    this.actionExecutionState.beginProcessing();
+
+    try {
+      await this.incomeAction.execute();
+    } catch (error) {
+      this.logger.error('Income action failed; continuing with upkeep and queued actions', error);
+    }
+
+    try {
+      await this.upkeepAction.execute();
+    } catch (error) {
+      this.logger.error('Upkeep action failed; continuing with queued actions', error);
+    }
 
     const executionId = uuidv4();
     const executionStartTime = new Date();
@@ -63,13 +116,13 @@ export class ActionSchedulerService {
     let failedActions = 0;
 
     try {
-      // Get all pending actions scheduled for execution
-      const actions = await this.actionsService.getPendingActionsForExecution();
+      // Re-fetch the lowest pending `order` after each action so execution always runs 1 → n
+      while (true) {
+        const action = await this.actionsService.findNextPendingActionInOrder();
+        if (!action) {
+          break;
+        }
 
-      this.logger.log(`Found ${actions.length} actions to execute for ${timetable}`);
-
-      // Execute actions one by one (earliest first)
-      for (const action of actions) {
         try {
           // Update status to PROCESSING
           await this.actionsService.updateActionStatus(action.id, ActionStatus.PROCESSING);
@@ -132,6 +185,10 @@ export class ActionSchedulerService {
         }
       }
 
+      this.logger.log(
+        `Finished ordered execution for ${timetable}: ${executedActions.length} action(s) processed`,
+      );
+
       const executionEndTime = new Date();
 
       // Create log entry
@@ -160,7 +217,7 @@ export class ActionSchedulerService {
     } catch (error) {
       this.logger.error(`Error during scheduled action execution for ${timetable}:`, error);
     } finally {
-      // Always release the lock
+      this.actionExecutionState.endProcessing();
       await this.releaseLock(lockKey);
     }
   }
