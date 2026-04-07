@@ -90,22 +90,29 @@ export const GamePage: React.FC = () => {
     <div>
       <Modal
         open={openIsNewModal}
-        aria-labelledby="modal-modal-title"
-        aria-describedby="modal-modal-description"
       >
-        <Box sx={style}>
-          <Typography id="modal-modal-title" variant="h6" component="h2">
-            Welcome to the game!
-          </Typography>
-          <Typography id="modal-modal-description" sx={{ mt: 2 }}>
+        <Box sx={style}
+          // className="flex flex-col bg-surface-container p-4 rounded border border-outline-variant/10"
+        >
+          <h1
+            className="font-headline text-4xl font-bold tracking-tighter text-primary glow-text-primary uppercase mb-2">
+            WELCOME TO THE GAME
+          </h1>
+          <Typography id="modal-modal-description" sx={{mt: 2}}>
             This is welcome window! After pressing Select chose starting province!
           </Typography>
-          <Button variant="contained" color="primary" onClick={() => setOpenIsNewModal(false)}>
-            Select
+          <Button
+            variant="contained"
+            color="primary"
+            sx={{mt: 2}}
+            className="!w-full !bg-gradient-to-r from-primary to-primary-dim py-4 rounded-lg font-headline font-bold text-on-primary-fixed uppercase tracking-widest text-sm glow-primary hover:opacity-90 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+            onClick={() => setOpenIsNewModal(false)}
+          >
+            SELECT
           </Button>
         </Box>
       </Modal>
-      <TopBar />
+      <TopBar/>
       <div ref={mapContainerRef}>
         <MapView
           loading={loading}

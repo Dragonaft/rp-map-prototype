@@ -71,6 +71,10 @@ export class Province extends BaseEntity {
     return this.neighbor_ids;
   }
 
+  /** Set at query-time: true when a non-owning user has troops stationed here. Not persisted. */
+  @Expose()
+  public enemyHere?: boolean;
+
   @ManyToOne(() => User, (user) => user.provinces)
   @JoinColumn({ name: 'user_id' })
   public user?: User;

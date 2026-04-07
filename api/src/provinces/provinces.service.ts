@@ -33,6 +33,9 @@ export class ProvincesService {
     // for own provinces, subtract troops already committed to INVADE / TRANSFER actions
     return provinces.map(province => {
       if (province.user_id !== userId) {
+        if (province.local_troops > 0) {
+          province.enemyHere = true;
+        }
         province.local_troops = null;
         return province;
       }

@@ -114,7 +114,8 @@ export const SelectedProvinceHover = () => {
   const DeployMenu = () => (
     <div className="flex flex-col justify-between h-full">
       <div className="flex flex-col gap-2">
-        <p>Reserve troops</p>
+        <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Reserve troops</h2>
+        <p>Troops deploy</p>
         <Box sx={{ px: 2 }}>
           <Slider
             value={troopCount}
@@ -135,6 +136,7 @@ export const SelectedProvinceHover = () => {
     <div className="flex flex-col justify-between h-full">
       {loading && <p>Loading...</p>}
       <div className="flex flex-col gap-2">
+        <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Build options</h2>
         {!loading && buildingsState.map((building) => (
           <Tooltip title={
             <>
@@ -163,11 +165,11 @@ export const SelectedProvinceHover = () => {
   if (!selectedProvince) return null;
 
   return (
-    <div className="w-60 h-80 p-2 bg-white absolute right-1 top-1">
+    <div className="w-60 h-80 glass-panel rounded-lg border border-outline-variant/10 p-5 flex flex-col flex-1 absolute right-5 top-4">
       {user.isNew && (
         <div className="flex flex-col justify-between h-full">
           <div>
-            <span>Province Data</span>
+            <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
             <p>Landscape: {selectedProvince.landscape}</p>
             <p>Resource: {selectedProvince.resourceType}</p>
             <p>Type: {selectedProvince.type}</p>
@@ -179,7 +181,7 @@ export const SelectedProvinceHover = () => {
       {!user.isNew && !isUserOwner && (
         <div className="flex flex-col justify-between h-full">
           <div>
-            <span>Province Data</span>
+            <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
             <p>Landscape: {selectedProvince.landscape}</p>
             <p>Resource: {selectedProvince.resourceType}</p>
             {handleGetProvinceOwner() && <p>Owner: {handleGetProvinceOwner()?.countryName}</p>}
@@ -194,7 +196,7 @@ export const SelectedProvinceHover = () => {
           {!isOpenDeployMenu && !isOpenBuildMenu &&
           <>
             <div>
-              <span>Province Data</span>
+              <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
               <p>Landscape: {selectedProvince.landscape}</p>
               <p>Resource: {selectedProvince.resourceType}</p>
               <p>Local buildings: </p>

@@ -129,6 +129,19 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     return Object.fromEntries(buildings.map((b) => [b.id, b]));
   }, [buildings]);
 
+  const deployActionByProvinceId = useMemo(() => {
+    if (!userActions?.length) return {} as Record<string, { id: string; troopsNumber: number }>;
+    return userActions
+      .filter((a) => a.actionType === ActionType.DEPLOY)
+      .reduce<Record<string, { id: string; troopsNumber: number }>>((acc, a) => {
+        const provinceId: string | undefined = a.actionData?.province_id ?? a.actionData?.provinceId;
+        const troopsNumber: number | undefined = a.actionData?.troops_number ?? a.actionData?.troopCount;
+        if (!provinceId || troopsNumber == null) return acc;
+        acc[provinceId] = { id: a.id, troopsNumber };
+        return acc;
+      }, {});
+  }, [userActions]);
+
   const buildActionsByProvinceId = useMemo(() => {
     if (!userActions?.length) return {} as Record<string, { id: string; buildingType: string }[]>;
     return userActions
@@ -255,7 +268,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100vh', background: '#1e293b' }}>
+    <div style={{ position: 'relative', width: '100%', height: '93vh', marginTop: '65px', background: '#1e293b' }}>
       <SelectedProvinceHover />
 
       {/* Troop Movement Modal */}
@@ -367,6 +380,8 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
             onSelect={(prov) => toggleSelect(prov)}
             onRightClick={(prov) => handleProvinceRightClick(prov)}
             renderTroopBox={true}
+            pendingDeployAction={deployActionByProvinceId[p.id]}
+            onCancelAction={handleOpenCancelModal}
           />
         ))}
 

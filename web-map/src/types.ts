@@ -33,6 +33,7 @@ export interface Province {
   regionId: string;
   userId: string | null;
   localTroops: number;
+  enemyHere?: boolean;
   buildings?: Building[];
   neighbors?: string[] | null;
 }

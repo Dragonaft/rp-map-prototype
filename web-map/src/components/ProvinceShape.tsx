@@ -8,6 +8,11 @@ interface PendingBuildAction {
   buildingType: string;
 }
 
+interface PendingDeployAction {
+  id: string;
+  troopsNumber: number;
+}
+
 interface Props {
   province: Province;
   isSelected: boolean;
@@ -15,6 +20,7 @@ interface Props {
   onRightClick: (province: Province) => void;
   renderTroopBox?: boolean;
   pendingBuildActions?: PendingBuildAction[];
+  pendingDeployAction?: PendingDeployAction;
   onCancelAction?: (actionId: string) => void;
 }
 
@@ -29,7 +35,7 @@ const buildingIcons: Record<string, string> = {
 const WATER_COLOR = 'rgb(174, 226, 255)'; // Match the PNG color rgb(174,226,255)
 const DEFAULT_LAND_COLOR = 'rgb(255, 255, 255)'; // White for unclaimed land provinces
 
-const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelect, onRightClick, renderTroopBox = false, pendingBuildActions = [], onCancelAction }) => {
+const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelect, onRightClick, renderTroopBox = false, pendingBuildActions = [], pendingDeployAction, onCancelAction }) => {
   const dispatch = useAppDispatch();
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
   const currentUserId = useAppSelector((state) => state.user.id);
@@ -197,40 +203,107 @@ const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelec
         </>
       )}
 
-      {/* Show local troops count for current user's provinces in a white box */}
-      {renderTroopBox && isCurrentUserProvince && pathBBox && province.localTroops !== undefined && province.localTroops > 0 && (
-        <g
-          onClick={handleTroopClick}
-          style={{ cursor: 'pointer' }}
-        >
-          {/* White background box */}
+      {/* Show soldier icon on non-user provinces that have enemy troops */}
+      {renderTroopBox && !isCurrentUserProvince && province.enemyHere && pathBBox && (
+        <g>
           <rect
             x={pathBBox.x + pathBBox.width / 2 - 20}
             y={pathBBox.y + pathBBox.height / 2 + (province.buildings && province.buildings.length > 0 ? 25 : 0) - 10}
             width="40"
             height="20"
             fill="white"
-            stroke={isTroopSelected ? 'rgb(255, 215, 0)' : 'rgb(0, 0, 0)'}
-            strokeWidth={isTroopSelected ? 3 : 1}
+            stroke="rgb(0, 0, 0)"
+            strokeWidth={1}
             rx="3"
             ry="3"
           />
-          {/* Troop count text */}
           <text
             x={pathBBox.x + pathBBox.width / 2}
             y={pathBBox.y + pathBBox.height / 2 + (province.buildings && province.buildings.length > 0 ? 25 : 0)}
             fontSize="12"
-            fill="#000"
             textAnchor="middle"
             dominantBaseline="middle"
-            fontWeight="bold"
             pointerEvents="none"
             style={{ userSelect: 'none' }}
           >
-            {province.localTroops}
+            🪖
           </text>
         </g>
       )}
+
+      {/* Show local troops count for current user's provinces in a white box */}
+      {renderTroopBox && isCurrentUserProvince && pathBBox && (() => {
+        const cx = pathBBox.x + pathBBox.width / 2;
+        const troopY = pathBBox.y + pathBBox.height / 2 + (province.buildings && province.buildings.length > 0 ? 25 : 0);
+        const hasLocalTroops = province.localTroops != null && province.localTroops > 0;
+        const deployLabel = pendingDeployAction ? `+${pendingDeployAction.troopsNumber}` : null;
+
+        return (
+          <>
+            {hasLocalTroops && (
+              <g onClick={handleTroopClick} style={{ cursor: 'pointer' }}>
+                <rect
+                  x={cx - 20}
+                  y={troopY - 10}
+                  width="40"
+                  height="20"
+                  fill="white"
+                  stroke={isTroopSelected ? 'rgb(255, 215, 0)' : 'rgb(0, 0, 0)'}
+                  strokeWidth={isTroopSelected ? 3 : 1}
+                  rx="3"
+                  ry="3"
+                />
+                <text
+                  x={cx}
+                  y={troopY}
+                  fontSize="12"
+                  fill="#000"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontWeight="bold"
+                  pointerEvents="none"
+                  style={{ userSelect: 'none' }}
+                >
+                  {province.localTroops}
+                </text>
+              </g>
+            )}
+
+            {deployLabel && (
+              <g
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onCancelAction?.(pendingDeployAction!.id); }}
+                style={{ cursor: 'pointer' }}
+              >
+                <rect
+                  x={cx - 20}
+                  y={hasLocalTroops ? troopY + 12 : troopY - 10}
+                  width="40"
+                  height="20"
+                  fill="white"
+                  stroke="rgb(34, 197, 94)"
+                  strokeWidth={1}
+                  rx="3"
+                  ry="3"
+                />
+                <text
+                  x={cx}
+                  y={hasLocalTroops ? troopY + 22 : troopY}
+                  fontSize="12"
+                  fill="rgb(34, 197, 94)"
+                  textAnchor="middle"
+                  dominantBaseline="middle"
+                  fontWeight="bold"
+                  pointerEvents="none"
+                  style={{ userSelect: 'none' }}
+                >
+                  {deployLabel}
+                </text>
+              </g>
+            )}
+          </>
+        );
+      })()}
     </g>
   );
 };

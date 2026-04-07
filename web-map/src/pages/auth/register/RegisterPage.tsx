@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { Box, Button, TextField } from '@mui/material';
+import React, { useEffect, useState } from 'react';
+import { Box, Button } from '@mui/material';
 import { SubmitHandler, useForm } from 'react-hook-form';
 import { useMutation } from '../../../hooks/useApi.ts';
 import { authApi } from '../../../api/auth.ts';
@@ -18,14 +18,21 @@ export const RegisterPage: React.FC = () => {
   const { mutate } = useMutation(authApi.register);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const [isCheck, setIsCheck] = useState<boolean>(false);
 
   const onSubmit: SubmitHandler<IRegisterFormInput> = async (data) => {
-    await mutate(data);
+    try {
+      await mutate(data);
+    } catch (e) {
+      console.log(e)
+    } finally {
+      navigate('/login');
+    }
   }
 
-  const onBackToLogin = () => {
-    navigate('/login');
-  }
+  // const onBackToLogin = () => {
+  //   navigate('/login');
+  // }
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -34,33 +41,130 @@ export const RegisterPage: React.FC = () => {
   }, [isAuthenticated]);
 
   return (
-    <div className="flex items-center justify-center w-full h-screen bg-neutral-600">
-      <Box className="w-full max-w-sm h-1/3 p-8 bg-amber-200 rounded-lg shadow-lg">
-        <Button size="small" variant="contained" color="primary" type="button" onClick={onBackToLogin}>Back</Button>
-        <span className="w-full text-center">Register</span>
-        <form noValidate autoComplete="off" onSubmit={handleSubmit(onSubmit)} className="flex flex-col space-y-4">
-          <TextField
-            {...register("login", { required: true })}
-            label="Login"
-            variant="outlined"
-          />
-          <TextField
-            {...register("password", { required: true })}
-            label="Password"
-            variant="outlined"
-            type="password"
-          />
-          <TextField
-            {...register("countryName", { required: true })}
-            label="countryName"
-            variant="outlined"
-          />
-          <TextField
-            {...register("color", { required: true })}
-            label="color"
-            variant="outlined"
-          />
-          <Button variant="contained" color="primary" type="submit">Register</Button>
+    <div className="relative z-20 flex-1 flex items-center justify-center p-6">
+      <Box className="w-full max-w-md">
+        <div className="absolute -top-[20%] -left-[10%] w-[60%] h-[60%] bg-primary/5 rounded-full blur-[120px]"></div>
+        <div
+          className="absolute -bottom-[20%] -right-[10%] w-[50%] h-[50%] bg-secondary/5 rounded-full blur-[120px]"></div>
+        <div className="flex flex-col items-center mb-10 text-center">
+          <div
+            className="mb-4 px-4 py-2 border border-outline-variant/20 bg-surface-container/40 backdrop-blur-md rounded-lg">
+          <span
+            className="command-font text-2xl font-bold tracking-tighter text-primary drop-shadow-[0_0_8px_rgba(129,236,255,0.4)]">PR_PROTOTYPE</span>
+          </div>
+          <h1 className="command-font text-3xl font-medium tracking-tight text-on-surface mb-2">INITIALIZE_ACCOUNT</h1>
+        </div>
+        <form
+          noValidate
+          autoComplete="off"
+          onSubmit={handleSubmit(onSubmit)}
+          className="flex flex-col space-y-5 bg-surface-container/60 backdrop-blur-xl p-8 rounded-xl border border-outline-variant/15 shadow-[0_20px_50px_rgba(0,0,0,0.5)]"
+        >
+          <div className="space-y-1.5">
+            <label
+              className="command-font text-[10px] uppercase font-bold tracking-[0.2em] text-primary-dim ml-1"
+              htmlFor="username">
+              Username
+            </label>
+            <div className="relative group">
+              <span
+                className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">person</span>
+              <input
+                {...register("login", {required: true})}
+                className="w-[83%] bg-surface-container-lowest border-none py-3.5 pl-11 pr-4 text-sm text-on-surface focus:ring-0 focus:outline-none placeholder:text-outline-variant rounded-lg transition-all border-b-2 border-transparent focus:border-primary"
+                id="username"
+                placeholder="USER_NAME"
+                type="text"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label
+              className="command-font text-[10px] uppercase font-bold tracking-[0.2em] text-primary-dim ml-1"
+              htmlFor="countryName"
+            >
+              Country name
+            </label>
+            <div className="relative group">
+              <span
+                className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">person</span>
+              <input
+                {...register("countryName", {required: true})}
+                className="w-[83%] bg-surface-container-lowest border-none py-3.5 pl-11 pr-4 text-sm text-on-surface focus:ring-0 focus:outline-none placeholder:text-outline-variant rounded-lg transition-all border-b-2 border-transparent focus:border-primary"
+                id="countryName"
+                placeholder="COUNTRY_NAME"
+                type="text"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label
+              className="command-font text-[10px] uppercase font-bold tracking-[0.2em] text-primary-dim ml-1"
+              htmlFor="username"
+            >
+              Hex color
+            </label>
+            <div className="relative group">
+              <span
+                className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">person</span>
+              <input
+                {...register("color", {required: true})}
+                className="w-[83%] bg-surface-container-lowest border-none py-3.5 pl-11 pr-4 text-sm text-on-surface focus:ring-0 focus:outline-none placeholder:text-outline-variant rounded-lg transition-all border-b-2 border-transparent focus:border-primary"
+                id="color"
+                placeholder="HEX_COLOR"
+                type="text"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label
+              className="command-font text-[10px] uppercase font-bold tracking-[0.2em] text-primary-dim ml-1"
+              htmlFor="password"
+            >
+              Password
+            </label>
+            <div className="relative group">
+                <span
+                  className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">lock_open</span>
+              <input
+                {...register("password", {required: true})}
+                className="w-[83%] bg-surface-container-lowest border-none py-3.5 pl-11 pr-4 text-sm text-on-surface focus:ring-0 focus:outline-none placeholder:text-outline-variant rounded-lg transition-all border-b-2 border-transparent focus:border-primary"
+                id="password"
+                placeholder="••••••••"
+                type="password"
+              />
+            </div>
+          </div>
+          <div className="flex items-center space-x-3 py-2">
+            <div className="relative flex items-center h-5">
+              <input
+                className="w-4 h-4 text-primary bg-surface-container-lowest border-outline-variant/30 rounded focus:ring-primary/20 focus:ring-offset-0 ring-offset-transparent cursor-pointer"
+                id="terms"
+                type="checkbox"
+                checked={isCheck}
+                onChange={() => setIsCheck(!isCheck)}
+              />
+            </div>
+            <label
+              className="text-[11px] text-on-surface-variant leading-tight"
+              htmlFor="terms"
+            >
+              I acknowledge that its just half made prototype and i will tell that creator is a very good person
+            </label>
+          </div>
+          <Button
+            className="w-full bg-gradient-to-r from-primary to-primary-dim py-4 rounded-lg text-on-primary-fixed command-font font-bold tracking-widest text-sm uppercase transition-all hover:shadow-[0_0_20px_rgba(129,236,255,0.4)] active:scale-95 mt-4"
+            type="submit"
+            disabled={!isCheck}
+          >
+            Register
+          </Button>
+          <div className="mt-1 pt-6 border-t border-outline-variant/10 text-center">
+            <p className="text-xs text-on-surface-variant">
+              Already have account? <a className="text-secondary font-semibold hover:underline transition-all"
+                                      href="login">LOGIN</a>
+            </p>
+          </div>
         </form>
       </Box>
     </div>
