@@ -1,50 +1,30 @@
 import { useEffect, useRef } from 'react';
-import { actionsApi } from '../api/actions';
 
-const POLL_MS = 60_000;
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 /**
- * Polls action batch state. When a batch finishes after `processing` was true, reloads the page
- * so map/actions data matches the server (no WebSockets).
+ * Subscribes to the BE execution-stream SSE endpoint.
+ * When a batch finishes after processing was observed, reloads the page so map/actions data is fresh.
  */
 export function useActionExecutionReload(): void {
   const sawProcessingRef = useRef(false);
-  const lastSeqRef = useRef<number | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
+    const es = new EventSource(`${apiBaseUrl}/actions/execution-stream`);
 
-    const tick = async () => {
+    es.onmessage = (event: MessageEvent<string>) => {
       try {
-        const s = await actionsApi.getExecutionStatus();
-        if (cancelled) return;
-
-        if (s.processing) {
+        const data: { processing: boolean } = JSON.parse(event.data);
+        if (data.processing) {
           sawProcessingRef.current = true;
-          lastSeqRef.current = s.completedBatchSeq;
-          return;
-        }
-
-        if (
-          sawProcessingRef.current &&
-          lastSeqRef.current !== null &&
-          s.completedBatchSeq > lastSeqRef.current
-        ) {
+        } else if (sawProcessingRef.current) {
           window.location.reload();
-          return;
         }
-
-        lastSeqRef.current = s.completedBatchSeq;
       } catch {
-        /* execution-status is allowlisted; ignore transient errors */
+        /* ignore malformed messages */
       }
     };
 
-    void tick();
-    const id = window.setInterval(tick, POLL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(id);
-    };
+    return () => es.close();
   }, []);
 }

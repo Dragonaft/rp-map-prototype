@@ -6,7 +6,7 @@ import { ActionExecutionStateService } from './action-execution-state.service';
  * Paths that stay available while the action queue is executing (otherwise clients could not poll or refresh tokens).
  */
 const ALLOW_WHEN_PROCESSING = new Set([
-  '/actions/execution-status',
+  '/actions/execution-stream',
   '/auth/login',
   '/auth/register',
   '/auth/refresh',

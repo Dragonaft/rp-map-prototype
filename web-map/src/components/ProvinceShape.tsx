@@ -3,18 +3,33 @@ import { Building, Province } from '../types';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { setProvinceCenter, setSelectedTroops } from '../store/slices/provincesSlice';
 
+interface PendingBuildAction {
+  id: string;
+  buildingType: string;
+}
+
 interface Props {
   province: Province;
   isSelected: boolean;
   onSelect: (province: Province, multi: boolean) => void;
   onRightClick: (province: Province) => void;
   renderTroopBox?: boolean;
+  pendingBuildActions?: PendingBuildAction[];
+  onCancelAction?: (actionId: string) => void;
 }
+
+const buildingIcons: Record<string, string> = {
+  CAPITAL: '🏰',
+  FARM: '🌾',
+  BARRACKS: '⚔️',
+  FORT: '🛡️',
+  MARKET: '💰',
+};
 
 const WATER_COLOR = 'rgb(174, 226, 255)'; // Match the PNG color rgb(174,226,255)
 const DEFAULT_LAND_COLOR = 'rgb(255, 255, 255)'; // White for unclaimed land provinces
 
-const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelect, onRightClick, renderTroopBox = false }) => {
+const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelect, onRightClick, renderTroopBox = false, pendingBuildActions = [], onCancelAction }) => {
   const dispatch = useAppDispatch();
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
   const currentUserId = useAppSelector((state) => state.user.id);
@@ -99,18 +114,11 @@ const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelec
     }
   }, [dispatch, province.id, province.localTroops, isTroopSelected]);
 
-  // Building icons (simple shapes for different building types)
-  const buildingIcons = ['🏰', '⚔️', '🏭', '🌾', '⛏️', '🏛️', '🛡️', '💰'];
-
   const renderBuildingIcon = (building: Building, index: number) => {
     if (!pathBBox) return null;
 
-    // Pick a deterministic icon based on the building type
-    // @ts-ignore
-    const iconIndex = building.type.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % buildingIcons.length;
-    const icon = buildingIcons[iconIndex];
+    const icon = buildingIcons[building.type] ?? '🏗️';
 
-    // Position multiple buildings in a grid around a center
     const centerX = pathBBox.x + pathBBox.width / 2;
     const centerY = pathBBox.y + pathBBox.height / 2;
     const offsetX = (index % 2) * 15 - 7.5;
@@ -126,6 +134,37 @@ const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelec
         dominantBaseline="middle"
         pointerEvents="none"
         style={{ userSelect: 'none' }}
+      >
+        {icon}
+      </text>
+    );
+  };
+
+  const renderPendingBuildIcon = (action: PendingBuildAction, index: number) => {
+    if (!pathBBox) return null;
+
+    const icon = (action.buildingType ? buildingIcons[action.buildingType] : undefined) ?? '🏗️';
+
+    const centerX = pathBBox.x + pathBBox.width / 2;
+    const centerY = pathBBox.y + pathBBox.height / 2;
+    const offsetX = (index % 2) * 15 - 7.5;
+    const offsetY = Math.floor(index / 2) * 15 - 7.5;
+
+    return (
+      <text
+        key={action.id}
+        x={centerX + offsetX}
+        y={centerY + offsetY}
+        fontSize="16"
+        textAnchor="middle"
+        dominantBaseline="middle"
+        opacity={0.5}
+        style={{ userSelect: 'none', cursor: 'pointer' }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          onCancelAction?.(action.id);
+        }}
       >
         {icon}
       </text>
@@ -151,6 +190,10 @@ const ProvinceShapeComponent: React.FC<Props> = ({ province, isSelected, onSelec
           {province.buildings && province.buildings.length > 0 &&
             province.buildings.map((building, index) => renderBuildingIcon(building, index))
           }
+          {/* Show half-transparent pending build icons */}
+          {pendingBuildActions.map((action, i) =>
+            renderPendingBuildIcon(action, (province.buildings?.length ?? 0) + i)
+          )}
         </>
       )}
 

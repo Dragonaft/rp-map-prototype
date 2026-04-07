@@ -1,13 +1,16 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, MessageEvent, Sse } from '@nestjs/common';
+import { Observable, map } from 'rxjs';
 import { ActionExecutionStateService } from './action-execution-state.service';
 
-/** No JWT: clients must poll this while other routes return 503 during batch execution. */
+/** No JWT: clients connect here to receive processing state changes via SSE. */
 @Controller('actions')
 export class ActionExecutionStatusController {
   constructor(private readonly actionExecutionState: ActionExecutionStateService) {}
 
-  @Get('execution-status')
-  getExecutionStatus(): { processing: boolean; completedBatchSeq: number } {
-    return this.actionExecutionState.getClientPayload();
+  @Sse('execution-stream')
+  stream(): Observable<MessageEvent> {
+    return this.actionExecutionState.execution$.pipe(
+      map((data) => ({ data }) as MessageEvent),
+    );
   }
 }

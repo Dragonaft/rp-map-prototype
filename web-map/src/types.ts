@@ -4,6 +4,16 @@ export type ProvinceType = 'land' | 'coastal' | 'water';
 
 export type Landscape = 'plains' | 'forest' | 'mountain' | 'desert' | 'hills' | 'swamp';
 
+export enum BuildingTypes {
+  CAPITOL = 'CAPITOL',
+  CAPITAL = 'CAPITAL',
+  FARM = 'FARM',
+  BARRACKS = 'BARRACKS',
+  FORT = 'FORT',
+  MARKET = 'MARKET',
+}
+
+
 export interface Building {
   id: string;
   type: string;

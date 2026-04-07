@@ -13,6 +13,8 @@ import { TopBar } from "../../components/TopBar.tsx";
 import { actionsApi } from "../../api/actions.ts";
 import { useActionExecutionReload } from "../../hooks/useActionExecutionReload.ts";
 import { setActions } from "../../store/slices/actionsSlice.ts";
+import { buildingsApi } from "../../api/buildings.ts";
+import { setBuildings } from "../../store/slices/buildingsSlice.ts";
 
 
 const style = {
@@ -43,6 +45,8 @@ export const GamePage: React.FC = () => {
   const { data: provinces, loading, error } = useQuery(fetchProvinces, []);
   const fetchUserActions = useCallback(() => actionsApi.getUserActions(), []);
   const { data: actions } = useQuery(fetchUserActions, []);
+  const fetchBuildings = useCallback(() => buildingsApi.getAll(), []);
+  const { data: buildingsData } = useQuery(fetchBuildings, []);
 
   useEffect(() => {
     if (!userData) return;
@@ -64,6 +68,11 @@ export const GamePage: React.FC = () => {
   useEffect(() => {
     dispatch(setActions(actions))
   }, [actions, dispatch]);
+
+  useEffect(() => {
+    if (!buildingsData) return;
+    dispatch(setBuildings(buildingsData));
+  }, [buildingsData, dispatch]);
 
   // Prevent browser zoom when Ctrl+wheel anywhere on the page
   useEffect(() => {

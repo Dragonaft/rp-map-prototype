@@ -19,6 +19,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const currentUserId = useAppSelector((state: RootState) => state.user.id);
   const userActions = useAppSelector((state: RootState) => state.actions.actions);
   const provinceCentersById = useAppSelector((state: RootState) => state.provinces.provinceCentersById);
+  const buildings = useAppSelector((state: RootState) => state.buildings.buildings);
 
   // Camera state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
@@ -101,13 +102,12 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     try {
       const response = await actionsApi.removeAction(cancelActionId);
       dispatch(removeActionById(cancelActionId));
-      console.log(response, 'response_TEST')
-      dispatch(updateProvinceById({
-        id: response.province.id,
-        updates: {
-          localTroops: response.province.localTroops,
-        },
-      }));
+      if (response?.province?.id != null) {
+        dispatch(updateProvinceById({
+          id: response.province.id,
+          updates: { localTroops: response.province.localTroops },
+        }));
+      }
       setCancelActionId(null);
     } catch (err: any) {
       setCancelError(err?.response?.data?.message || 'Failed to cancel action');
@@ -124,6 +124,25 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
       (a) => a.actionType === ActionType.INVADE,
     );
   }, [userActions]);
+
+  const buildingById = useMemo(() => {
+    return Object.fromEntries(buildings.map((b) => [b.id, b]));
+  }, [buildings]);
+
+  const buildActionsByProvinceId = useMemo(() => {
+    if (!userActions?.length) return {} as Record<string, { id: string; buildingType: string }[]>;
+    return userActions
+      .filter((a) => a.actionType === ActionType.BUILD)
+      .reduce<Record<string, { id: string; buildingType: string }[]>>((acc, a) => {
+        const provinceId: string | undefined = a.actionData?.province_id ?? a.actionData?.provinceId;
+        const buildingId: string | undefined = a.actionData?.building_id ?? a.actionData?.buildingId;
+        if (!provinceId) return acc;
+        const buildingType = (buildingId ? buildingById[buildingId]?.type : undefined) ?? '';
+        if (!acc[provinceId]) acc[provinceId] = [];
+        acc[provinceId].push({ id: a.id, buildingType });
+        return acc;
+      }, {});
+  }, [userActions, buildingById]);
 
   // Add/remove event listeners for wheel zoom
   useEffect(() => {
@@ -265,7 +284,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
           }}
         >
           <Typography variant="h6" component="h2" gutterBottom>
-            Do you want to cancel this action?
+            Are you sure you want to cancel this action?
           </Typography>
           {cancelError && (
             <Typography sx={{ color: 'error.main', mt: 1 }}>
@@ -334,6 +353,8 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
             onSelect={(prov) => toggleSelect(prov)}
             onRightClick={(prov) => handleProvinceRightClick(prov)}
             renderTroopBox={false}
+            pendingBuildActions={buildActionsByProvinceId[p.id]}
+            onCancelAction={handleOpenCancelModal}
           />
         ))}
 
