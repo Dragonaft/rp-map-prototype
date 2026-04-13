@@ -13,6 +13,7 @@ interface BuildingSeedRow {
   income: string | null;
   upkeep: string | null;
   modifier: string | null;
+  cost: number | null;
 }
 
 const BUILDING_TYPE_VALUES = new Set<string>(Object.values(BuildingTypes));
@@ -106,6 +107,7 @@ async function seedBuildings() {
       income: row.income,
       upkeep: row.upkeep,
       modifier: row.modifier,
+      cost: row.cost,
     };
 
     const existing = await repo.find({

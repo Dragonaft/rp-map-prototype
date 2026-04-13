@@ -5,9 +5,9 @@ import type { RootState } from "../store/store.ts";
 import { Box, Button, Slider, Tooltip } from "@mui/material";
 import { useMutation, useQuery } from "../hooks/useApi.ts";
 import { provincesApi } from "../api/provinces.ts";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { buildingsApi } from "../api/buildings.ts";
-import { ActionType, Building } from "../types.ts";
+import { ActionType, Building, BuildingTypes } from "../types.ts";
 import { actionsApi } from "../api/actions.ts";
 import { addAction } from "../store/slices/actionsSlice.ts";
 
@@ -16,6 +16,7 @@ export const SelectedProvinceHover = () => {
   const selectedProvince = useAppSelector(selectSelectedProvince);
   const user = useAppSelector((state: RootState) => state.user);
   const otherUsers = useAppSelector((state: RootState) => state.otherUsers.otherUsers);
+  const actions = useAppSelector((state: RootState) => state.actions.actions);
   const { mutate } = useMutation(provincesApi.setupUser);
   const isUserOwner = user.id === selectedProvince?.userId;
   const [isOpenBuildMenu, setIsOpenBuildMenu] = useState<boolean>(false);
@@ -25,11 +26,10 @@ export const SelectedProvinceHover = () => {
   const { data: buildings, loading } = useQuery(fetchBuildings, []);
   const [troopCount, setTroopCount] = useState<number>(0);
 
-  console.log(selectedProvince, 'PROV')
-
   useEffect(() => {
     if (buildings) {
-      setBuildingsState(buildings);
+      const buildingsWithoutCapital = buildings.filter(building => building.type !== BuildingTypes.CAPITAL);
+      setBuildingsState(buildingsWithoutCapital);
     }
   }, [buildings]);
 
@@ -38,6 +38,22 @@ export const SelectedProvinceHover = () => {
     setIsOpenDeployMenu(false);
     setTroopCount(0);
   }, [selectedProvince]);
+
+  const buildingById = useMemo(() =>
+    buildingsState.reduce<Record<string, Building>>((acc, b) => { acc[b.id] = b; return acc; }, {}),
+    [buildingsState],
+  );
+
+  const pendingBuildTypesInProvince = useMemo(() => {
+    if (!actions.length || !selectedProvince) return new Set<string>();
+    return new Set(
+      actions
+        .filter(a => a.actionType === ActionType.BUILD &&
+          (a.actionData?.province_id ?? a.actionData?.provinceId) === selectedProvince.id)
+        .map(a => buildingById[a.actionData?.building_id ?? a.actionData?.buildingId]?.type ?? '')
+        .filter(Boolean),
+    );
+  }, [actions, selectedProvince, buildingById]);
 
   const handleGetProvinceOwner = () => {
    return otherUsers.find((user) => user.id === selectedProvince?.userId);
@@ -132,6 +148,7 @@ export const SelectedProvinceHover = () => {
       <Button variant="contained" color="primary" onClick={() => setIsOpenDeployMenu(false)}>BACK</Button>
     </div>
   )
+
   const BuildMenu = () => (
     <div className="flex flex-col justify-between h-full">
       {loading && <p>Loading...</p>}
@@ -150,7 +167,11 @@ export const SelectedProvinceHover = () => {
               key={building.id}
               variant="contained"
               color="primary"
-              disabled={!user.money || user.money < building.cost}
+              disabled={
+                !user.money || user.money < building.cost ||
+                selectedProvince?.buildings?.some(b => b.type === building.type) ||
+                pendingBuildTypesInProvince.has(building.type)
+              }
               onClick={() => handleBuildAction(building.id)}
             >
               {building.name}
