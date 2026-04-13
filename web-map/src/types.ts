@@ -24,6 +24,26 @@ export interface Building {
   cost: number;
 }
 
+/** Static fields — never change after map import. Safe to cache in localStorage. */
+export interface ProvinceLayout {
+  id: string;
+  polygon: string;
+  type: ProvinceType;
+  landscape: Landscape;
+  resourceType: string;
+  regionId: string;
+  neighbors: string[] | null;
+}
+
+/** Dynamic fields — change only at turn end. Always fetched fresh. */
+export interface ProvinceStateData {
+  id: string;
+  userId: string | null;
+  localTroops: number | null;
+  enemyHere?: boolean;
+  buildings?: Building[];
+}
+
 export interface Province {
   id: string;
   type: ProvinceType;

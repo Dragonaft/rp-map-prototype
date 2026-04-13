@@ -50,7 +50,7 @@ export class UsersService {
   }
 
   async remove(id: string): Promise<void> {
-    const user = await this.findOne(id);
-    await this.usersRepository.remove(user);
+    // const user = await this.findOne(id);
+    // await this.usersRepository.remove(user);
   }
 }

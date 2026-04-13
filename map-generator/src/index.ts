@@ -20,7 +20,7 @@ function parseArgs(args: string[]): Record<string, string> {
 async function main() {
   if (!command) {
     console.log('Usage:');
-    console.log('  generate --rows 10 --cols 15 --width 1600 --height 1200 --out ./out');
+    console.log('  generate --rows 10 --cols 15 --width 4800 --height 3600 --out ./out');
     console.log('           [--seed 42] [--continent-scale 0.1] [--land-threshold 0.48]');
     console.log('           [--rivers 3] [--max-river-length 25]');
     console.log('  import-svg --svg ./map.svg --out ./out');
@@ -34,8 +34,8 @@ async function main() {
   if (command === 'generate') {
     const rows = Number(args.rows ?? 10);
     const cols = Number(args.cols ?? 10);
-    const width = Number(args.width ?? 1600);
-    const height = Number(args.height ?? 1200);
+    const width = Number(args.width ?? 4800);
+    const height = Number(args.height ?? 3600);
     const outputDir = args.out ?? './out';
     const seed = args.seed ? Number(args.seed) : undefined;
     const continentScale = args['continent-scale'] ? Number(args['continent-scale']) : undefined;

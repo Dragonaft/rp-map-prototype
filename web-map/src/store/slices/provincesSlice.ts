@@ -1,27 +1,52 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '../store';
-import { Province } from "../../types.ts";
+import { Province } from '../../types.ts';
 
 interface SelectedTroops {
   provinceId: string;
   troopCount: number;
 }
 
+export interface BBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 interface ProvincesState {
   provinces: Province[];
   selectedProvinceId: string | null;
   selectedTroops: SelectedTroops | null;
-  /** Bumped when setProvinces runs so shapes re-measure and re-register centers */
-  provincesLayoutVersion: number;
   provinceCentersById: Record<string, { x: number; y: number }>;
+  provinceBBoxById: Record<string, BBox>;
+}
+
+/**
+ * Parses an SVG path string and returns its axis-aligned bounding box.
+ * Works for rectangular grid paths (M/H/V/Z) and arbitrary polygons (M/L).
+ * Pure math — no DOM access.
+ */
+function parseBBox(polygon: string): BBox {
+  const nums = polygon.match(/-?\d+(\.\d+)?/g)?.map(Number) ?? [];
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (let i = 0; i + 1 < nums.length; i += 2) {
+    const x = nums[i], y = nums[i + 1];
+    if (x < minX) minX = x;
+    if (x > maxX) maxX = x;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+  }
+  if (!isFinite(minX)) return { x: 0, y: 0, width: 0, height: 0 };
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
 }
 
 const initialState: ProvincesState = {
   provinces: [],
   selectedProvinceId: null,
   selectedTroops: null,
-  provincesLayoutVersion: 0,
   provinceCentersById: {},
+  provinceBBoxById: {},
 };
 
 const provincesSlice = createSlice({
@@ -36,32 +61,30 @@ const provincesSlice = createSlice({
     },
     setProvinces: (state, action: PayloadAction<any[]>) => {
       state.provinces = action.payload;
-      state.provinceCentersById = {};
-      state.provincesLayoutVersion += 1;
-    },
-    setProvinceCenter: (
-      state,
-      action: PayloadAction<{ id: string; x: number; y: number }>,
-    ) => {
-      const { id, x, y } = action.payload;
-      state.provinceCentersById[id] = { x, y };
+      const centersById: Record<string, { x: number; y: number }> = {};
+      const bboxById: Record<string, BBox> = {};
+      for (const p of action.payload) {
+        if (!p?.polygon) continue;
+        const bbox = parseBBox(p.polygon);
+        centersById[p.id] = { x: bbox.x + bbox.width / 2, y: bbox.y + bbox.height / 2 };
+        bboxById[p.id] = bbox;
+      }
+      state.provinceCentersById = centersById;
+      state.provinceBBoxById = bboxById;
     },
     updateProvinceById: (state, action: PayloadAction<{ id: string; updates: Partial<Province> }>) => {
       const { id, updates } = action.payload;
-      const provinceIndex = state.provinces.findIndex((p) => p.id === id);
-      if (provinceIndex !== -1) {
-        state.provinces[provinceIndex] = { ...state.provinces[provinceIndex], ...updates };
+      const idx = state.provinces.findIndex((p) => p.id === id);
+      if (idx !== -1) {
+        state.provinces[idx] = { ...state.provinces[idx], ...updates };
       }
     },
-    // updateProvinces: (state, action: PayloadAction<any[]>) => {
-    //   state.provinces = action.payload;
-    // },
     resetProvincesState: (state) => {
       state.selectedProvinceId = null;
       state.selectedTroops = null;
       state.provinces = [];
       state.provinceCentersById = {};
-      state.provincesLayoutVersion += 1;
+      state.provinceBBoxById = {};
     },
   },
 });
@@ -70,12 +93,10 @@ export const {
   setSelectedProvinceId,
   setSelectedTroops,
   setProvinces,
-  setProvinceCenter,
   updateProvinceById,
   resetProvincesState,
 } = provincesSlice.actions;
 
-// Selector to get the selected province object
 export const selectSelectedProvince = (state: RootState) => {
   const { selectedProvinceId, provinces } = state.provinces;
   if (!selectedProvinceId) return null;

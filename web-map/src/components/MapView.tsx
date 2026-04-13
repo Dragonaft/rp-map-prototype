@@ -16,9 +16,9 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const provinces = useAppSelector((state: RootState) => state.provinces.provinces);
   const selectedProvinceId = useAppSelector((state: RootState) => state.provinces.selectedProvinceId);
   const selectedTroops = useAppSelector((state: RootState) => state.provinces.selectedTroops);
-  const currentUserId = useAppSelector((state: RootState) => state.user.id);
   const userActions = useAppSelector((state: RootState) => state.actions.actions);
   const provinceCentersById = useAppSelector((state: RootState) => state.provinces.provinceCentersById);
+  const provinceBBoxById = useAppSelector((state: RootState) => state.provinces.provinceBBoxById);
   const buildings = useAppSelector((state: RootState) => state.buildings.buildings);
 
   // Camera state
@@ -29,7 +29,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const hasDraggedRef = useRef(false);
   const svgRef = useRef<SVGSVGElement>(null);
 
-  // Troop movement modal state
+  // Modal state
   const [modalState, setModalState] = useState<{
     open: boolean;
     fromProvinceId: string;
@@ -42,35 +42,15 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const [cancelError, setCancelError] = useState<string | null>(null);
 
   const toggleSelect = useCallback((prov: Province) => {
-    // Prevent selection if we just finished dragging
-    if (hasDraggedRef.current) {
-      return;
-    }
-
-    if (selectedProvinceId === prov.id) {
-      dispatch(setSelectedProvinceId(null));
-    } else {
-      dispatch(setSelectedProvinceId(prov.id));
-    }
+    if (hasDraggedRef.current) return;
+    dispatch(setSelectedProvinceId(selectedProvinceId === prov.id ? null : prov.id));
   }, [dispatch, selectedProvinceId]);
 
   const handleProvinceRightClick = useCallback((targetProvince: Province) => {
-    // Check if troops are selected
     if (!selectedTroops) return;
-
-    // Find the source province
     const sourceProvince = provinces.find(p => p.id === selectedTroops.provinceId);
     if (!sourceProvince) return;
-
-    // Check if target province is a neighbor
-    if (!sourceProvince.neighbors?.includes(targetProvince.id)) {
-      return; // Not a neighbor, do nothing
-    }
-
-    // Determine if it's an invasion or transfer
-    // const isInvasion = targetProvince.userId !== currentUserId;
-
-    // Open modal
+    if (!sourceProvince.neighbors?.includes(targetProvince.id)) return;
     setModalState({
       open: true,
       fromProvinceId: sourceProvince.id,
@@ -78,11 +58,9 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
       maxTroops: selectedTroops.troopCount,
       isInvasion: true,
     });
-  }, [selectedTroops, provinces, currentUserId]);
+  }, [selectedTroops, provinces]);
 
-  const handleCloseModal = useCallback(() => {
-    setModalState(null);
-  }, []);
+  const handleCloseModal = useCallback(() => setModalState(null), []);
 
   const handleOpenCancelModal = useCallback((actionId: string) => {
     setCancelError(null);
@@ -116,23 +94,21 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     }
   }, [cancelActionId, dispatch]);
 
+  // ── Action index lookups ──────────────────────────────────────────────────
+
   const troopMovementOverlays = useMemo(() => {
     if (!userActions?.length) return [];
-    console.log(userActions, 'userActions_TEST')
-
-    return userActions.filter(
-      (a) => a.actionType === ActionType.INVADE,
-    );
+    return userActions.filter(a => a.actionType === ActionType.INVADE);
   }, [userActions]);
 
-  const buildingById = useMemo(() => {
-    return Object.fromEntries(buildings.map((b) => [b.id, b]));
-  }, [buildings]);
+  const buildingById = useMemo(() =>
+    Object.fromEntries(buildings.map(b => [b.id, b])),
+  [buildings]);
 
   const deployActionByProvinceId = useMemo(() => {
     if (!userActions?.length) return {} as Record<string, { id: string; troopsNumber: number }>;
     return userActions
-      .filter((a) => a.actionType === ActionType.DEPLOY)
+      .filter(a => a.actionType === ActionType.DEPLOY)
       .reduce<Record<string, { id: string; troopsNumber: number }>>((acc, a) => {
         const provinceId: string | undefined = a.actionData?.province_id ?? a.actionData?.provinceId;
         const troopsNumber: number | undefined = a.actionData?.troops_number ?? a.actionData?.troopCount;
@@ -145,7 +121,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const buildActionsByProvinceId = useMemo(() => {
     if (!userActions?.length) return {} as Record<string, { id: string; buildingType: string }[]>;
     return userActions
-      .filter((a) => a.actionType === ActionType.BUILD)
+      .filter(a => a.actionType === ActionType.BUILD)
       .reduce<Record<string, { id: string; buildingType: string }[]>>((acc, a) => {
         const provinceId: string | undefined = a.actionData?.province_id ?? a.actionData?.provinceId;
         const buildingId: string | undefined = a.actionData?.building_id ?? a.actionData?.buildingId;
@@ -157,33 +133,47 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
       }, {});
   }, [userActions, buildingById]);
 
-  // Add/remove event listeners for wheel zoom
+  // ── Viewport culling ──────────────────────────────────────────────────────
+  // Only passes provinces whose bbox intersects the current SVG viewBox.
+  // Reduces active DOM nodes from N to ~50–150 at typical zoom levels.
+  const visibleProvinces = useMemo(() => {
+    if (!provinces?.length) return [];
+    return provinces.filter(p => {
+      const bb = provinceBBoxById[p.id];
+      if (!bb) return true;
+      return !(
+        bb.x + bb.width  < viewBox.x ||
+        bb.x             > viewBox.x + viewBox.width ||
+        bb.y + bb.height < viewBox.y ||
+        bb.y             > viewBox.y + viewBox.height
+      );
+    });
+  }, [provinces, provinceBBoxById, viewBox]);
+
+  // ── Wheel zoom ────────────────────────────────────────────────────────────
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg || loading) return;
 
     const handleWheel = (e: WheelEvent) => {
       if (!e.ctrlKey) return;
-
       e.preventDefault();
       e.stopPropagation();
-
       const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
       const rect = svg.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
       const mouseY = e.clientY - rect.top;
-
-      setViewBox((prev) => {
+      setViewBox(prev => {
         const mouseXInViewBox = prev.x + (mouseX / rect.width) * prev.width;
         const mouseYInViewBox = prev.y + (mouseY / rect.height) * prev.height;
-
         const newWidth = prev.width * zoomFactor;
         const newHeight = prev.height * zoomFactor;
-
-        const newX = mouseXInViewBox - (mouseX / rect.width) * newWidth;
-        const newY = mouseYInViewBox - (mouseY / rect.height) * newHeight;
-
-        return { x: newX, y: newY, width: newWidth, height: newHeight };
+        return {
+          x: mouseXInViewBox - (mouseX / rect.width) * newWidth,
+          y: mouseYInViewBox - (mouseY / rect.height) * newHeight,
+          width: newWidth,
+          height: newHeight,
+        };
       });
     };
 
@@ -191,15 +181,13 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     return () => svg.removeEventListener('wheel', handleWheel);
   }, [loading]);
 
-  // Handle dragging with document-level listeners
+  // ── Drag-to-pan ───────────────────────────────────────────────────────────
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isDragging || !lastMousePosRef.current || !svgRef.current) return;
-
       const deltaX = e.clientX - lastMousePosRef.current.x;
       const deltaY = e.clientY - lastMousePosRef.current.y;
 
-      // Mark as dragged if moved more than threshold
       if (!hasDraggedRef.current && (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3)) {
         hasDraggedRef.current = true;
       }
@@ -208,14 +196,12 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
         const rect = svgRef.current.getBoundingClientRect();
         const scaleX = viewBox.width / rect.width;
         const scaleY = viewBox.height / rect.height;
-
-        setViewBox((prev) => ({
+        setViewBox(prev => ({
           ...prev,
           x: prev.x - deltaX * scaleX,
           y: prev.y - deltaY * scaleY,
         }));
       }
-
       lastMousePosRef.current = { x: e.clientX, y: e.clientY };
     };
 
@@ -224,11 +210,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
         setIsDragging(false);
         dragStartRef.current = null;
         lastMousePosRef.current = null;
-
-        // Reset drag flag after a short delay
-        setTimeout(() => {
-          hasDraggedRef.current = false;
-        }, 50);
+        setTimeout(() => { hasDraggedRef.current = false; }, 50);
       }
     };
 
@@ -243,8 +225,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   }, [isDragging, viewBox.width, viewBox.height]);
 
   const handleSvgMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (e.button !== 0) return; // Only left button
-
+    if (e.button !== 0) return;
     setIsDragging(true);
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     lastMousePosRef.current = { x: e.clientX, y: e.clientY };
@@ -271,7 +252,6 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     <div style={{ position: 'relative', width: '100%', height: '93vh', marginTop: '65px', background: '#1e293b' }}>
       <SelectedProvinceHover />
 
-      {/* Troop Movement Modal */}
       {modalState && (
         <TroopMovementModal
           open={modalState.open}
@@ -282,44 +262,27 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
           isInvasion={modalState.isInvasion}
         />
       )}
+
       <Modal open={Boolean(cancelActionId)} onClose={handleCloseCancelModal}>
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 360,
-            bgcolor: 'background.paper',
-            border: '2px solid #000',
-            boxShadow: 24,
-            p: 3,
-          }}
-        >
+        <Box sx={{
+          position: 'absolute', top: '50%', left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 360, bgcolor: 'background.paper',
+          border: '2px solid #000', boxShadow: 24, p: 3,
+        }}>
           <Typography variant="h6" component="h2" gutterBottom>
             Are you sure you want to cancel this action?
           </Typography>
           {cancelError && (
-            <Typography sx={{ color: 'error.main', mt: 1 }}>
-              {cancelError}
-            </Typography>
+            <Typography sx={{ color: 'error.main', mt: 1 }}>{cancelError}</Typography>
           )}
           <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-            <Button
-              variant="contained"
-              color="error"
-              onClick={handleConfirmCancelAction}
-              disabled={isCancellingAction}
-              fullWidth
-            >
+            <Button variant="contained" color="error" onClick={handleConfirmCancelAction}
+              disabled={isCancellingAction} fullWidth>
               {isCancellingAction ? 'Cancelling...' : 'Yes'}
             </Button>
-            <Button
-              variant="outlined"
-              onClick={handleCloseCancelModal}
-              disabled={isCancellingAction}
-              fullWidth
-            >
+            <Button variant="outlined" onClick={handleCloseCancelModal}
+              disabled={isCancellingAction} fullWidth>
               No
             </Button>
           </Box>
@@ -330,14 +293,12 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
         ref={svgRef}
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
         style={{
-          width: '100%',
-          height: '100%',
+          width: '100%', height: '100%',
           cursor: isDragging ? 'grabbing' : 'grab',
-          background: '#334155' // Lighter background for better province visibility
+          background: '#334155',
         }}
         onMouseDown={handleSvgMouseDown}
         onClick={(e) => {
-          // remove selection by click on background
           if (e.target instanceof SVGSVGElement) {
             dispatch(setSelectedProvinceId(null));
             dispatch(setSelectedTroops(null));
@@ -345,62 +306,40 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
         }}
       >
         <defs>
-          <marker
-            id="troop-action-arrowhead"
-            markerWidth="10"
-            markerHeight="10"
-            refX="9"
-            refY="3"
-            orient="auto"
-            markerUnits="strokeWidth"
-          >
+          <marker id="troop-action-arrowhead" markerWidth="10" markerHeight="10"
+            refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
             <path d="M0,0 L0,6 L9,3 z" fill="#ffffff" />
           </marker>
         </defs>
-        {/* Render provinces first */}
-        {provinces?.map((p) => (
+
+        {/* Single render pass — viewport-culled provinces only */}
+        {visibleProvinces.map(p => (
           <ProvinceShape
             key={p.id}
             province={p}
+            bbox={provinceBBoxById[p.id] ?? { x: 0, y: 0, width: 0, height: 0 }}
             isSelected={selectedProvinceId === p.id}
-            onSelect={(prov) => toggleSelect(prov)}
-            onRightClick={(prov) => handleProvinceRightClick(prov)}
-            renderTroopBox={false}
+            onSelect={toggleSelect}
+            onRightClick={handleProvinceRightClick}
             pendingBuildActions={buildActionsByProvinceId[p.id]}
-            onCancelAction={handleOpenCancelModal}
-          />
-        ))}
-
-        {/* Render troop boxes on top layer */}
-        {provinces?.map((p) => (
-          <ProvinceShape
-            key={`${p.id}-troops`}
-            province={p}
-            isSelected={selectedProvinceId === p.id}
-            onSelect={(prov) => toggleSelect(prov)}
-            onRightClick={(prov) => handleProvinceRightClick(prov)}
-            renderTroopBox={true}
             pendingDeployAction={deployActionByProvinceId[p.id]}
             onCancelAction={handleOpenCancelModal}
           />
         ))}
 
+        {/* Troop movement arrows */}
         <g>
-          {troopMovementOverlays.map((action) => {
+          {troopMovementOverlays.map(action => {
             const raw = action.actionData as {
-              from_province_id?: string;
-              to_province_id?: string;
-              troops_number?: number;
-              fromProvinceId?: string;
-              toProvinceId?: string;
-              troopCount?: number;
+              from_province_id?: string; to_province_id?: string; troops_number?: number;
+              fromProvinceId?: string; toProvinceId?: string; troopCount?: number;
             } | undefined;
             const fromId = raw?.from_province_id ?? raw?.fromProvinceId;
-            const toId = raw?.to_province_id ?? raw?.toProvinceId;
-            const troops = raw?.troops_number ?? raw?.troopCount;
+            const toId   = raw?.to_province_id   ?? raw?.toProvinceId;
+            const troops = raw?.troops_number     ?? raw?.troopCount;
             if (fromId == null || toId == null || troops == null) return null;
             const fromC = provinceCentersById[fromId];
-            const toC = provinceCentersById[toId];
+            const toC   = provinceCentersById[toId];
             if (!fromC || !toC) return null;
             const mx = (fromC.x + toC.x) / 2;
             const my = (fromC.y + toC.y) / 2;
@@ -408,48 +347,20 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
             const boxW = Math.max(28, 8 + label.length * 8);
             return (
               <g key={action.id}>
-                <line
-                  x1={fromC.x}
-                  y1={fromC.y}
-                  x2={toC.x}
-                  y2={toC.y}
-                  stroke="#ffffff"
-                  strokeWidth={2}
+                <line x1={fromC.x} y1={fromC.y} x2={toC.x} y2={toC.y}
+                  stroke="#ffffff" strokeWidth={2}
                   markerEnd="url(#troop-action-arrowhead)"
-                  style={{ pointerEvents: 'none' }}
-                />
-                <rect
-                  x={mx - boxW / 2}
-                  y={my - 10}
-                  width={boxW}
-                  height={20}
-                  fill="#ffffff"
-                  stroke="#000000"
-                  strokeWidth={1}
-                  rx={3}
-                  ry={3}
+                  style={{ pointerEvents: 'none' }} />
+                <rect x={mx - boxW / 2} y={my - 10} width={boxW} height={20}
+                  fill="#ffffff" stroke="#000000" strokeWidth={1} rx={3} ry={3}
                   style={{ cursor: 'pointer' }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenCancelModal(action.id);
-                  }}
-                />
-                <text
-                  x={mx}
-                  y={my}
-                  fontSize={12}
-                  fill="#000000"
-                  textAnchor="middle"
-                  dominantBaseline="middle"
-                  fontWeight="bold"
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); handleOpenCancelModal(action.id); }} />
+                <text x={mx} y={my} fontSize={12} fill="#000000"
+                  textAnchor="middle" dominantBaseline="middle" fontWeight="bold"
                   style={{ userSelect: 'none', cursor: 'pointer' }}
-                  onMouseDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleOpenCancelModal(action.id);
-                  }}
-                >
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); handleOpenCancelModal(action.id); }}>
                   {label}
                 </text>
               </g>

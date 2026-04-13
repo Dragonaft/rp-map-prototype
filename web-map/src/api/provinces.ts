@@ -1,9 +1,38 @@
 import { apiClient } from './config';
-import type { Province, SetupUserResponse } from '../types';
+import type { Province, ProvinceLayout, ProvinceStateData, SetupUserResponse } from '../types';
+
+const LAYOUT_CACHE_KEY = 'rp_provinces_layout_v1';
 
 export const provincesApi = {
   getAll: async (): Promise<Province[]> => {
     const response = await apiClient.get<Province[]>('/provinces');
+    return response.data;
+  },
+
+  getLayout: async (): Promise<ProvinceLayout[]> => {
+    const response = await apiClient.get<ProvinceLayout[]>('/provinces/layout');
+    return response.data;
+  },
+
+  /** Returns layout from localStorage if cached, otherwise fetches and caches it. */
+  getLayoutCached: async (): Promise<ProvinceLayout[]> => {
+    try {
+      const cached = localStorage.getItem(LAYOUT_CACHE_KEY);
+      if (cached) return JSON.parse(cached) as ProvinceLayout[];
+    } catch {
+      // corrupted cache — fall through to fetch
+    }
+    const layout = await provincesApi.getLayout();
+    try {
+      localStorage.setItem(LAYOUT_CACHE_KEY, JSON.stringify(layout));
+    } catch {
+      // storage quota exceeded — proceed without caching
+    }
+    return layout;
+  },
+
+  getState: async (): Promise<ProvinceStateData[]> => {
+    const response = await apiClient.get<ProvinceStateData[]>('/provinces/state');
     return response.data;
   },
 

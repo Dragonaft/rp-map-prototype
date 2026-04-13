@@ -85,7 +85,7 @@ npx ts-node src/index.ts generate \
 ```bash
 npx ts-node src/index.ts generate \
   --rows 10 --cols 15 \
-  --width 1600 --height 1200 \
+  --width 4800 --height 3600 \
   --out ./out
 ```
 
@@ -123,8 +123,8 @@ npx ts-node src/index.ts parse --file ./out/provinces.json
 |----------|---------|-------------|
 | `--rows` | `10` | Number of grid rows |
 | `--cols` | `10` | Number of grid columns |
-| `--width` | `1600` | Canvas width in pixels (cell width = width/cols) |
-| `--height` | `1200` | Canvas height in pixels (cell height = height/rows) |
+| `--width` | `4800` | Canvas width in pixels (cell width = width/cols) |
+| `--height` | `3600` | Canvas height in pixels (cell height = height/rows) |
 | `--out` | `./out` | Output directory |
 | `--seed` | random | Integer seed for reproducible maps |
 | `--continent-scale` | `0.25` | Noise frequency — lower = bigger landmasses, higher = fragmented islands |

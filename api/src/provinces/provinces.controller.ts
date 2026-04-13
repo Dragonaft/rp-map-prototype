@@ -14,6 +14,16 @@ export class ProvincesController {
     return this.provincesService.getAll(req.user.id);
   }
 
+  @Get('layout')
+  getLayout() {
+    return this.provincesService.getLayout();
+  }
+
+  @Get('state')
+  getState(@Request() req) {
+    return this.provincesService.getState(req.user.id);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.provincesService.findOne(+id);

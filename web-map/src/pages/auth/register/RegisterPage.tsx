@@ -14,11 +14,12 @@ interface IRegisterFormInput {
 }
 
 export const RegisterPage: React.FC = () => {
-  const { register, handleSubmit } = useForm<IRegisterFormInput>()
+  const { register, handleSubmit, watch, formState: { errors } } = useForm<IRegisterFormInput>()
   const { mutate } = useMutation(authApi.register);
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const [isCheck, setIsCheck] = useState<boolean>(false);
+  const colorValue = watch('color', '');
 
   const onSubmit: SubmitHandler<IRegisterFormInput> = async (data) => {
     try {
@@ -100,21 +101,34 @@ export const RegisterPage: React.FC = () => {
           <div className="space-y-1.5">
             <label
               className="command-font text-[10px] uppercase font-bold tracking-[0.2em] text-primary-dim ml-1"
-              htmlFor="username"
+              htmlFor="color"
             >
               Hex color
             </label>
-            <div className="relative group">
+            <div className="relative group flex items-center gap-2">
               <span
-                className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">person</span>
+                className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">palette</span>
               <input
-                {...register("color", {required: true})}
+                {...register("color", {
+                  required: 'Color is required',
+                  pattern: {
+                    value: /^#[0-9a-fA-F]{6}$/,
+                    message: 'Must be a valid hex color (e.g. #2f528a)',
+                  },
+                })}
                 className="w-[83%] bg-surface-container-lowest border-none py-3.5 pl-11 pr-4 text-sm text-on-surface focus:ring-0 focus:outline-none placeholder:text-outline-variant rounded-lg transition-all border-b-2 border-transparent focus:border-primary"
                 id="color"
-                placeholder="HEX_COLOR"
+                placeholder="#2f528a"
                 type="text"
               />
+              <div
+                className="w-7 h-7 rounded-md border border-outline-variant/30 flex-shrink-0 transition-colors"
+                style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(colorValue) ? colorValue : 'transparent' }}
+              />
             </div>
+            {errors.color && (
+              <p className="text-[11px] text-red-400 ml-1 mt-1">{errors.color.message}</p>
+            )}
           </div>
           <div className="space-y-1.5">
             <label

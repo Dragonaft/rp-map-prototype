@@ -21,7 +21,6 @@ export class ProvincesService {
   ) {}
 
   async getAll(userId: string) {
-    // TODO: maybe optimize some to FE
     const provinces = await this.provinceRepository.find({
       relations: ['buildings']
     });
@@ -29,8 +28,6 @@ export class ProvincesService {
     const reservedByFromProvince =
       await this.actionsService.getReservedTroopMovesByFromProvince(userId);
 
-    // Hide local_troops for provinces not owned by the user;
-    // for own provinces, subtract troops already committed to INVADE / TRANSFER actions
     return provinces.map(province => {
       if (province.user_id !== userId) {
         if (province.local_troops > 0) {
@@ -46,6 +43,48 @@ export class ProvincesService {
       }
 
       return province;
+    });
+  }
+
+  /** Static province data: polygon, type, landscape — never changes after map import. */
+  async getLayout() {
+    const provinces = await this.provinceRepository
+      .createQueryBuilder('p')
+      .select(['p.id', 'p.polygon', 'p.type', 'p.landscape', 'p.resource_type', 'p.region_id', 'p.neighbor_ids'])
+      .getMany();
+
+    return provinces.map(p => ({
+      id: p.id,
+      polygon: p.polygon,
+      type: p.type,
+      landscape: p.landscape,
+      resourceType: p.resource_type,
+      regionId: p.region_id,
+      neighbors: p.neighbor_ids,
+    }));
+  }
+
+  /** Dynamic province state: ownership, troops, buildings — changes only at turn end. */
+  async getState(userId: string) {
+    const provinces = await this.provinceRepository
+      .createQueryBuilder('p')
+      .select(['p.id', 'p.user_id', 'p.local_troops'])
+      .leftJoinAndSelect('p.buildings', 'building')
+      .getMany();
+
+    const reserved = await this.actionsService.getReservedTroopMovesByFromProvince(userId);
+
+    return provinces.map(p => {
+      const isOwner = p.user_id === userId;
+      return {
+        id: p.id,
+        userId: p.user_id ?? null,
+        localTroops: isOwner
+          ? Math.max(0, (p.local_troops ?? 0) - (reserved.get(p.id) ?? 0))
+          : null,
+        enemyHere: !isOwner && (p.local_troops ?? 0) > 0,
+        buildings: p.buildings ?? [],
+      };
     });
   }
 
