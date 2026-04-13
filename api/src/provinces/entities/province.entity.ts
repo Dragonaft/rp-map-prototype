@@ -23,7 +23,7 @@ export class Province extends BaseEntity {
   @Column()
   public landscape: string;
 
-  @Column()
+  @Column('text')
   public polygon: string;
 
   @Column()
@@ -61,6 +61,19 @@ export class Province extends BaseEntity {
   get localTroops(): number {
     return this.local_troops;
   }
+
+  @Column('simple-json', { nullable: true })
+  @Exclude()
+  public neighbor_ids: string[] | null;
+
+  @Expose({ name: 'neighbors' })
+  get neighbors(): string[] | null {
+    return this.neighbor_ids;
+  }
+
+  /** Set at query-time: true when a non-owning user has troops stationed here. Not persisted. */
+  @Expose()
+  public enemyHere?: boolean;
 
   @ManyToOne(() => User, (user) => user.provinces)
   @JoinColumn({ name: 'user_id' })

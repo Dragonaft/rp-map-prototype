@@ -1,4 +1,4 @@
-import { AppDataSource } from '../db/data-source';
+import { AppDataSource } from '../db/data-source.prod';
 import { Province } from '../provinces/entities/province.entity';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -12,6 +12,7 @@ interface ProvinceInput {
   resource_type: string | null;
   user_id: string | null;
   region_id: string;
+  neighbor_regions?: string[];
 }
 
 function validateProvinceObject(obj: any, index: number): obj is ProvinceInput {
@@ -134,11 +135,12 @@ async function importProvinces() {
     process.exit(1);
   }
 
-  // Step 6: Import provinces
+  // Step 6: Import provinces (first pass - without neighbors)
   logger.log('Starting import...');
 
   let importedCount = 0;
   let errorCount = 0;
+  const regionToIdMap = new Map<string, string>();
 
   for (let i = 0; i < validProvinces.length; i++) {
     const provinceData = validProvinces[i];
@@ -152,9 +154,11 @@ async function importProvinces() {
         resource_type: provinceData.resource_type,
         user_id: provinceData.user_id,
         region_id: provinceData.region_id,
+        neighbor_ids: null, // Will be populated in second pass
       });
 
-      await provinceRepository.save(province);
+      const saved = await provinceRepository.save(province);
+      regionToIdMap.set(saved.region_id, saved.id);
       importedCount++;
 
       logger.verbose(`Imported province ${importedCount}/${validProvinces.length} - Region: ${provinceData.region_id}, Type: ${provinceData.type}, Landscape: ${provinceData.landscape}`);
@@ -164,7 +168,48 @@ async function importProvinces() {
     }
   }
 
-  // Step 7: Summary
+  // Step 7: Update neighbors (second pass)
+  if (importedCount > 0) {
+    logger.log('Updating neighbor relationships...');
+    let neighborsUpdated = 0;
+    let neighborsSkipped = 0;
+
+    for (let i = 0; i < validProvinces.length; i++) {
+      const provinceData = validProvinces[i];
+
+      if (!provinceData.neighbor_regions || provinceData.neighbor_regions.length === 0) {
+        neighborsSkipped++;
+        continue;
+      }
+
+      const provinceId = regionToIdMap.get(provinceData.region_id);
+      if (!provinceId) continue;
+
+      // Convert neighbor region_ids to province UUIDs
+      const neighborIds: string[] = [];
+      for (const neighborRegion of provinceData.neighbor_regions) {
+        const neighborId = regionToIdMap.get(neighborRegion);
+        if (neighborId) {
+          neighborIds.push(neighborId);
+        }
+      }
+
+      if (neighborIds.length > 0) {
+        try {
+          await provinceRepository.update(provinceId, { neighbor_ids: neighborIds });
+          neighborsUpdated++;
+          logger.verbose(`Updated neighbors for ${provinceData.region_id}: ${neighborIds.length} neighbors`);
+        } catch (error) {
+          logger.error(`Failed to update neighbors for ${provinceData.region_id}: ${error.message}`);
+        }
+      }
+    }
+
+    logger.log(`Neighbor relationships updated: ${colors.green}${neighborsUpdated}${colors.reset}`);
+    logger.log(`Provinces without neighbors: ${colors.blue}${neighborsSkipped}${colors.reset}`);
+  }
+
+  // Step 8: Summary
   console.log('');
   logger.log(`${colors.green}========== IMPORT SUMMARY ==========${colors.reset}`);
   logger.log(`Total provinces in file: ${colors.blue}${data.length}${colors.reset}`);

@@ -10,4 +10,5 @@ export interface Province {
   resource_type: string | null;
   user_id: string | null;
   region_id: string;
+  neighbor_regions: string[];
 }

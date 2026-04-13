@@ -1,19 +1,27 @@
-import { Controller, Get, Post, Body, Patch, Param, ClassSerializerInterceptor, UseInterceptors } from '@nestjs/common';
+import { Controller, Get, Body, Patch, Param, ClassSerializerInterceptor, UseInterceptors, UseGuards, Request } from '@nestjs/common';
 import { ProvincesService } from './provinces.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ProvincesUpdateBodyRequest } from './requests/provinces-update-body.request';
 
 @Controller('provinces')
+@UseGuards(JwtAuthGuard)
 @UseInterceptors(ClassSerializerInterceptor)
 export class ProvincesController {
   constructor(private readonly provincesService: ProvincesService) {}
 
-  @Post()
-  create(@Body() createProvinceDto: any) {
-    return this.provincesService.create(createProvinceDto);
+  @Get()
+  getAll(@Request() req) {
+    return this.provincesService.getAll(req.user.id);
   }
 
-  @Get()
-  getAll() {
-    return this.provincesService.getAll();
+  @Get('layout')
+  getLayout() {
+    return this.provincesService.getLayout();
+  }
+
+  @Get('state')
+  getState(@Request() req) {
+    return this.provincesService.getState(req.user.id);
   }
 
   @Get(':id')
@@ -22,7 +30,12 @@ export class ProvincesController {
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() updateProvinceDto: any) {
-    return this.provincesService.update(+id, updateProvinceDto);
+  update(@Param('id') id: string, @Body() updateProvinceDto: ProvincesUpdateBodyRequest) {
+    return this.provincesService.update(id, updateProvinceDto);
+  }
+
+  @Patch('/setup/:id')
+  setupStart(@Param('id') id: string, @Request() req) {
+    return this.provincesService.setupStart(id, req.user);
   }
 }

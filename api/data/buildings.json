@@ -1,0 +1,42 @@
+[
+  {
+    "type": "CAPITAL",
+    "name": "Capital",
+    "income": "500",
+    "upkeep": "0",
+    "modifier": "1.2",
+    "cost": 0
+  },
+  {
+    "type": "FARM",
+    "name": "Farm",
+    "income": "120",
+    "upkeep": "0",
+    "modifier": null,
+    "cost": 50
+  },
+  {
+    "type": "BARRACKS",
+    "name": "Barracks",
+    "income": null,
+    "upkeep": "80",
+    "modifier": null,
+    "cost": 100
+  },
+  {
+    "type": "FORT",
+    "name": "Fort",
+    "income": null,
+    "upkeep": "120",
+    "modifier": "1.3",
+    "cost": 500
+  },
+  {
+    "type": "MARKET",
+    "name": "Market",
+    "income": "300",
+    "upkeep": "0",
+    "modifier": null,
+    "cost": 150
+  }
+]

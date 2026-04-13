@@ -11,27 +11,42 @@
     "migration:generate": "npm run typeorm -- migration:generate -d src/db/data-source.ts",
     "migration:run": "npm run typeorm -- migration:run -d src/db/data-source.ts",
     "migration:revert": "npm run typeorm -- migration:revert -d src/db/data-source.ts",
-    "import:provinces": "ts-node src/scripts/import-provinces.ts"
+    "migration:run:prod": "typeorm migration:run -d dist/db/data-source.prod.js",
+    "migration:revert:prod": "typeorm migration:revert -d dist/db/data-source.prod.js",
+    "import:provinces": "ts-node src/scripts/import-provinces.ts",
+    "seed:buildings": "ts-node src/scripts/seed-buildings.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
     "@nestjs/config": "^4.0.3",
     "@nestjs/core": "^10.0.0",
+    "@nestjs/jwt": "^10.2.0",
     "@nestjs/mapped-types": "*",
+    "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.0.0",
+    "@nestjs/schedule": "^6.1.1",
     "@nestjs/typeorm": "^11.0.0",
+    "bcrypt": "^5.1.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.4",
+    "cookie-parser": "^1.4.6",
     "dotenv": "^17.3.1",
     "mysql2": "^3.20.0",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.0.0",
-    "typeorm": "^0.3.28"
+    "typeorm": "^0.3.28",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
     "@nestjs/schematics": "^10.0.0",
     "@nestjs/testing": "^10.0.0",
+    "@types/bcrypt": "^5.0.2",
+    "@types/cookie-parser": "^1.4.7",
+    "@types/passport-jwt": "^4.0.1",
+    "@types/uuid": "^10.0.0",
     "ts-node": "^10.0.0",
     "typescript": "^5.0.0"
   }
