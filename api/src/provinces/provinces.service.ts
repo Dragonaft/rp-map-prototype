@@ -7,6 +7,7 @@ import { User } from "../users/entities/user.entity";
 import { Building } from '../buildings/entities/building.entity';
 import { AuthTokenType } from "../auth/types/auth.types";
 import { ActionsService } from '../actions/actions.service';
+import { BuildingTypes } from "../buildings/types/building.types";
 
 @Injectable()
 export class ProvincesService {
@@ -125,7 +126,7 @@ export class ProvincesService {
     }
 
     // Example: Add a building by id to the province
-    const building = await this.buildingRepository.findOne({ where: { id: '5555f92e-4251-4193-ad0e-bb149682b1f6' } });
+    const building = await this.buildingRepository.findOne({ where: { type: BuildingTypes.CAPITAL } });
     if (building) {
       if (!province.buildings) {
         province.buildings = [];
