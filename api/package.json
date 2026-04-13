@@ -11,6 +11,8 @@
     "migration:generate": "npm run typeorm -- migration:generate -d src/db/data-source.ts",
     "migration:run": "npm run typeorm -- migration:run -d src/db/data-source.ts",
     "migration:revert": "npm run typeorm -- migration:revert -d src/db/data-source.ts",
+    "migration:run:prod": "typeorm migration:run -d dist/db/data-source.prod.js",
+    "migration:revert:prod": "typeorm migration:revert -d dist/db/data-source.prod.js",
     "import:provinces": "ts-node src/scripts/import-provinces.ts",
     "seed:buildings": "ts-node src/scripts/seed-buildings.ts"
   },

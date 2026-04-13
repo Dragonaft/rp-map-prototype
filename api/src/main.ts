@@ -13,8 +13,12 @@ async function bootstrap() {
     transform: true,
   }));
 
+  // In production the frontend is served by nginx on the same origin,
+  // so CORS is not needed. In development allow the Vite dev server.
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:3000'],
+    origin: process.env.NODE_ENV === 'production'
+      ? false
+      : ['http://localhost:5173', 'http://localhost:3000'],
     credentials: true,
   });
 

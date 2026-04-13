@@ -9,3 +9,5 @@ api/dist
 api/.env
 
 /node_modules/
+
+.env

@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { AppDataSource } from '../db/data-source';
+import { AppDataSource } from '../db/data-source.prod';
 import { Building } from '../buildings/entities/building.entity';
 import { BuildingTypes } from '../buildings/types/building.types';
 import { colors, logger } from '../utils/logger';

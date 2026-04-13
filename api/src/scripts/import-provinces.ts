@@ -1,4 +1,4 @@
-import { AppDataSource } from '../db/data-source';
+import { AppDataSource } from '../db/data-source.prod';
 import { Province } from '../provinces/entities/province.entity';
 import * as fs from 'fs';
 import * as path from 'path';
