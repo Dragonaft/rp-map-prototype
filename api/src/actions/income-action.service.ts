@@ -43,13 +43,18 @@ export class IncomeActionService {
       for (const user of users) {
         const userProvinces = provincesByUser.get(user.id) ?? [];
         let incomeTotal = 0;
+        let barracksCount = 0;
 
         for (const province of userProvinces) {
           if (!province.buildings?.length) {
             continue;
           }
           for (const b of province.buildings) {
-            if (b.type === BuildingTypes.FORT || b.type === BuildingTypes.BARRACKS) {
+            if (b.type === BuildingTypes.BARRACKS) {
+              barracksCount++;
+              continue;
+            }
+            if (b.type === BuildingTypes.FORT) {
               continue;
             }
             incomeTotal += parseIncome(b.income);
@@ -58,10 +63,14 @@ export class IncomeActionService {
 
         const currentMoney = Number(user.money ?? 0);
         user.money = currentMoney + incomeTotal;
+
+        if (currentMoney > 0 && barracksCount > 0) {
+          user.troops = (Number(user.troops ?? 0)) + barracksCount * 50;
+        }
       }
 
       for (const user of users) {
-        await manager.update(User, { id: user.id }, { money: user.money });
+        await manager.update(User, { id: user.id }, { money: user.money, troops: user.troops });
       }
     });
 
