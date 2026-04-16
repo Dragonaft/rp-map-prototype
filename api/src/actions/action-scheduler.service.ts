@@ -7,6 +7,7 @@ import { ActionExecutionStateService } from './action-execution-state.service';
 import { ActionExecutorService } from './action-executor.service';
 import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
+import { UserStateLoaderService } from './user-state-loader.service';
 import { ActionsLog, ExecutedAction } from './entities/actions-log.entity';
 import { ExecutionLock } from './entities/execution-lock.entity';
 import { ActionQueue, ActionStatus } from './entities/action-queue.entity';
@@ -29,6 +30,7 @@ export class ActionSchedulerService {
     private readonly actionExecutor: ActionExecutorService,
     private readonly incomeAction: IncomeActionService,
     private readonly upkeepAction: UpkeepActionService,
+    private readonly userStateLoader: UserStateLoaderService,
     private readonly actionExecutionState: ActionExecutionStateService,
     private readonly dataSource: DataSource,
   ) {
@@ -37,12 +39,12 @@ export class ActionSchedulerService {
   }
 
   // TODO: Create custom cron setup
-  @Cron('0 12 * * *') // Every day at 12:00
+  @Cron('0 12 * * *', { timeZone: 'Europe/Kyiv' }) // Every day at 12:00 Kyiv time
   async executeNoonActions() {
     await this.executeScheduledActions('12:00');
   }
 
-  @Cron('0 18 * * *') // Every day at 18:00
+  @Cron('0 18 * * *', { timeZone: 'Europe/Kyiv' }) // Every day at 18:00 Kyiv time
   async executeEveningActions() {
     await this.executeScheduledActions('18:00');
   }
@@ -98,15 +100,13 @@ export class ActionSchedulerService {
     this.actionExecutionState.beginProcessing();
 
     try {
-      await this.incomeAction.execute();
+      await this.dataSource.transaction(async (manager) => {
+        const state = await this.userStateLoader.load(manager);
+        await this.incomeAction.execute(state, manager);
+        await this.upkeepAction.execute(state, manager);
+      });
     } catch (error) {
-      this.logger.error('Income action failed; continuing with upkeep and queued actions', error);
-    }
-
-    try {
-      await this.upkeepAction.execute();
-    } catch (error) {
-      this.logger.error('Upkeep action failed; continuing with queued actions', error);
+      this.logger.error('Income/upkeep phase failed; continuing with queued actions', error);
     }
 
     const executionId = uuidv4();
@@ -233,7 +233,7 @@ export class ActionSchedulerService {
       // If lock exists and is older than 5 minutes, consider it stale and acquire it
       const lockTimeout = new Date(Date.now() - 5 * 60 * 1000); // 5 minutes ago
 
-      const result = await queryRunner.manager.query(
+      await queryRunner.manager.query(
         `INSERT INTO execution_locks (lockKey, lockedAt, lockedBy)
          VALUES (?, NOW(), ?)
          ON DUPLICATE KEY UPDATE

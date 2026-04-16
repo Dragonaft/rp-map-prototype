@@ -14,18 +14,23 @@ import {
   DeployActionHandler,
   UpgradeActionHandler,
   TransferTroopsActionHandler,
+  ResearchActionHandler,
 } from './action-executor.service';
 import { ActionQueue } from './entities/action-queue.entity';
 import { ActionsLog } from './entities/actions-log.entity';
 import { ExecutionLock } from './entities/execution-lock.entity';
 import { Province } from '../provinces/entities/province.entity';
+import { User } from '../users/entities/user.entity';
 import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
+import { UserStateLoaderService } from './user-state-loader.service';
+import { TechsModule } from '../techs/techs.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
-    TypeOrmModule.forFeature([ActionQueue, ActionsLog, ExecutionLock, Province]),
+    TypeOrmModule.forFeature([ActionQueue, ActionsLog, ExecutionLock, Province, User]),
+    TechsModule,
   ],
   controllers: [ActionsController, ActionExecutionStatusController],
   providers: [
@@ -35,12 +40,14 @@ import { IncomeActionService } from './income-action.service';
     ActionSchedulerService,
     IncomeActionService,
     UpkeepActionService,
+    UserStateLoaderService,
     ActionExecutorService,
     BuildActionHandler,
     InvadeActionHandler,
     DeployActionHandler,
     UpgradeActionHandler,
     TransferTroopsActionHandler,
+    ResearchActionHandler,
   ],
   exports: [ActionsService, ActionExecutionStateService, ActionExecutionBlockMiddleware],
 })

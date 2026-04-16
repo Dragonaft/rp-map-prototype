@@ -6,6 +6,8 @@ import { Building } from '../buildings/entities/building.entity';
 import { Province } from '../provinces/entities/province.entity';
 import { User } from '../users/entities/user.entity';
 import { ActionQueue, ActionType } from './entities/action-queue.entity';
+import { TechsService } from '../techs/techs.service';
+import { BATTLE_RESEARCH_EFFECTS } from '../techs/research-effects';
 
 const DEFENSIVE_BUILDING_TYPES = new Set<string>([
   BuildingTypes.FORT,
@@ -193,8 +195,14 @@ export class InvadeActionHandler implements ActionHandler {
         return;
       }
 
+      const attacker = await manager.findOne(User, { where: { id: action.userId } });
+      const battleCtx = { attackingTroops: troopsNumber };
+      for (const techKey of (attacker?.completed_research ?? [])) {
+        BATTLE_RESEARCH_EFFECTS[techKey]?.(battleCtx);
+      }
+
       const buildModifier = computeBuildModifier(toProvince.buildings);
-      const battleResult = troopsNumber / buildModifier - defenderTroops;
+      const battleResult = battleCtx.attackingTroops / buildModifier - defenderTroops;
 
       fromProvince.local_troops = fromTroops - troopsNumber;
 
@@ -320,6 +328,78 @@ export class TransferTroopsActionHandler implements ActionHandler {
 }
 
 @Injectable()
+export class ResearchActionHandler implements ActionHandler {
+  private readonly logger = new Logger(ResearchActionHandler.name);
+
+  constructor(
+    @InjectRepository(User)
+    private readonly userRepo: Repository<User>,
+    private readonly techsService: TechsService,
+  ) {}
+
+  async handle(action: ActionQueue): Promise<void> {
+    this.logger.log(
+      `Executing RESEARCH action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
+    );
+
+    const techKey = action.actionData?.tech_key as string | undefined;
+    if (!techKey) {
+      throw new Error('tech_key is required');
+    }
+
+    await this.userRepo.manager.transaction(async (manager) => {
+      const user = await manager.findOne(User, {
+        where: { id: action.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const tech = await this.techsService.getByKey(techKey);
+
+      const completed = user.completed_research ?? [];
+
+      if (completed.includes(techKey)) {
+        throw new Error(`Tech already researched: ${techKey}`);
+      }
+
+      const missingPrereq = (tech.prerequisites ?? []).find(
+        (prereq) => !completed.includes(prereq),
+      );
+      if (missingPrereq) {
+        throw new Error(`Missing prerequisite tech: ${missingPrereq}`);
+      }
+
+      if (tech.isClassRoot) {
+        if (user.class !== null && user.class !== undefined) {
+          throw new Error('Class already selected, cannot research another class root tech');
+        }
+      } else if (tech.branch.startsWith('class.')) {
+        if (!user.class || user.class !== tech.branch) {
+          throw new Error(`This tech requires class: ${tech.branch}`);
+        }
+      }
+
+      const currentPoints = Number(user.research_points ?? 0);
+      if (currentPoints < tech.cost) {
+        throw new Error(`Not enough research points (have ${currentPoints}, need ${tech.cost})`);
+      }
+
+      user.research_points = currentPoints - tech.cost;
+      user.completed_research = [...completed, techKey];
+
+      if (tech.isClassRoot) {
+        user.class = tech.branch;
+      }
+
+      await manager.save(User, user);
+    });
+  }
+}
+
+@Injectable()
 export class ActionExecutorService {
   private readonly logger = new Logger(ActionExecutorService.name);
   private handlers = new Map<ActionType, ActionHandler>();
@@ -330,12 +410,14 @@ export class ActionExecutorService {
     private deployHandler: DeployActionHandler,
     private upgradeHandler: UpgradeActionHandler,
     private transferTroopsHandler: TransferTroopsActionHandler,
+    private researchHandler: ResearchActionHandler,
   ) {
     this.handlers.set(ActionType.BUILD, buildHandler);
     this.handlers.set(ActionType.INVADE, invadeHandler);
     this.handlers.set(ActionType.DEPLOY, deployHandler);
     this.handlers.set(ActionType.UPGRADE, upgradeHandler);
     this.handlers.set(ActionType.TRANSFER_TROOPS, transferTroopsHandler);
+    this.handlers.set(ActionType.RESEARCH, researchHandler);
   }
 
   async executeAction(action: ActionQueue): Promise<{

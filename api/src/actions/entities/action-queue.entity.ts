@@ -3,8 +3,8 @@ import {
   Column,
   CreateDateColumn,
   Entity,
-  ManyToOne, PrimaryColumn,
-  PrimaryGeneratedColumn,
+  ManyToOne,
+  PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
@@ -15,6 +15,7 @@ export enum ActionType {
   DEPLOY = 'DEPLOY',
   UPGRADE = 'UPGRADE',
   TRANSFER_TROOPS = 'TRANSFER_TROOPS',
+  RESEARCH = 'RESEARCH',
 }
 
 export enum ActionStatus {

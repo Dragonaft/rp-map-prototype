@@ -5,4 +5,5 @@ export enum BuildingTypes {
   BARRACKS = 'BARRACKS',
   FORT = 'FORT',
   MARKET = 'MARKET',
+  LIBRARY = 'LIBRARY',
 }

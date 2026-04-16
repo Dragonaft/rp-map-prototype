@@ -37,6 +37,15 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   public troops: number;
 
+  @Column({ default: 0 })
+  public research_points: number;
+
+  @Column({ type: 'simple-array', default: '' })
+  public completed_research: string[];
+
+  @Column({ type: 'varchar', nullable: true })
+  public class: string | null;
+
   @OneToMany(() => Province, (province) => province.user)
   public readonly provinces?: Province[];
 }

@@ -5,7 +5,8 @@
     "income": "500",
     "upkeep": "0",
     "modifier": "1.2",
-    "cost": 0
+    "cost": 0,
+    "requirement": []
   },
   {
     "type": "FARM",
@@ -13,7 +14,8 @@
     "income": "120",
     "upkeep": "0",
     "modifier": null,
-    "cost": 50
+    "cost": 50,
+    "requirement": []
   },
   {
     "type": "BARRACKS",
@@ -21,7 +23,8 @@
     "income": null,
     "upkeep": "80",
     "modifier": null,
-    "cost": 100
+    "cost": 100,
+    "requirement": []
   },
   {
     "type": "FORT",
@@ -29,7 +32,8 @@
     "income": null,
     "upkeep": "120",
     "modifier": "1.3",
-    "cost": 500
+    "cost": 500,
+    "requirement": []
   },
   {
     "type": "MARKET",
@@ -37,6 +41,7 @@
     "income": "300",
     "upkeep": "0",
     "modifier": null,
-    "cost": 150
+    "cost": 150,
+    "requirement": []
   }
 ]

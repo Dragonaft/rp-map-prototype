@@ -1,0 +1,20 @@
+[
+  {
+    "key": "economy.trade_routes",
+    "name": "Trade Routes",
+    "description": "Establish merchant trade routes between your provinces, increasing overall income by 20%.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 50,
+    "prerequisites": []
+  },
+  {
+    "key": "military.sword_training",
+    "name": "Sword Training",
+    "description": "Train your soldiers in advanced swordsmanship, increasing attacking troop effectiveness by 15%.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 50,
+    "prerequisites": []
+  }
+]
