@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { Modal, Box, Typography, Slider, Button, Alert, Tabs, Tab } from '@mui/material';
-import { ActionType } from '../types';
-import { actionsApi } from '../api/actions';
-import { useAppDispatch } from "../store/hooks.ts";
-import { addAction } from "../store/slices/actionsSlice.ts";
-import { updateProvinceById } from "../store/slices/provincesSlice.ts";
+import { Modal, Box, Button, Tabs, Tab } from '@mui/material';
+import { useAppSelector } from "../store/hooks.ts";
+import type { RootState } from "../store/store.ts";
+import { TechTree } from './TechTree';
 
 interface Props {
   open: boolean;
@@ -17,117 +15,42 @@ const style = {
   left: '50%',
   transform: 'translate(-50%, -50%)',
   width: '80%',
-  height: '79%',
+  height: '80%',
   bgcolor: 'lightGray',
   border: '2px solid #000',
   boxShadow: 24,
   p: 4,
+  display: 'flex',
+  flexDirection: 'column',
 };
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-function a11yProps(index: number) {
-  return {
-    id: `simple-tab-${index}`,
-    'aria-controls': `simple-tabpanel-${index}`,
-  };
-}
-
-function CustomTabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`simple-tabpanel-${index}`}
-      aria-labelledby={`simple-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ p: 3 }}>{children}</Box>}
-    </div>
-  );
-}
-
-export const TechsModal: React.FC<Props> = ({
-  open,
-  onClose,
-}) => {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+export const TechsModal: React.FC<Props> = ({ open, onClose }) => {
   const [tabValue, setTabValue] = useState(0);
-  const dispatch = useAppDispatch();
+  const techs = useAppSelector((state: RootState) => state.techs.techs);
 
-  const handleChange = (event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
-
-  const handleConfirm = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      const actionType = ActionType.UPGRADE;
-
-      // const response = await actionsApi.createAction({
-      //   type: actionType,
-      //   actionData: {
-      //     from_province_id: fromProvinceId,
-      //     to_province_id: toProvinceId,
-      //     troops_number: troopCount,
-      //   },
-      // });
-      //
-      // dispatch(addAction(response.action));
-      // dispatch(updateProvinceById({
-      //   id: response.province.id,
-      //   updates: {
-      //     localTroops: response.province.localTroops,
-      //   },
-      // }));
-
-      onClose();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create action');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const branches = [...new Set(techs.map(t => t.branch))];
+  const safeTabValue = Math.min(tabValue, Math.max(0, branches.length - 1));
+  const currentBranch = branches[safeTabValue] ?? null;
+  const branchTechs = currentBranch ? techs.filter(t => t.branch === currentBranch) : [];
 
   return (
     <Modal open={open} onClose={onClose}>
       <Box sx={style}>
-        <Box sx={{ width: '100%' }}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs value={tabValue} onChange={handleChange} aria-label="basic tabs example">
-              <Tab label="Item One" {...a11yProps(0)} />
-              <Tab label="Item Two" {...a11yProps(1)} />
-              <Tab label="Item Three" {...a11yProps(2)} />
-            </Tabs>
-          </Box>
-          <CustomTabPanel value={tabValue} index={0}>
-            Item One
-          </CustomTabPanel>
-          <CustomTabPanel value={tabValue} index={1}>
-            Item Two
-          </CustomTabPanel>
-          <CustomTabPanel value={tabValue} index={2}>
-            Item Three
-          </CustomTabPanel>
+        <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          <div style={{ display: 'flex', width: '100%', alignItems: 'center', justifyContent: 'space-between'}}>
+            <span style={{ fontSize: '20px' }}>Research</span>
+            <div style={{ cursor: 'pointer' }} onClick={onClose}>X</div>
+          </div>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
-          <Button
-            variant="outlined"
-            onClick={onClose}
-            disabled={loading}
-            fullWidth
-          >
-            Cancel
-          </Button>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
+          <Tabs value={safeTabValue} onChange={(_, v) => setTabValue(v)} aria-label="tech branches">
+            {branches.map((branch, i) => (
+              <Tab key={branch} label={branch} id={`tech-tab-${i}`} aria-controls={`tech-tabpanel-${i}`} />
+            ))}
+          </Tabs>
+        </Box>
+        <Box sx={{ flex: 1, overflow: 'auto' }}>
+          <TechTree techs={branchTechs} />
         </Box>
       </Box>
     </Modal>
