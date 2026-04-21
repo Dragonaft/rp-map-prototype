@@ -10,6 +10,7 @@ interface UserState {
   troops: number;
   isNew: boolean;
   provinces: Province[];
+  completedResearch: string[];
 }
 
 const initialState: UserState = {
@@ -21,6 +22,7 @@ const initialState: UserState = {
   troops: 0,
   isNew: false,
   provinces: [],
+  completedResearch: [],
 };
 
 const userSlice = createSlice({
@@ -36,6 +38,7 @@ const userSlice = createSlice({
       state.troops = action.payload.troops;
       state.isNew = action.payload.isNew;
       state.provinces = action.payload.provinces;
+      state.completedResearch = action.payload.completedResearch ?? [];
     },
     updateUserTroops: (state, action: PayloadAction<number>) => {
       state.troops = action.payload;

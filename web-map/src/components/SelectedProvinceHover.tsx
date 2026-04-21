@@ -74,6 +74,7 @@ export const SelectedProvinceHover = () => {
         troops: response.user.troops,
         isNew: response.user.is_new,
         provinces: response.user.provinces,
+        completedResearch: [],
       }));
     }
 

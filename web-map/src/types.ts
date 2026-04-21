@@ -84,6 +84,7 @@ export interface User {
   money: number;
   isNew: boolean;
   provinces: Province[];
+  completedResearch: string[];
 }
 
 export interface PartialUser {
@@ -121,6 +122,7 @@ export enum ActionType {
   DEPLOY = 'DEPLOY',
   UPGRADE = 'UPGRADE',
   TRANSFER_TROOPS = 'TRANSFER_TROOPS',
+  RESEARCH = 'RESEARCH',
 }
 
 export interface ActionData {

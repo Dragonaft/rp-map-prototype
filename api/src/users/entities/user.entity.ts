@@ -41,6 +41,7 @@ export class User extends BaseEntity {
   public research_points: number;
 
   @Column({ type: 'simple-array', nullable: true })
+  @Expose({ name: 'completedResearch' })
   public completed_research: string[];
 
   @Column({ type: 'varchar', nullable: true })

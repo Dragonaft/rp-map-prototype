@@ -9,11 +9,11 @@ const ROW_GAP = 60;
 const STRIDE_X = NODE_W + COL_GAP;
 const STRIDE_Y = NODE_H + ROW_GAP;
 
-function computeDepths(techs: Tech[]): Map<string, number> {
+const computeDepths = (techs: Tech[]): Map<string, number> => {
   const techMap = new Map(techs.map(t => [t.key, t]));
   const memo = new Map<string, number>();
 
-  function depth(key: string): number {
+  const depth = (key: string): number => {
     if (memo.has(key)) return memo.get(key)!;
     const tech = techMap.get(key);
     if (!tech || !tech.prerequisites.length) {
@@ -23,11 +23,11 @@ function computeDepths(techs: Tech[]): Map<string, number> {
     const d = Math.max(...tech.prerequisites.filter(p => techMap.has(p)).map(depth)) + 1;
     memo.set(key, d);
     return d;
-  }
+  };
 
   techs.forEach(t => depth(t.key));
   return memo;
-}
+};
 
 /**
  * Assigns each tech a (row, col) grid coordinate.
@@ -35,7 +35,7 @@ function computeDepths(techs: Tech[]): Map<string, number> {
  * child, place the child in the same column as the parent (directly below).
  * All other techs get the next free column in their row.
  */
-function computePositions(techs: Tech[]): Map<string, { row: number; col: number }> {
+const computePositions = (techs: Tech[]): Map<string, { row: number; col: number }> => {
   const techMap = new Map(techs.map(t => [t.key, t]));
   const depths = computeDepths(techs);
 
@@ -51,27 +51,26 @@ function computePositions(techs: Tech[]): Map<string, { row: number; col: number
   const positions = new Map<string, { row: number; col: number }>();
   const takenCols = new Map<number, Set<number>>(); // row → used columns
 
-  function isFree(row: number, col: number): boolean {
-    return !(takenCols.get(row)?.has(col));
-  }
+  const isFree = (row: number, col: number): boolean =>
+    !(takenCols.get(row)?.has(col));
 
-  function claim(row: number, col: number) {
+  const claim = (row: number, col: number) => {
     if (!takenCols.has(row)) takenCols.set(row, new Set());
     takenCols.get(row)!.add(col);
-  }
+  };
 
-  function nextFreeCol(row: number, start = 0): number {
+  const nextFreeCol = (row: number, start = 0): number => {
     let col = start;
     while (!isFree(row, col)) col++;
     return col;
-  }
+  };
 
-  function hasPreferredCol(tech: Tech): boolean {
+  const hasPreferredCol = (tech: Tech): boolean => {
     const validPrereqs = tech.prerequisites.filter(p => techMap.has(p));
     if (validPrereqs.length !== 1) return false;
     const parentChildren = childrenMap.get(validPrereqs[0]) ?? [];
     return parentChildren.length === 1;
-  }
+  };
 
   // Process in depth order; within same depth, nodes with an inherited column come first
   // so they claim their column before free-floating nodes fill it.
@@ -105,13 +104,18 @@ function computePositions(techs: Tech[]): Map<string, { row: number; col: number
   }
 
   return positions;
-}
+};
 
 interface Props {
   techs: Tech[];
+  completedResearch: string[];
+  pendingResearchKeys: string[];
+  onTechClick: (tech: Tech) => void;
 }
 
-export const TechTree: React.FC<Props> = ({ techs }) => {
+export const TechTree: React.FC<Props> = ({ techs, completedResearch, pendingResearchKeys, onTechClick }) => {
+  const completedSet = new Set(completedResearch);
+  const pendingSet = new Set(pendingResearchKeys);
   if (!techs.length) return null;
 
   const positions = computePositions(techs);
@@ -126,7 +130,6 @@ export const TechTree: React.FC<Props> = ({ techs }) => {
   const nodeX = (col: number) => col * STRIDE_X;
   const nodeY = (row: number) => row * STRIDE_Y;
   const centerX = (col: number) => nodeX(col) + NODE_W / 2;
-  const centerY = (row: number) => nodeY(row) + NODE_H / 2;
 
   return (
     <div style={{ overflowX: 'auto', overflowY: 'auto', padding: 16, display: 'flex', justifyContent: 'center' }}>
@@ -166,17 +169,20 @@ export const TechTree: React.FC<Props> = ({ techs }) => {
         {/* Nodes */}
         {techs.map(tech => {
           const pos = positions.get(tech.key)!;
+          const researched = completedSet.has(tech.key);
+          const pending = pendingSet.has(tech.key);
+          const borderColor = researched ? 'green' : pending ? '#f59e0b' : 'black';
           return (
             <div
               key={tech.key}
-              title={`${tech.name}\n${tech.description}\nCost: ${tech.cost}`}
+              onClick={() => onTechClick(tech)}
               style={{
                 position: 'absolute',
                 left: nodeX(pos.col),
                 top: nodeY(pos.row),
                 width: NODE_W,
                 height: NODE_H,
-                border: '2px solid black',
+                border: `2px solid ${borderColor}`,
                 backgroundColor: 'white',
                 display: 'flex',
                 flexDirection: 'column',
@@ -185,6 +191,7 @@ export const TechTree: React.FC<Props> = ({ techs }) => {
                 cursor: 'pointer',
                 padding: 4,
                 boxSizing: 'border-box',
+                opacity: researched ? 0.7 : 1,
               }}
             >
               {/* icon placeholder */}

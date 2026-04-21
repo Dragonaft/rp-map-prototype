@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { instanceToPlain } from 'class-transformer';
 import { User } from './entities/user.entity';
 import { UsersCreateBodyRequest } from "./requests/users-create-body.request";
 import { UsersUpdateBodyRequest } from "./requests/users-update-body.request";
@@ -32,7 +33,7 @@ export class UsersService {
     }));
   }
 
-  async findOne(id: string) {
+  private async findOneEntity(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({
       where: { id },
       relations: ['provinces', 'provinces.buildings'],
@@ -41,6 +42,12 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
+
+    return user;
+  }
+
+  async findOne(id: string) {
+    const user = await this.findOneEntity(id);
 
     const resources = { stone: 0, iron: 0, gold: 0, wood: 0 };
     for (const p of user.provinces ?? []) {
@@ -61,11 +68,11 @@ export class UsersService {
       }
     }
 
-    return { ...user, resources };
+    return { ...instanceToPlain(user), resources };
   }
 
   async update(id: string, updateUserDto: UsersUpdateBodyRequest): Promise<User> {
-    const user = await this.findOne(id);
+    const user = await this.findOneEntity(id);
 
     Object.assign(user, updateUserDto);
 
