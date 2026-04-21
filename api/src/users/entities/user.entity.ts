@@ -38,6 +38,7 @@ export class User extends BaseEntity {
   public troops: number;
 
   @Column({ default: 0 })
+  @Expose({ name: 'researchPoints' })
   public research_points: number;
 
   @Column({ type: 'simple-array', nullable: true })

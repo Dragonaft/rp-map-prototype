@@ -24,6 +24,7 @@ const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> =
 
 /** Server-side money cost per troop when moving troops from the global pool into a province. Maybe transfer to env or db */
 const DEPLOY_MONEY_PER_TROOP = 1;
+const UNIQUE_PER_PROVINCE: string[] = [BuildingTypes.MINE, BuildingTypes.FORESTRY, BuildingTypes.FORT];
 
 function parseBuildingModifier(modifier: string | null | undefined): number {
   const n = Number(modifier);
@@ -116,11 +117,13 @@ export class BuildActionHandler implements ActionHandler {
         throw new Error(`Building cap reached for this province (max ${buildingCap})`);
       }
 
-      const alreadyHasType = province.buildings?.some(
-        (b) => b.type === buildingTemplate.type,
-      );
-      if (alreadyHasType) {
-        throw new Error('This building type is already built in this province');
+      if (UNIQUE_PER_PROVINCE.includes(buildingTemplate.type)) {
+        const alreadyHasType = province.buildings?.some(
+          (b) => b.type === buildingTemplate.type,
+        );
+        if (alreadyHasType) {
+          throw new Error('This building type is already built in this province');
+        }
       }
 
       const allowedResources = RESOURCE_BUILDING_REQUIREMENTS[buildingTemplate.type];

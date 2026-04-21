@@ -73,6 +73,7 @@ export interface Province {
   enemyHere?: boolean;
   buildings?: Building[];
   neighbors?: string[] | null;
+  buildingCap: number;
 }
 
 export interface User {
@@ -84,6 +85,7 @@ export interface User {
   money: number;
   isNew: boolean;
   provinces: Province[];
+  researchPoints: number;
   completedResearch: string[];
 }
 
@@ -103,6 +105,7 @@ export interface SetupUserResponse {
     money: number;
     is_new: boolean;
     provinces: Province[];
+    researchPoints: number;
   };
   province: {
     id: string;

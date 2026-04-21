@@ -36,6 +36,16 @@ export const TopBar = () => {
             <div
               className="flex items-center gap-4 px-4 py-2 bg-surface-container rounded-lg border border-outline-variant/15">
               <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-white text-sm" data-icon="church">church</span>
+                <span className="font-headline font-bold text-white text-xs uppercase tracking-wider">Piety: 850</span>
+              </div>
+              <div className="w-px h-4 bg-outline-variant/30"></div>
+              <div className="flex items-center gap-2">
+                <span className="material-symbols-outlined text-tertiary text-sm" data-icon="science">science</span>
+                <span className="font-headline font-bold text-tertiary text-xs uppercase tracking-wider">Research: {user.researchPoints}</span>
+              </div>
+              <div className="w-px h-4 bg-outline-variant/30"></div>
+              <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-sm" data-icon="groups">groups</span>
                 <span
                   className="font-headline font-bold text-primary text-xs uppercase tracking-wider">Troops: {user.troops}</span>

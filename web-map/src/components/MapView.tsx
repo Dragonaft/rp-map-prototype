@@ -19,8 +19,6 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const userActions = useAppSelector((state: RootState) => state.actions.actions);
   const provinceCentersById = useAppSelector((state: RootState) => state.provinces.provinceCentersById);
   const provinceBBoxById = useAppSelector((state: RootState) => state.provinces.provinceBBoxById);
-  const buildings = useAppSelector((state: RootState) => state.buildings.buildings);
-
   // Camera state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
   const [isDragging, setIsDragging] = useState(false);
@@ -102,10 +100,6 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     return userActions.filter(a => a.actionType === ActionType.INVADE);
   }, [userActions]);
 
-  const buildingById = useMemo(() =>
-    Object.fromEntries(buildings.map(b => [b.id, b])),
-  [buildings]);
-
   const deployActionByProvinceId = useMemo(() => {
     if (!userActions?.length) return {} as Record<string, { id: string; troopsNumber: number }>;
     return userActions
@@ -118,21 +112,6 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
         return acc;
       }, {});
   }, [userActions]);
-
-  const buildActionsByProvinceId = useMemo(() => {
-    if (!userActions?.length) return {} as Record<string, { id: string; buildingType: string }[]>;
-    return userActions
-      .filter(a => a.actionType === ActionType.BUILD)
-      .reduce<Record<string, { id: string; buildingType: string }[]>>((acc, a) => {
-        const provinceId: string | undefined = a.actionData?.province_id ?? a.actionData?.provinceId;
-        const buildingId: string | undefined = a.actionData?.building_id ?? a.actionData?.buildingId;
-        if (!provinceId) return acc;
-        const buildingType = (buildingId ? buildingById[buildingId]?.type : undefined) ?? '';
-        if (!acc[provinceId]) acc[provinceId] = [];
-        acc[provinceId].push({ id: a.id, buildingType });
-        return acc;
-      }, {});
-  }, [userActions, buildingById]);
 
   // ── Viewport culling ──────────────────────────────────────────────────────
   // Only passes provinces whose bbox intersects the current SVG viewBox.
@@ -322,7 +301,6 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
             isSelected={selectedProvinceId === p.id}
             onSelect={toggleSelect}
             onRightClick={handleProvinceRightClick}
-            pendingBuildActions={buildActionsByProvinceId[p.id]}
             pendingDeployAction={deployActionByProvinceId[p.id]}
             onCancelAction={handleOpenCancelModal}
           />

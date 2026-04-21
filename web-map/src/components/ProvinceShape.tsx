@@ -3,11 +3,7 @@ import { Building, Province } from '../types';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { setSelectedTroops } from '../store/slices/provincesSlice';
 import type { BBox } from '../store/slices/provincesSlice';
-
-interface PendingBuildAction {
-  id: string;
-  buildingType: string;
-}
+import { BUILDING_ICONS, LANDSCAPE_ICONS } from '../constants/buildingIcons';
 
 interface PendingDeployAction {
   id: string;
@@ -19,20 +15,12 @@ interface Props {
   isSelected: boolean;
   onSelect: (province: Province, multi: boolean) => void;
   onRightClick: (province: Province) => void;
-  pendingBuildActions?: PendingBuildAction[];
   pendingDeployAction?: PendingDeployAction;
   onCancelAction?: (actionId: string) => void;
   bbox: BBox;
 }
 
-const buildingIcons: Record<string, string> = {
-  CAPITAL: '🏰',
-  CAPITOL: '🏰',
-  FARM: '🌾',
-  BARRACKS: '⚔️',
-  FORT: '🛡️',
-  MARKET: '💰',
-};
+const MAP_VISIBLE_BUILDINGS = new Set(['CAPITAL', 'CAPITOL', 'FORT', 'FORESTRY', 'MINE']);
 
 const WATER_COLOR = 'rgb(174, 226, 255)';
 const DEFAULT_LAND_COLOR = 'rgb(255, 255, 255)';
@@ -42,7 +30,6 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   isSelected,
   onSelect,
   onRightClick,
-  pendingBuildActions = [],
   pendingDeployAction,
   onCancelAction,
   bbox,
@@ -67,11 +54,16 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   const strokeColor = isSelected ? 'rgb(255, 255, 0)' : 'rgb(0, 0, 0)';
   const strokeWidth = isSelected ? 4 : 2;
 
-  // Center and troop-box Y from pre-computed bbox — no DOM access needed
   const cx = bbox.x + bbox.width / 2;
   const cy = bbox.y + bbox.height / 2;
-  const hasBuildings = (province.buildings?.length ?? 0) > 0;
-  const troopY = cy + (hasBuildings ? 25 : 0);
+
+  const visibleBuildings = useMemo(() =>
+    (province.buildings ?? []).filter(b => MAP_VISIBLE_BUILDINGS.has(b.type)),
+    [province.buildings],
+  );
+
+  const hasVisibleBuildings = visibleBuildings.length > 0;
+  const troopY = cy + (hasVisibleBuildings ? 25 : 0);
 
   const handleClick: React.MouseEventHandler<SVGPathElement> = React.useCallback((e) => {
     e.stopPropagation();
@@ -93,7 +85,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   }, [dispatch, province.id, province.localTroops, isTroopSelected]);
 
   const renderBuildingIcon = (building: Building, index: number) => {
-    const icon = buildingIcons[building.type] ?? '🏗️';
+    const icon = BUILDING_ICONS[building.type] ?? '🏗️';
     const offsetX = (index % 2) * 15 - 7.5;
     const offsetY = Math.floor(index / 2) * 15 - 7.5;
     return (
@@ -108,26 +100,10 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     );
   };
 
-  const renderPendingBuildIcon = (action: PendingBuildAction, index: number) => {
-    const icon = (action.buildingType ? buildingIcons[action.buildingType] : undefined) ?? '🏗️';
-    const offsetX = (index % 2) * 15 - 7.5;
-    const offsetY = Math.floor(index / 2) * 15 - 7.5;
-    return (
-      <text
-        key={action.id}
-        x={cx + offsetX} y={cy + offsetY}
-        fontSize="16" textAnchor="middle" dominantBaseline="middle"
-        opacity={0.5} style={{ userSelect: 'none', cursor: 'pointer' }}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => { e.stopPropagation(); onCancelAction?.(action.id); }}
-      >
-        {icon}
-      </text>
-    );
-  };
-
   const hasLocalTroops = isCurrentUserProvince && province.localTroops != null && province.localTroops > 0;
   const deployLabel = (pendingDeployAction && isCurrentUserProvince) ? `+${pendingDeployAction.troopsNumber}` : null;
+
+  const landscapeIcon = LANDSCAPE_ICONS[province.landscape];
 
   return (
     <g>
@@ -142,13 +118,19 @@ const ProvinceShapeComponent: React.FC<Props> = ({
         style={{ cursor: 'pointer', transition: 'stroke 0.2s, stroke-width 0.2s' }}
       />
 
-      {/* Building icons */}
-      {province.buildings && province.buildings.length > 0 &&
-        province.buildings.map((b, i) => renderBuildingIcon(b, i))
-      }
-      {pendingBuildActions.map((a, i) =>
-        renderPendingBuildIcon(a, (province.buildings?.length ?? 0) + i)
+      {/* Landscape icon — top-left corner */}
+      {!isWater && landscapeIcon && (
+        <text
+          x={bbox.x + 6} y={bbox.y + 10}
+          fontSize="10" textAnchor="start" dominantBaseline="middle"
+          pointerEvents="none" style={{ userSelect: 'none' }}
+        >
+          {landscapeIcon}
+        </text>
       )}
+
+      {/* Building icons (map-visible only) */}
+      {visibleBuildings.map((b, i) => renderBuildingIcon(b, i))}
 
       {/* Enemy troops indicator */}
       {!isCurrentUserProvince && province.enemyHere && (

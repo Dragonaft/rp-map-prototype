@@ -143,7 +143,8 @@ export class ProvincesService {
     const updatedProvince = {
       ...province,
       local_troops: 1000,
-      user_id: user.id
+      user_id: user.id,
+      buildingCap: computeBuildingCap(province.landscape, []),
     };
 
     Object.assign(province, updatedProvince);

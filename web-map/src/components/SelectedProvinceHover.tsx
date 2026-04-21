@@ -2,14 +2,15 @@ import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { selectSelectedProvince, updateProvinceById } from "../store/slices/provincesSlice.ts";
 import { setUser } from "../store/slices/userSlice.ts";
 import type { RootState } from "../store/store.ts";
-import { Box, Button, Slider, Tooltip } from "@mui/material";
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Slider, Tooltip } from "@mui/material";
 import { useMutation, useQuery } from "../hooks/useApi.ts";
 import { provincesApi } from "../api/provinces.ts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { buildingsApi } from "../api/buildings.ts";
 import { ActionType, Building, BuildingTypes } from "../types.ts";
 import { actionsApi } from "../api/actions.ts";
-import { addAction } from "../store/slices/actionsSlice.ts";
+import { addAction, removeActionById } from "../store/slices/actionsSlice.ts";
+import { BUILDING_ICONS } from "../constants/buildingIcons.ts";
 
 export const SelectedProvinceHover = () => {
   const dispatch = useAppDispatch();
@@ -25,6 +26,9 @@ export const SelectedProvinceHover = () => {
   const fetchBuildings = useCallback(() => buildingsApi.getAll(), []);
   const { data: buildings, loading } = useQuery(fetchBuildings, []);
   const [troopCount, setTroopCount] = useState<number>(0);
+  const [deleteTarget, setDeleteTarget] = useState<Building | null>(null);
+  const [cancelPendingTarget, setCancelPendingTarget] = useState<{ id: string; type: string } | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     if (buildings) {
@@ -44,16 +48,22 @@ export const SelectedProvinceHover = () => {
     [buildingsState],
   );
 
-  const pendingBuildTypesInProvince = useMemo(() => {
-    if (!actions.length || !selectedProvince) return new Set<string>();
-    return new Set(
-      actions
-        .filter(a => a.actionType === ActionType.BUILD &&
-          (a.actionData?.province_id ?? a.actionData?.provinceId) === selectedProvince.id)
-        .map(a => buildingById[a.actionData?.building_id ?? a.actionData?.buildingId]?.type ?? '')
-        .filter(Boolean),
-    );
+  const pendingBuildActionsInProvince = useMemo(() => {
+    if (!actions.length || !selectedProvince) return [];
+    return actions
+      .filter(a => a.actionType === ActionType.BUILD &&
+        (a.actionData?.province_id ?? a.actionData?.provinceId) === selectedProvince.id)
+      .map(a => ({
+        id: a.id,
+        type: buildingById[a.actionData?.building_id ?? a.actionData?.buildingId]?.type ?? '',
+      }))
+      .filter(a => a.type);
   }, [actions, selectedProvince, buildingById]);
+
+  const pendingBuildTypesInProvince = useMemo(
+    () => new Set(pendingBuildActionsInProvince.map(a => a.type)),
+    [pendingBuildActionsInProvince],
+  );
 
   const handleGetProvinceOwner = () => {
    return otherUsers.find((user) => user.id === selectedProvince?.userId);
@@ -75,6 +85,7 @@ export const SelectedProvinceHover = () => {
         isNew: response.user.is_new,
         provinces: response.user.provinces,
         completedResearch: [],
+        researchPoints: response.user.researchPoints
       }));
     }
 
@@ -105,6 +116,20 @@ export const SelectedProvinceHover = () => {
       console.log(err.response?.data?.message || 'Failed to create action');
     }
   }
+
+  const handleCancelBuildAction = async () => {
+    if (!cancelPendingTarget) return;
+    setIsCancelling(true);
+    try {
+      await actionsApi.removeAction(cancelPendingTarget.id);
+      dispatch(removeActionById(cancelPendingTarget.id));
+      setCancelPendingTarget(null);
+    } catch (err: any) {
+      console.log(err.response?.data?.message || 'Failed to cancel action');
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   const handleDeployAction = async () => {
     if (!selectedProvince || !user.id) return;
@@ -150,44 +175,14 @@ export const SelectedProvinceHover = () => {
     </div>
   )
 
-  const BuildMenu = () => (
-    <div className="flex flex-col justify-between h-full">
-      {loading && <p>Loading...</p>}
-      <div className="flex flex-col gap-2">
-        <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Build options</h2>
-        {!loading && buildingsState.map((building) => (
-          <Tooltip title={
-            <>
-              <p>Cost: {building.cost}</p>
-              {building.modifier && <p>Modifier: {building.modifier}</p>}
-              {building.income && <p>Income: {building.income}</p>}
-              {building.upkeep && <p>Upkeep: {building.upkeep}</p>}
-            </>
-          }>
-            <Button
-              key={building.id}
-              variant="contained"
-              color="primary"
-              disabled={
-                !user.money || user.money < building.cost ||
-                selectedProvince?.buildings?.some(b => b.type === building.type) ||
-                pendingBuildTypesInProvince.has(building.type)
-              }
-              onClick={() => handleBuildAction(building.id)}
-            >
-              {building.name}
-            </Button>
-          </Tooltip>
-        ))}
-      </div>
-      <Button variant="contained" color="primary" onClick={() => setIsOpenBuildMenu(false)}>BACK</Button>
-    </div>
-  )
+  const builtInProvince = selectedProvince?.buildings ?? [];
+  const usedSlots = builtInProvince.length + pendingBuildActionsInProvince.length;
+  const emptySlotCount = Math.max(0, (selectedProvince?.buildingCap ?? 0) - usedSlots);
 
   if (!selectedProvince) return null;
 
   return (
-    <div className="w-60 h-80 glass-panel rounded-lg border border-outline-variant/10 p-5 flex flex-col flex-1 absolute right-5 top-4">
+    <div className="w-60 h-80 bg-gray-400 rounded-lg border border-outline-variant/10 p-5 flex flex-col flex-1 absolute right-5 top-4">
       {user.isNew && (
         <div className="flex flex-col justify-between h-full">
           <div>
@@ -214,26 +209,117 @@ export const SelectedProvinceHover = () => {
       {!user.isNew && isUserOwner && (
         <div className="flex flex-col justify-between h-full">
           {isOpenDeployMenu && <DeployMenu />}
-          {isOpenBuildMenu && <BuildMenu />}
-          {!isOpenDeployMenu && !isOpenBuildMenu &&
+          {!isOpenDeployMenu &&
           <>
             <div>
               <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
               <p>Landscape: {selectedProvince.landscape}</p>
               <p>Resource: {selectedProvince.resourceType}</p>
-              <p>Local buildings: </p>
-              {selectedProvince && selectedProvince.buildings && selectedProvince.buildings.map((building) => (
-                <span key={building.id}>{building.name}</span>
-              ))}
+              <div className="flex flex-wrap gap-1 mt-2">
+                {/* Built buildings */}
+                {builtInProvince.map((b) => (
+                  <button
+                    key={b.id}
+                    className={`w-10 h-10 text-lg border border-gray-600 rounded bg-gray-200 flex items-center justify-center ${b.type !== BuildingTypes.CAPITAL ? 'hover:bg-red-100 cursor-pointer' : 'cursor-default'}`}
+                    onClick={() => b.type !== BuildingTypes.CAPITAL && setDeleteTarget(b)}
+                    title={b.name}
+                  >
+                    {BUILDING_ICONS[b.type] ?? '🏗️'}
+                  </button>
+                ))}
+                {/* Pending build slots */}
+                {pendingBuildActionsInProvince.map((a) => (
+                  <button
+                    key={a.id}
+                    className="w-10 h-10 text-lg border border-yellow-500 rounded bg-yellow-50 hover:bg-yellow-100 flex items-center justify-center opacity-60"
+                    onClick={() => setCancelPendingTarget(a)}
+                    title="Pending — click to cancel"
+                  >
+                    {BUILDING_ICONS[a.type] ?? '🏗️'}
+                  </button>
+                ))}
+                {/* Empty slots */}
+                {Array.from({ length: emptySlotCount }).map((_, i) => (
+                  <button
+                    key={`empty-${i}`}
+                    className="w-10 h-10 text-lg border border-dashed border-gray-500 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
+                    onClick={() => setIsOpenBuildMenu(true)}
+                  >
+                    +
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="flex flex-col gap-2">
               <Button variant="contained" color="primary" onClick={() => setIsOpenDeployMenu(true)}>DEPLOY TROOPS</Button>
-              <Button variant="contained" color="primary" onClick={() => setIsOpenBuildMenu(true)}>BUILD</Button>
             </div>
           </>
           }
         </div>
       )}
+
+      {/* Build menu dialog */}
+      <Dialog open={isOpenBuildMenu} onClose={() => setIsOpenBuildMenu(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Build options</DialogTitle>
+        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 1, overflowY: 'auto', maxHeight: 320 }}>
+          {loading && <p>Loading...</p>}
+          {!loading && buildingsState.map((building) => (
+            <Tooltip key={building.id} title={
+              <>
+                <p>Cost: {building.cost}</p>
+                {building.modifier && <p>Modifier: {building.modifier}</p>}
+                {building.income && <p>Income: {building.income}</p>}
+                {building.upkeep && <p>Upkeep: {building.upkeep}</p>}
+              </>
+            }>
+              <span>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  color="primary"
+                  disabled={
+                    !user.money || user.money < building.cost ||
+                    pendingBuildTypesInProvince.has(building.type)
+                  }
+                  onClick={() => { handleBuildAction(building.id); setIsOpenBuildMenu(false); }}
+                  startIcon={<span>{BUILDING_ICONS[building.type] ?? '🏗️'}</span>}
+                >
+                  {building.name}
+                </Button>
+              </span>
+            </Tooltip>
+          ))}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setIsOpenBuildMenu(false)}>Cancel</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Cancel pending build dialog */}
+      <Dialog open={!!cancelPendingTarget} onClose={() => !isCancelling && setCancelPendingTarget(null)}>
+        <DialogTitle>Cancel Build</DialogTitle>
+        <DialogContent>
+          <p>Are you sure you want to cancel this build action?</p>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelPendingTarget(null)} disabled={isCancelling}>No</Button>
+          <Button color="error" onClick={handleCancelBuildAction} disabled={isCancelling}>
+            {isCancelling ? 'Cancelling...' : 'Yes'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete building confirmation dialog (mock) */}
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
+        <DialogTitle>Delete Building</DialogTitle>
+        <DialogContent>
+          <p>Are you sure you want to delete this building?</p>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button color="error" onClick={() => setDeleteTarget(null)}>Delete</Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };
