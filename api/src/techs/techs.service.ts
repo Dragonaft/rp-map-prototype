@@ -22,7 +22,7 @@ export class TechsService {
   async getAvailableForUser(userClass: string | null): Promise<Tech[]> {
     const all = await this.techRepo.find();
     return all.filter((tech) => {
-      if (tech.branch === 'common') return true;
+      if (tech.branch === 'economy' || tech.branch === 'military') return true;
       if (tech.isClassRoot) return userClass === null;
       return userClass !== null && tech.branch === userClass;
     });

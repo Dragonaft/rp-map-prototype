@@ -13,8 +13,11 @@
     "migration:revert": "npm run typeorm -- migration:revert -d src/db/data-source.ts",
     "migration:run:prod": "typeorm migration:run -d dist/db/data-source.prod.js",
     "migration:revert:prod": "typeorm migration:revert -d dist/db/data-source.prod.js",
+    "migration:fresh": "npm run typeorm -- schema:drop -d src/db/data-source.ts && npm run migration:run",
+    "migration:fresh:prod": "npm run typeorm -- schema:drop -d src/db/data-source.prod.ts && npm run migration:run",
     "import:provinces": "ts-node src/scripts/import-provinces.ts",
-    "seed:buildings": "ts-node src/scripts/seed-buildings.ts"
+    "seed:buildings": "ts-node src/scripts/seed-buildings.ts",
+    "seed:techs": "ts-node src/scripts/seed-techs.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

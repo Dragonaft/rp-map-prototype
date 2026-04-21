@@ -23,6 +23,6 @@ export class Tech extends BaseEntity {
   @Column({ default: 0 })
   public cost: number;
 
-  @Column({ type: 'simple-array', default: '' })
+  @Column({ type: 'simple-array', nullable: true })
   public prerequisites: string[];
 }

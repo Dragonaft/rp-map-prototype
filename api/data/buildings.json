@@ -2,46 +2,91 @@
   {
     "type": "CAPITAL",
     "name": "Capital",
-    "income": "500",
-    "upkeep": "0",
+    "income": 500,
+    "upkeep": 0,
     "modifier": "1.2",
     "cost": 0,
-    "requirement": []
+    "requirement_tech": [],
+    "requirement_building": null
+  },
+  {
+    "type": "GARDEN",
+    "name": "Garden",
+    "income": 75,
+    "upkeep": 0,
+    "modifier": null,
+    "cost": 50,
+    "requirement_tech": [],
+    "requirement_building": null
+  },
+  {
+    "type": "MINE",
+    "name": "Mine",
+    "income": 0,
+    "upkeep": 50,
+    "modifier": null,
+    "cost": 200,
+    "requirement_tech": ["economy.surface_mining"],
+    "requirement_building": null
+  },
+  {
+    "type": "FORESTRY",
+    "name": "Forestry",
+    "income": 150,
+    "upkeep": 50,
+    "modifier": null,
+    "cost": 150,
+    "requirement_tech": ["economy.foresting"],
+    "requirement_building": null
   },
   {
     "type": "FARM",
     "name": "Farm",
-    "income": "120",
-    "upkeep": "0",
+    "income": 150,
+    "upkeep": 0,
     "modifier": null,
-    "cost": 50,
-    "requirement": []
+    "cost": 75,
+    "requirement_tech": ["economy.agriculture"],
+    "requirement_building": "GARDEN"
   },
   {
     "type": "BARRACKS",
     "name": "Barracks",
     "income": null,
-    "upkeep": "80",
+    "upkeep": 80,
     "modifier": null,
     "cost": 100,
-    "requirement": []
+    "requirement_tech": [],
+    "requirement_building": null
   },
   {
     "type": "FORT",
     "name": "Fort",
     "income": null,
-    "upkeep": "120",
+    "upkeep": 120,
     "modifier": "1.3",
     "cost": 500,
-    "requirement": []
+    "requirement_tech": [],
+    "requirement_building": null
   },
   {
     "type": "MARKET",
     "name": "Market",
-    "income": "300",
-    "upkeep": "0",
+    "income": 300,
+    "upkeep": 0,
     "modifier": null,
     "cost": 150,
-    "requirement": []
+    "requirement_tech": [],
+    "requirement_building": "BAZAAR"
+  },
+  {
+    "type": "BAZAAR",
+    "name": "Bazaar",
+    "income": 150,
+    "upkeep": 0,
+    "modifier": null,
+    "cost": 100,
+    "requirement_tech": [],
+    "requirement_building": null
   }
 ]

@@ -6,4 +6,8 @@ export enum BuildingTypes {
   FORT = 'FORT',
   MARKET = 'MARKET',
   LIBRARY = 'LIBRARY',
+  MINE = 'MINE',
+  FORESTRY = 'FORESTRY',
+  GARDEN = 'GARDEN',
+  BAZAAR = 'BAZAAR',
 }

@@ -7,13 +7,20 @@ import { Province } from '../provinces/entities/province.entity';
 import { User } from '../users/entities/user.entity';
 import { ActionQueue, ActionType } from './entities/action-queue.entity';
 import { TechsService } from '../techs/techs.service';
-import { BATTLE_RESEARCH_EFFECTS } from '../techs/research-effects';
+import { BATTLE_RESEARCH_EFFECTS, computeBuildingCap } from '../techs/research-effects';
 
 const DEFENSIVE_BUILDING_TYPES = new Set<string>([
   BuildingTypes.FORT,
   BuildingTypes.CAPITOL,
   BuildingTypes.CAPITAL,
 ]);
+
+/** Buildings that can only be placed on provinces whose resource_type is in the allowed list. */
+const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> = {
+  [BuildingTypes.MINE]:     ['iron', 'gold', 'stone'],
+  [BuildingTypes.FORESTRY]: ['wood'],
+  [BuildingTypes.FARM]:     ['grain'],
+};
 
 /** Server-side money cost per troop when moving troops from the global pool into a province. Maybe transfer to env or db */
 const DEPLOY_MONEY_PER_TROOP = 1;
@@ -104,11 +111,23 @@ export class BuildActionHandler implements ActionHandler {
         throw new Error('Not enough money to build');
       }
 
+      const buildingCap = computeBuildingCap(province.landscape, user.completed_research ?? []);
+      if ((province.buildings?.length ?? 0) >= buildingCap) {
+        throw new Error(`Building cap reached for this province (max ${buildingCap})`);
+      }
+
       const alreadyHasType = province.buildings?.some(
         (b) => b.type === buildingTemplate.type,
       );
       if (alreadyHasType) {
         throw new Error('This building type is already built in this province');
+      }
+
+      const allowedResources = RESOURCE_BUILDING_REQUIREMENTS[buildingTemplate.type];
+      if (allowedResources && !allowedResources.includes(province.resource_type)) {
+        throw new Error(
+          `${buildingTemplate.name} can only be built on provinces with resource type: ${allowedResources.join(', ')} (this province: ${province.resource_type ?? 'none'})`,
+        );
       }
 
       user.money = currentMoney - cost;
@@ -247,8 +266,6 @@ export class DeployActionHandler implements ActionHandler {
       throw new Error('troops_number must be a positive number');
     }
 
-    const deployMoneyCost = troopsNumber * DEPLOY_MONEY_PER_TROOP;
-
     await this.provinceRepo.manager.transaction(async (manager) => {
       const province = await manager.findOne(Province, {
         where: { id: provinceId },
@@ -271,6 +288,9 @@ export class DeployActionHandler implements ActionHandler {
       if (!user) {
         throw new Error('User not found');
       }
+
+      const hasLogistics = (user.completed_research ?? []).includes('economy.logistics');
+      const deployMoneyCost = hasLogistics ? 0 : troopsNumber * DEPLOY_MONEY_PER_TROOP;
 
       const currentMoney = Number(user.money ?? 0);
       if (currentMoney < deployMoneyCost) {

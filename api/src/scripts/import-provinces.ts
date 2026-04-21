@@ -1,8 +1,17 @@
-import { AppDataSource } from '../db/data-source.prod';
+import { AppDataSource as AppDataSourceDev } from '../db/data-source';
+import { AppDataSource as AppDataSourceProd } from '../db/data-source.prod';
 import { Province } from '../provinces/entities/province.entity';
 import * as fs from 'fs';
 import * as path from 'path';
 import { colors, logger } from "../utils/logger";
+
+const env = process.env.NODE_ENV;
+if (env !== 'development' && env !== 'production') {
+  console.error(`NODE_ENV must be "development" or "production", got: "${env}"`);
+  process.exit(1);
+}
+const AppDataSource = env === 'production' ? AppDataSourceProd : AppDataSourceDev;
+
 
 interface ProvinceInput {
   polygon: string;

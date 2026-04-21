@@ -1,13 +1,104 @@
 [
   {
-    "key": "economy.trade_routes",
-    "name": "Trade Routes",
-    "description": "Establish merchant trade routes between your provinces, increasing overall income by 20%.",
+    "key": "economy.surface_mining",
+    "name": "Surface Mining",
+    "description": "Basic extraction techniques allow workers to exploit iron, stone, and gold deposits on the surface. Unlocks the Mine building.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 1,
+    "prerequisites": []
+  },
+  {
+    "key": "economy.foresting",
+    "name": "Organized Foresting",
+    "description": "Systematic logging and replanting turns forests into a reliable source of timber income. Unlocks the Forestry building.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 1,
+    "prerequisites": []
+  },
+  {
+    "key": "economy.record_keeping",
+    "name": "Record Keeping",
+    "description": "Scribes and ledgers allow rulers to extract more research value from their capitals, generating an additional research point per capital each turn.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 2,
+    "prerequisites": []
+  },
+  {
+    "key": "economy.agriculture",
+    "name": "Agricultural Methods",
+    "description": "Improved farming techniques and crop management boost yields from farms and gardens by 15%.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 5,
+    "prerequisites": []
+  },
+  {
+    "key": "economy.library_studies",
+    "name": "Library Studies",
+    "description": "Investment in scholarly infrastructure unlocks the construction of Libraries, which generate research points each turn.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 5,
+    "prerequisites": ["economy.record_keeping"]
+  },
+  {
+    "key": "economy.crop_rotation",
+    "name": "Crop Rotation",
+    "description": "Rotating crops between seasons dramatically increases agricultural output. Unlocks the Granary building.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["economy.agriculture"]
+  },
+  {
+    "key": "economy.banking",
+    "name": "Banking System",
+    "description": "Formal banking institutions enable capital accumulation at scale. Unlocks the Bank building.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 5,
+    "prerequisites": ["economy.record_keeping"]
+  },
+  {
+    "key": "economy.advanced_taxation",
+    "name": "Advanced Taxation",
+    "description": "Sophisticated guild tax collectors extract a flat 50 gold from every owned province each turn.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["economy.banking"]
+  },
+  {
+    "key": "economy.logistics",
+    "name": "Supply Logistics",
+    "description": "Guild-run supply chains eliminate the cost of deploying troops between provinces.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["economy.record_keeping"]
+  },
+  {
+    "key": "economy.monopoly",
+    "name": "Trade Monopoly",
+    "description": "Total dominance of regional trade networks. All income is boosted by 60%.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 30,
+    "prerequisites": ["economy.banking", "economy.advanced_taxation"]
+  },
+  {
+    "key": "economy.grand_treasury",
+    "name": "Grand Treasury",
+    "description": "A central treasury consolidates the nation's immense wealth. Unlocks the Treasury building.",
     "branch": "economy",
     "isClassRoot": false,
     "cost": 50,
-    "prerequisites": []
+    "prerequisites": ["economy.banking", "economy.monopoly"]
   },
+
   {
     "key": "military.sword_training",
     "name": "Sword Training",
@@ -15,6 +106,16 @@
     "branch": "military",
     "isClassRoot": false,
     "cost": 50,
+    "prerequisites": []
+  },
+
+  {
+    "key": "guild.merchant_guilds",
+    "name": "Merchant Guild Charter",
+    "description": "A formal charter establishes the Merchant Guild as the ruling class. Streamlined economic administration reduces all upkeep by 15%. Commits your nation to the Merchant Guild path.",
+    "branch": "guild",
+    "isClassRoot": true,
+    "cost": 10,
     "prerequisites": []
   }
 ]

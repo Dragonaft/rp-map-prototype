@@ -15,6 +15,8 @@ import { useActionExecutionReload } from "../../hooks/useActionExecutionReload.t
 import { setActions } from "../../store/slices/actionsSlice.ts";
 import { buildingsApi } from "../../api/buildings.ts";
 import { setBuildings } from "../../store/slices/buildingsSlice.ts";
+import { techsApi } from "../../api/techs.ts";
+import { setTechs } from "../../store/slices/techsSlice.ts";
 
 
 const style = {
@@ -56,6 +58,8 @@ export const GamePage: React.FC = () => {
   const { data: actions } = useQuery(fetchUserActions, []);
   const fetchBuildings = useCallback(() => buildingsApi.getAll(), []);
   const { data: buildingsData } = useQuery(fetchBuildings, []);
+  const fetchTechs = useCallback(() => techsApi.getAll(), []);
+  const { data: techsData } = useQuery(fetchTechs, []);
 
   useEffect(() => {
     if (!userData) return;
@@ -82,6 +86,11 @@ export const GamePage: React.FC = () => {
     if (!buildingsData) return;
     dispatch(setBuildings(buildingsData));
   }, [buildingsData, dispatch]);
+
+  useEffect(() => {
+    if (!techsData) return;
+    dispatch(setTechs(techsData));
+  }, [techsData, dispatch]);
 
   // Prevent browser zoom when Ctrl+wheel anywhere on the page
   useEffect(() => {

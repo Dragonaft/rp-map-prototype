@@ -7,6 +7,7 @@ import { User } from "../users/entities/user.entity";
 import { Building } from '../buildings/entities/building.entity';
 import { AuthTokenType } from "../auth/types/auth.types";
 import { ActionsService } from '../actions/actions.service';
+import { computeBuildingCap } from '../techs/research-effects';
 import { BuildingTypes } from "../buildings/types/building.types";
 
 @Injectable()
@@ -67,13 +68,17 @@ export class ProvincesService {
 
   /** Dynamic province state: ownership, troops, buildings — changes only at turn end. */
   async getState(userId: string) {
-    const provinces = await this.provinceRepository
-      .createQueryBuilder('p')
-      .select(['p.id', 'p.user_id', 'p.local_troops'])
-      .leftJoinAndSelect('p.buildings', 'building')
-      .getMany();
+    const [provinces, user, reserved] = await Promise.all([
+      this.provinceRepository
+        .createQueryBuilder('p')
+        .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.resource_type'])
+        .leftJoinAndSelect('p.buildings', 'building')
+        .getMany(),
+      this.userRepository.findOne({ where: { id: userId } }),
+      this.actionsService.getReservedTroopMovesByFromProvince(userId),
+    ]);
 
-    const reserved = await this.actionsService.getReservedTroopMovesByFromProvince(userId);
+    const completedResearch = user?.completed_research ?? [];
 
     return provinces.map(p => {
       const isOwner = p.user_id === userId;
@@ -85,6 +90,7 @@ export class ProvincesService {
           : null,
         enemyHere: !isOwner && (p.local_troops ?? 0) > 0,
         buildings: p.buildings ?? [],
+        buildingCap: computeBuildingCap(p.landscape, completedResearch),
       };
     });
   }

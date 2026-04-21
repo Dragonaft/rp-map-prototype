@@ -3,6 +3,7 @@ import { EntityManager } from 'typeorm';
 import { BuildingTypes } from '../buildings/types/building.types';
 import { User } from '../users/entities/user.entity';
 import { UserGameState } from './user-state-loader.service';
+import { UPKEEP_RESEARCH_EFFECTS } from '../techs/research-effects';
 
 function parseUpkeep(upkeep: string | null | undefined): number {
   const n = Number(upkeep);
@@ -28,14 +29,17 @@ export class UpkeepActionService {
         if (!province.buildings?.length) continue;
         for (const b of province.buildings) {
           if (b.type === BuildingTypes.FORT || b.type === BuildingTypes.BARRACKS) {
-            buildingUpkeep += parseUpkeep(b.upkeep);
+            buildingUpkeep += b.upkeep;
           }
         }
       }
 
       const troopUpkeep = Math.ceil(Math.max(0, deployedTroops) / 200) * 100;
-      const totalUpkeep = buildingUpkeep + troopUpkeep;
-      user.money = Math.max(0, Number(user.money ?? 0) - totalUpkeep);
+      const upkeepCtx = { totalUpkeep: buildingUpkeep + troopUpkeep };
+      for (const techKey of (user.completed_research ?? [])) {
+        UPKEEP_RESEARCH_EFFECTS[techKey]?.(upkeepCtx);
+      }
+      user.money = Math.max(0, Number(user.money ?? 0) - upkeepCtx.totalUpkeep);
     }
 
     for (const user of users) {

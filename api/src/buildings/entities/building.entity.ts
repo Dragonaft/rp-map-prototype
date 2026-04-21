@@ -20,16 +20,22 @@ export class Building extends BaseEntity {
   public name: string;
 
   @Column({ nullable: true })
-  public income: string;
+  public income: number;
 
   @Column({ nullable: true })
-  public upkeep: string;
+  public upkeep: number;
 
   @Column({ nullable: true })
   public modifier: string;
 
   @Column({ nullable: true })
   public cost: number;
+
+  @Column({ type: 'simple-array', nullable: true })
+  public requirement_tech: string[];
+
+  @Column({ nullable: true })
+  public requirement_building: BuildingTypes | null;
 
   @ManyToMany(() => Province, (province) => province.buildings)
   public provinces: Province[];

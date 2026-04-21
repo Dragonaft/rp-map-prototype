@@ -5,6 +5,7 @@ import { User } from './entities/user.entity';
 import { UsersCreateBodyRequest } from "./requests/users-create-body.request";
 import { UsersUpdateBodyRequest } from "./requests/users-update-body.request";
 import { PartialUser } from "./types/users.types";
+import { BuildingTypes } from '../buildings/types/building.types';
 
 @Injectable()
 export class UsersService {
@@ -31,14 +32,36 @@ export class UsersService {
     }));
   }
 
-  async findOne(id: string): Promise<User> {
-    const user = await this.usersRepository.findOne({ where: { id }, relations: ['provinces'] });
+  async findOne(id: string) {
+    const user = await this.usersRepository.findOne({
+      where: { id },
+      relations: ['provinces', 'provinces.buildings'],
+    });
 
     if (!user) {
       throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    return user;
+    const resources = { stone: 0, iron: 0, gold: 0, wood: 0 };
+    for (const p of user.provinces ?? []) {
+      if (!p.buildings?.length) continue;
+      for (const b of p.buildings) {
+        switch (b.type) {
+          case BuildingTypes.MINE:
+            switch (p.resource_type) {
+              case 'stone': resources.stone++; break;
+              case 'iron':  resources.iron++;  break;
+              case 'gold':  resources.gold++;  break;
+            }
+            break;
+          case BuildingTypes.FORESTRY:
+            resources.wood++;
+            break;
+        }
+      }
+    }
+
+    return { ...user, resources };
   }
 
   async update(id: string, updateUserDto: UsersUpdateBodyRequest): Promise<User> {

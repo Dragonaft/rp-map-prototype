@@ -11,6 +11,22 @@ export enum BuildingTypes {
   BARRACKS = 'BARRACKS',
   FORT = 'FORT',
   MARKET = 'MARKET',
+  LIBRARY = 'LIBRARY',
+  MINE = 'MINE',
+  FORESTRY = 'FORESTRY',
+  GARDEN = 'GARDEN',
+  BAZAAR = 'BAZAAR',
+}
+
+export interface Tech {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  branch: string;
+  isClassRoot: boolean;
+  cost: number;
+  prerequisites: string[];
 }
 
 
@@ -42,6 +58,7 @@ export interface ProvinceStateData {
   localTroops: number | null;
   enemyHere?: boolean;
   buildings?: Building[];
+  buildingCap: number | null;
 }
 
 export interface Province {
