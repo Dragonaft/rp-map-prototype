@@ -34,10 +34,14 @@ export interface Building {
   id: string;
   type: string;
   name: string;
-  income: string | null;
-  upkeep: string | null;
+  description: string;
+  income: number | null;
+  upkeep: number | null;
   modifier: string | null;
   cost: number;
+  upgradeTo: string | null;
+  requirementTech: string[] | null;
+  requirementBuilding: string | null;
 }
 
 /** Static fields — never change after map import. Safe to cache in localStorage. */

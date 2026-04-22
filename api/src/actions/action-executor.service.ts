@@ -390,15 +390,104 @@ export class RemoveActionHandler implements ActionHandler {
 export class UpgradeActionHandler implements ActionHandler {
   private readonly logger = new Logger(UpgradeActionHandler.name);
 
+  constructor(
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
+  ) {}
+
   async handle(action: ActionQueue): Promise<void> {
     this.logger.log(
       `Executing UPGRADE action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
     );
 
-    // TODO: Implement actual upgrade logic
+    const provinceId = action.actionData?.province_id as string | undefined;
+    const buildingId = action.actionData?.building_id as string | undefined;
 
-    // Simulated execution
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    if (!provinceId || !buildingId) {
+      throw new Error('province_id and building_id are required');
+    }
+
+    await this.provinceRepo.manager.transaction(async (manager) => {
+      const province = await manager.findOne(Province, {
+        where: { id: provinceId },
+        relations: ['buildings'],
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!province) {
+        throw new Error('Province not found');
+      }
+
+      if (province.user_id !== action.userId) {
+        throw new Error('User does not own this province');
+      }
+
+      const currentBuilding = province.buildings?.find((b) => b.id === buildingId);
+      if (!currentBuilding) {
+        throw new Error('Building not found in this province');
+      }
+
+      if (!currentBuilding.upgrade_to) {
+        throw new Error('This building cannot be upgraded');
+      }
+
+      const upgradeBuilding = await manager.findOne(Building, {
+        where: { type: currentBuilding.upgrade_to },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!upgradeBuilding) {
+        throw new Error(`Upgrade target building type not found: ${currentBuilding.upgrade_to}`);
+      }
+
+      if (upgradeBuilding.requirement_building !== currentBuilding.type) {
+        throw new Error(
+          `Upgrade chain mismatch: ${upgradeBuilding.type} requires ${upgradeBuilding.requirement_building}, not ${currentBuilding.type}`,
+        );
+      }
+
+      const cost = Number(upgradeBuilding.cost ?? 0);
+      if (!Number.isFinite(cost) || cost < 0) {
+        throw new Error('Invalid upgrade building cost');
+      }
+
+      const user = await manager.findOne(User, {
+        where: { id: action.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const completedResearch = user.completed_research ?? [];
+      const missingTech = (upgradeBuilding.requirement_tech ?? []).find(
+        (tech) => !completedResearch.includes(tech),
+      );
+      if (missingTech) {
+        throw new Error(`Missing required technology to upgrade: ${missingTech}`);
+      }
+
+      const currentMoney = Number(user.money ?? 0);
+      if (currentMoney < cost) {
+        throw new Error('Not enough money to upgrade');
+      }
+
+      user.money = currentMoney - cost;
+      await manager.save(User, user);
+
+      await manager
+        .createQueryBuilder()
+        .relation(Province, 'buildings')
+        .of(provinceId)
+        .remove(buildingId);
+
+      await manager
+        .createQueryBuilder()
+        .relation(Province, 'buildings')
+        .of(provinceId)
+        .add(upgradeBuilding.id);
+    });
   }
 }
 

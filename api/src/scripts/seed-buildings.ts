@@ -23,6 +23,7 @@ interface BuildingSeedRow {
   upkeep: number | null;
   modifier: string | null;
   cost: number | null;
+  upgrade_to: BuildingTypes | null;
   requirement_tech: string[] | null;
   requirement_building: BuildingTypes | null;
 }
@@ -120,6 +121,7 @@ async function seedBuildings() {
       upkeep: row.upkeep,
       modifier: row.modifier,
       cost: row.cost,
+      upgrade_to: row.upgrade_to,
       requirement_tech: row.requirement_tech,
       requirement_building: row.requirement_building,
     };

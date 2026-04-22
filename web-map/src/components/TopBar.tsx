@@ -3,7 +3,7 @@ import { useAppSelector } from "../store/hooks.ts";
 import { useMutation } from "../hooks/useApi.ts";
 import { authApi } from "../api/auth.ts";
 import { useState } from "react";
-import { TechsModal } from "./TechsModal.tsx";
+import { TechsModal } from "./Modals/TechsModal.tsx";
 
 export const TopBar = () => {
   const user = useAppSelector(state => state.user);

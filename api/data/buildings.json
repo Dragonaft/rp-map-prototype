@@ -8,6 +8,7 @@
     "modifier": "1.2",
     "cost": 0,
     "requirement_tech": [],
+    "upgrade_to": null,
     "requirement_building": null
   },
   {
@@ -19,6 +20,7 @@
     "modifier": null,
     "cost": 50,
     "requirement_tech": [],
+    "upgrade_to": "FARM",
     "requirement_building": null
   },
   {
@@ -29,6 +31,7 @@
     "upkeep": 50,
     "modifier": null,
     "cost": 200,
+    "upgrade_to": null,
     "requirement_tech": ["economy.surface_mining"],
     "requirement_building": null
   },
@@ -40,6 +43,7 @@
     "upkeep": 50,
     "modifier": null,
     "cost": 150,
+    "upgrade_to": null,
     "requirement_tech": ["economy.foresting"],
     "requirement_building": null
   },
@@ -51,6 +55,7 @@
     "upkeep": 0,
     "modifier": null,
     "cost": 75,
+    "upgrade_to": null,
     "requirement_tech": ["economy.agriculture"],
     "requirement_building": "GARDEN"
   },
@@ -62,6 +67,7 @@
     "upkeep": 80,
     "modifier": null,
     "cost": 100,
+    "upgrade_to": null,
     "requirement_tech": [],
     "requirement_building": null
   },
@@ -73,6 +79,7 @@
     "upkeep": 120,
     "modifier": "1.3",
     "cost": 500,
+    "upgrade_to": null,
     "requirement_tech": [],
     "requirement_building": null
   },
@@ -84,6 +91,7 @@
     "upkeep": 0,
     "modifier": null,
     "cost": 150,
+    "upgrade_to": null,
     "requirement_tech": [],
     "requirement_building": "BAZAAR"
   },
@@ -95,6 +103,7 @@
     "upkeep": 0,
     "modifier": null,
     "cost": 100,
+    "upgrade_to": "MARKET",
     "requirement_tech": [],
     "requirement_building": null
   }

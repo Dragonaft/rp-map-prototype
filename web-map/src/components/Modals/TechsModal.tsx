@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Modal, Box, Button, Tabs, Tab, Alert } from '@mui/material';
-import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
-import type { RootState } from "../store/store.ts";
-import { TechTree } from './TechTree';
-import { Tech, ActionType } from '../types';
-import { actionsApi } from '../api/actions';
-import { addAction, removeActionById } from '../store/slices/actionsSlice.ts';
+import { useAppDispatch, useAppSelector } from "../../store/hooks.ts";
+import type { RootState } from "../../store/store.ts";
+import { TechTree } from '../TechTree.tsx';
+import { Tech, ActionType } from '../../types.ts';
+import { actionsApi } from '../../api/actions.ts';
+import { addAction, removeActionById } from '../../store/slices/actionsSlice.ts';
 
 interface Props {
   open: boolean;

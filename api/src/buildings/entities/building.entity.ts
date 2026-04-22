@@ -7,6 +7,7 @@ import {
 } from 'typeorm';
 import { Province } from '../../provinces/entities/province.entity';
 import { BuildingTypes } from "../types/building.types";
+import { Expose } from "class-transformer";
 
 @Entity({ name: 'buildings' })
 export class Building extends BaseEntity {
@@ -34,10 +35,16 @@ export class Building extends BaseEntity {
   @Column({ nullable: true })
   public cost: number;
 
+  @Column({ nullable: true })
+  @Expose({ name: 'upgradeTo' })
+  public upgrade_to: BuildingTypes | null;
+
   @Column({ type: 'simple-array', nullable: true })
+  @Expose({ name: 'requirementTech' })
   public requirement_tech: string[];
 
   @Column({ nullable: true })
+  @Expose({ name: 'requirementBuilding' })
   public requirement_building: BuildingTypes | null;
 
   @ManyToMany(() => Province, (province) => province.buildings)
