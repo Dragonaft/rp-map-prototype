@@ -3,7 +3,7 @@ import { Building, Province } from '../types';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { setSelectedTroops } from '../store/slices/provincesSlice';
 import type { BBox } from '../store/slices/provincesSlice';
-import { BUILDING_ICONS, LANDSCAPE_ICONS } from '../constants/buildingIcons';
+import { BUILDING_ICONS, LANDSCAPE_ICONS, RESOURCE_ICONS } from '../constants/buildingIcons';
 
 interface PendingDeployAction {
   id: string;
@@ -104,6 +104,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   const deployLabel = (pendingDeployAction && isCurrentUserProvince) ? `+${pendingDeployAction.troopsNumber}` : null;
 
   const landscapeIcon = LANDSCAPE_ICONS[province.landscape];
+  const resourceIcon = RESOURCE_ICONS[province.resourceType];
 
   return (
     <g>
@@ -126,6 +127,17 @@ const ProvinceShapeComponent: React.FC<Props> = ({
           pointerEvents="none" style={{ userSelect: 'none' }}
         >
           {landscapeIcon}
+        </text>
+      )}
+
+      {/* Resource icon — next to landscape icon */}
+      {!isWater && resourceIcon && (
+        <text
+          x={bbox.x + 20} y={bbox.y + 10}
+          fontSize="10" textAnchor="start" dominantBaseline="middle"
+          pointerEvents="none" style={{ userSelect: 'none' }}
+        >
+          {resourceIcon}
         </text>
       )}
 

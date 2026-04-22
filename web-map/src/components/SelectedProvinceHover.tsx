@@ -12,6 +12,12 @@ import { actionsApi } from "../api/actions.ts";
 import { addAction, removeActionById } from "../store/slices/actionsSlice.ts";
 import { BUILDING_ICONS } from "../constants/buildingIcons.ts";
 
+const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> = {
+  [BuildingTypes.MINE]: ['iron', 'gold', 'stone'],
+  [BuildingTypes.FORESTRY]: ['wood'],
+  [BuildingTypes.FARM]: ['grain'],
+};
+
 export const SelectedProvinceHover = () => {
   const dispatch = useAppDispatch();
   const selectedProvince = useAppSelector(selectSelectedProvince);
@@ -27,6 +33,7 @@ export const SelectedProvinceHover = () => {
   const { data: buildings, loading } = useQuery(fetchBuildings, []);
   const [troopCount, setTroopCount] = useState<number>(0);
   const [deleteTarget, setDeleteTarget] = useState<Building | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [cancelPendingTarget, setCancelPendingTarget] = useState<{ id: string; type: string } | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
 
@@ -63,6 +70,23 @@ export const SelectedProvinceHover = () => {
   const pendingBuildTypesInProvince = useMemo(
     () => new Set(pendingBuildActionsInProvince.map(a => a.type)),
     [pendingBuildActionsInProvince],
+  );
+
+  const pendingRemoveActionsInProvince = useMemo(() => {
+    if (!actions.length || !selectedProvince) return [];
+    return actions
+      .filter(a => a.actionType === ActionType.REMOVE &&
+        (a.actionData?.province_id ?? a.actionData?.provinceId) === selectedProvince.id)
+      .map(a => ({
+        id: a.id,
+        buildingId: (a.actionData?.building_id ?? a.actionData?.buildingId) as string,
+      }))
+      .filter(a => a.buildingId);
+  }, [actions, selectedProvince]);
+
+  const pendingRemoveBuildingIds = useMemo(
+    () => new Set(pendingRemoveActionsInProvince.map(a => a.buildingId)),
+    [pendingRemoveActionsInProvince],
   );
 
   const handleGetProvinceOwner = () => {
@@ -131,6 +155,26 @@ export const SelectedProvinceHover = () => {
     }
   };
 
+  const handleDeleteAction = async () => {
+    if (!deleteTarget || !selectedProvince) return;
+    setIsDeleting(true);
+    try {
+      const response = await actionsApi.createAction({
+        type: ActionType.REMOVE,
+        actionData: {
+          province_id: selectedProvince.id,
+          building_id: deleteTarget.id,
+        },
+      });
+      dispatch(addAction(response));
+      setDeleteTarget(null);
+    } catch (err: any) {
+      console.log(err.response?.data?.message || 'Failed to create remove action');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const handleDeployAction = async () => {
     if (!selectedProvince || !user.id) return;
 
@@ -191,7 +235,14 @@ export const SelectedProvinceHover = () => {
             <p>Resource: {selectedProvince.resourceType}</p>
             <p>Type: {selectedProvince.type}</p>
           </div>
-          <Button variant="contained" color="primary" onClick={handleOnSetupSelect}>SELECT</Button>
+          <Button
+            variant="contained"
+            color="primary"
+            disabled={selectedProvince.type === 'water'}
+            onClick={handleOnSetupSelect}
+          >
+            SELECT
+          </Button>
         </div>
       )}
 
@@ -202,6 +253,19 @@ export const SelectedProvinceHover = () => {
             <p>Landscape: {selectedProvince.landscape}</p>
             <p>Resource: {selectedProvince.resourceType}</p>
             {handleGetProvinceOwner() && <p>Owner: {handleGetProvinceOwner()?.countryName}</p>}
+            {builtInProvince.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {builtInProvince.map((b) => (
+                  <div
+                    key={b.id}
+                    className="w-10 h-10 text-lg border border-gray-400 rounded bg-gray-200/40 flex items-center justify-center cursor-default"
+                    title={b.name}
+                  >
+                    {BUILDING_ICONS[b.type] ?? '🏗️'}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -217,16 +281,35 @@ export const SelectedProvinceHover = () => {
               <p>Resource: {selectedProvince.resourceType}</p>
               <div className="flex flex-wrap gap-1 mt-2">
                 {/* Built buildings */}
-                {builtInProvince.map((b) => (
-                  <button
-                    key={b.id}
-                    className={`w-10 h-10 text-lg border border-gray-600 rounded bg-gray-200 flex items-center justify-center ${b.type !== BuildingTypes.CAPITAL ? 'hover:bg-red-100 cursor-pointer' : 'cursor-default'}`}
-                    onClick={() => b.type !== BuildingTypes.CAPITAL && setDeleteTarget(b)}
-                    title={b.name}
-                  >
-                    {BUILDING_ICONS[b.type] ?? '🏗️'}
-                  </button>
-                ))}
+                {builtInProvince.map((b) => {
+                  const hasPendingRemove = pendingRemoveBuildingIds.has(b.id);
+                  const removeAction = hasPendingRemove
+                    ? pendingRemoveActionsInProvince.find(a => a.buildingId === b.id)
+                    : null;
+                  return (
+                    <button
+                      key={b.id}
+                      className={`w-10 h-10 text-lg border rounded flex items-center justify-center ${
+                        b.type === BuildingTypes.CAPITAL
+                          ? 'border-gray-600 bg-gray-200 cursor-default'
+                          : hasPendingRemove
+                            ? 'border-red-500 bg-red-200/50 hover:bg-red-300/50 cursor-pointer'
+                            : 'border-gray-600 bg-gray-200 hover:bg-red-100 cursor-pointer'
+                      }`}
+                      onClick={() => {
+                        if (b.type === BuildingTypes.CAPITAL) return;
+                        if (hasPendingRemove && removeAction) {
+                          setCancelPendingTarget({ id: removeAction.id, type: b.type });
+                        } else {
+                          setDeleteTarget(b);
+                        }
+                      }}
+                      title={hasPendingRemove ? 'Queued for removal — click to cancel' : b.name}
+                    >
+                      {BUILDING_ICONS[b.type] ?? '🏗️'}
+                    </button>
+                  );
+                })}
                 {/* Pending build slots */}
                 {pendingBuildActionsInProvince.map((a) => (
                   <button
@@ -263,43 +346,55 @@ export const SelectedProvinceHover = () => {
         <DialogTitle>Build options</DialogTitle>
         <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 1, overflowY: 'auto', maxHeight: 320 }}>
           {loading && <p>Loading...</p>}
-          {!loading && buildingsState.map((building) => (
-            <Tooltip key={building.id} title={
-              <>
-                <p>Cost: {building.cost}</p>
-                {building.modifier && <p>Modifier: {building.modifier}</p>}
-                {building.income && <p>Income: {building.income}</p>}
-                {building.upkeep && <p>Upkeep: {building.upkeep}</p>}
-              </>
-            }>
-              <span>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  disabled={
-                    !user.money || user.money < building.cost ||
-                    pendingBuildTypesInProvince.has(building.type)
-                  }
-                  onClick={() => { handleBuildAction(building.id); setIsOpenBuildMenu(false); }}
-                  startIcon={<span>{BUILDING_ICONS[building.type] ?? '🏗️'}</span>}
-                >
-                  {building.name}
-                </Button>
-              </span>
-            </Tooltip>
-          ))}
+          {!loading && buildingsState.map((building) => {
+            const resourceRequirement = RESOURCE_BUILDING_REQUIREMENTS[building.type as BuildingTypes];
+            const resourceMismatch = resourceRequirement
+              ? !resourceRequirement.includes(selectedProvince.resourceType)
+              : false;
+            const disabledReason = resourceMismatch
+              ? `Requires a province with ${resourceRequirement!.join(' or ')} resource (this province: ${selectedProvince.resourceType || 'none'})`
+              : null;
+
+            return (
+              <Tooltip key={building.id} title={
+                <>
+                  <p>Cost: {building.cost}</p>
+                  {building.modifier && <p>Modifier: {building.modifier}</p>}
+                  {building.income && <p>Income: {building.income}</p>}
+                  {building.upkeep && <p>Upkeep: {building.upkeep}</p>}
+                  {disabledReason && <p style={{ color: '#ffb3b3' }}>{disabledReason}</p>}
+                </>
+              }>
+                <span>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    color="primary"
+                    disabled={
+                      !user.money || user.money < building.cost ||
+                      pendingBuildTypesInProvince.has(building.type) ||
+                      resourceMismatch
+                    }
+                    onClick={() => { handleBuildAction(building.id); setIsOpenBuildMenu(false); }}
+                    startIcon={<span>{BUILDING_ICONS[building.type] ?? '🏗️'}</span>}
+                  >
+                    {building.name}
+                  </Button>
+                </span>
+              </Tooltip>
+            );
+          })}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setIsOpenBuildMenu(false)}>Cancel</Button>
         </DialogActions>
       </Dialog>
 
-      {/* Cancel pending build dialog */}
+      {/* Cancel pending action dialog (build or remove) */}
       <Dialog open={!!cancelPendingTarget} onClose={() => !isCancelling && setCancelPendingTarget(null)}>
-        <DialogTitle>Cancel Build</DialogTitle>
+        <DialogTitle>Cancel Action</DialogTitle>
         <DialogContent>
-          <p>Are you sure you want to cancel this build action?</p>
+          <p>Are you sure you want to cancel this action?</p>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCancelPendingTarget(null)} disabled={isCancelling}>No</Button>
@@ -309,15 +404,18 @@ export const SelectedProvinceHover = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Delete building confirmation dialog (mock) */}
-      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
+      {/* Delete building confirmation dialog */}
+      <Dialog open={!!deleteTarget} onClose={() => !isDeleting && setDeleteTarget(null)}>
         <DialogTitle>Delete Building</DialogTitle>
         <DialogContent>
-          <p>Are you sure you want to delete this building?</p>
+          <p>Are you sure you want to queue removal of <strong>{deleteTarget?.name}</strong>?</p>
+          <p style={{ color: '#888', fontSize: '0.85em', marginTop: 4 }}>Cost: 100 money</p>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
-          <Button color="error" onClick={() => setDeleteTarget(null)}>Delete</Button>
+          <Button onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Cancel</Button>
+          <Button color="error" onClick={handleDeleteAction} disabled={isDeleting}>
+            {isDeleting ? 'Queuing...' : 'Delete'}
+          </Button>
         </DialogActions>
       </Dialog>
     </div>

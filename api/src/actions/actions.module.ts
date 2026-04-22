@@ -15,6 +15,7 @@ import {
   UpgradeActionHandler,
   TransferTroopsActionHandler,
   ResearchActionHandler,
+  RemoveActionHandler,
 } from './action-executor.service';
 import { ActionQueue } from './entities/action-queue.entity';
 import { ActionsLog } from './entities/actions-log.entity';
@@ -48,6 +49,7 @@ import { TechsModule } from '../techs/techs.module';
     UpgradeActionHandler,
     TransferTroopsActionHandler,
     ResearchActionHandler,
+    RemoveActionHandler,
   ],
   exports: [ActionsService, ActionExecutionStateService, ActionExecutionBlockMiddleware],
 })

@@ -2,6 +2,7 @@
   {
     "type": "CAPITAL",
     "name": "Capital",
+    "description": "Your capital. The first building you build in the game. Keep it.",
     "income": 500,
     "upkeep": 0,
     "modifier": "1.2",
@@ -12,6 +13,7 @@
   {
     "type": "GARDEN",
     "name": "Garden",
+    "description": "Small garden for small income.",
     "income": 75,
     "upkeep": 0,
     "modifier": null,
@@ -22,6 +24,7 @@
   {
     "type": "MINE",
     "name": "Mine",
+    "description": "Deep mining, can be build only on stone, iron or gold provinces.",
     "income": 0,
     "upkeep": 50,
     "modifier": null,
@@ -32,6 +35,7 @@
   {
     "type": "FORESTRY",
     "name": "Forestry",
+    "description": "Kill that tree! Can be build only on wood provinces.",
     "income": 150,
     "upkeep": 50,
     "modifier": null,
@@ -42,6 +46,7 @@
   {
     "type": "FARM",
     "name": "Farm",
+    "description": "Professional farming simulator, can be build only on grain provinces from garden.",
     "income": 150,
     "upkeep": 0,
     "modifier": null,
@@ -52,6 +57,7 @@
   {
     "type": "BARRACKS",
     "name": "Barracks",
+    "description": "",
     "income": null,
     "upkeep": 80,
     "modifier": null,
@@ -62,6 +68,7 @@
   {
     "type": "FORT",
     "name": "Fort",
+    "description": "Best defence! Requires 1 stone to build and upkeep, only 1 per province.",
     "income": null,
     "upkeep": 120,
     "modifier": "1.3",
@@ -72,6 +79,7 @@
   {
     "type": "MARKET",
     "name": "Market",
+    "description": "Money, money, money! Requires Bazaar.",
     "income": 300,
     "upkeep": 0,
     "modifier": null,
@@ -82,6 +90,7 @@
   {
     "type": "BAZAAR",
     "name": "Bazaar",
+    "description": "Some small cash.",
     "income": 150,
     "upkeep": 0,
     "modifier": null,

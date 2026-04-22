@@ -18,6 +18,7 @@ const LOG_CTX = 'SeedBuildings';
 interface BuildingSeedRow {
   type: string;
   name: string;
+  description: string;
   income: number | null;
   upkeep: number | null;
   modifier: string | null;
@@ -114,6 +115,7 @@ async function seedBuildings() {
   for (const row of rows) {
     const patch = {
       name: row.name,
+      description: row.description,
       income: row.income,
       upkeep: row.upkeep,
       modifier: row.modifier,

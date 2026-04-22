@@ -20,3 +20,11 @@ export const LANDSCAPE_ICONS: Record<string, string> = {
   hills: '🪨',
   swamp: '💧',
 };
+
+export const RESOURCE_ICONS: Record<string, string> = {
+  iron: '⚙️',
+  gold: '💛',
+  stone: '🧱',
+  wood: '🪵',
+  grain: '🌾',
+};

@@ -131,6 +131,10 @@ export class ProvincesService {
       throw new Error(`Province is already occupied for user!`);
     }
 
+    if (province.type === 'water') {
+      throw new Error(`You cant start on water province!`);
+    }
+
     // Example: Add a building by id to the province
     const building = await this.buildingRepository.findOne({ where: { type: BuildingTypes.CAPITAL } });
     if (building) {

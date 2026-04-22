@@ -240,6 +240,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
           toProvinceId={modalState.toProvinceId}
           maxTroops={modalState.maxTroops}
           isInvasion={modalState.isInvasion}
+          unSelectTroops={() => dispatch(setSelectedTroops(null))}
         />
       )}
 

@@ -25,6 +25,7 @@ const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> =
 /** Server-side money cost per troop when moving troops from the global pool into a province. Maybe transfer to env or db */
 const DEPLOY_MONEY_PER_TROOP = 1;
 const UNIQUE_PER_PROVINCE: string[] = [BuildingTypes.MINE, BuildingTypes.FORESTRY, BuildingTypes.FORT];
+const REMOVE_COST = 100;
 
 function parseBuildingModifier(modifier: string | null | undefined): number {
   const n = Number(modifier);
@@ -319,6 +320,73 @@ export class DeployActionHandler implements ActionHandler {
 }
 
 @Injectable()
+export class RemoveActionHandler implements ActionHandler {
+  private readonly logger = new Logger(RemoveActionHandler.name);
+
+  constructor(
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
+  ) {}
+
+  async handle(action: ActionQueue): Promise<void> {
+    this.logger.log(
+      `Executing REMOVE action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
+    );
+
+    const provinceId = action.actionData?.province_id as string | undefined;
+    const buildingId = action.actionData?.building_id as string | undefined;
+
+    if (!provinceId || !buildingId) {
+      throw new Error('province_id and building_id are required');
+    }
+
+    await this.provinceRepo.manager.transaction(async (manager) => {
+      const province = await manager.findOne(Province, {
+        where: { id: provinceId },
+        relations: ['buildings'],
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!province) {
+        throw new Error('Province not found');
+      }
+
+      if (province.user_id !== action.userId) {
+        throw new Error('User does not own this province');
+      }
+
+      const buildingExists = province.buildings?.some((b) => b.id === buildingId);
+      if (!buildingExists) {
+        throw new Error('Building not found in this province');
+      }
+
+      const user = await manager.findOne(User, {
+        where: { id: action.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const currentMoney = Number(user.money ?? 0);
+      if (currentMoney < REMOVE_COST) {
+        throw new Error(`Not enough money to remove building (cost: ${REMOVE_COST})`);
+      }
+
+      user.money = currentMoney - REMOVE_COST;
+      await manager.save(User, user);
+
+      await manager
+        .createQueryBuilder()
+        .relation(Province, 'buildings')
+        .of(provinceId)
+        .remove(buildingId);
+    });
+  }
+}
+
+@Injectable()
 export class UpgradeActionHandler implements ActionHandler {
   private readonly logger = new Logger(UpgradeActionHandler.name);
 
@@ -434,6 +502,7 @@ export class ActionExecutorService {
     private upgradeHandler: UpgradeActionHandler,
     private transferTroopsHandler: TransferTroopsActionHandler,
     private researchHandler: ResearchActionHandler,
+    private removeHandler: RemoveActionHandler,
   ) {
     this.handlers.set(ActionType.BUILD, buildHandler);
     this.handlers.set(ActionType.INVADE, invadeHandler);
@@ -441,6 +510,7 @@ export class ActionExecutorService {
     this.handlers.set(ActionType.UPGRADE, upgradeHandler);
     this.handlers.set(ActionType.TRANSFER_TROOPS, transferTroopsHandler);
     this.handlers.set(ActionType.RESEARCH, researchHandler);
+    this.handlers.set(ActionType.REMOVE, removeHandler);
   }
 
   async executeAction(action: ActionQueue): Promise<{

@@ -19,6 +19,9 @@ export class Building extends BaseEntity {
   @Column()
   public name: string;
 
+  @Column()
+  public description: string;
+
   @Column({ nullable: true })
   public income: number;
 

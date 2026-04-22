@@ -13,6 +13,7 @@ interface Props {
   toProvinceId: string;
   maxTroops: number;
   isInvasion: boolean;
+  unSelectTroops: () => void;
 }
 
 const style = {
@@ -34,6 +35,7 @@ export const TroopMovementModal: React.FC<Props> = ({
   toProvinceId,
   maxTroops,
   isInvasion,
+  unSelectTroops
 }) => {
   const [troopCount, setTroopCount] = useState(Math.min(1, maxTroops));
   const [loading, setLoading] = useState(false);
@@ -45,7 +47,7 @@ export const TroopMovementModal: React.FC<Props> = ({
     setError(null);
 
     try {
-      const actionType = isInvasion ? ActionType.INVADE : ActionType.TRANSFER_TROOPS;
+      const actionType = ActionType.INVADE;
 
       const response = await actionsApi.createAction({
         type: actionType,
@@ -64,6 +66,7 @@ export const TroopMovementModal: React.FC<Props> = ({
         },
       }));
 
+      unSelectTroops()
       onClose();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to create action');

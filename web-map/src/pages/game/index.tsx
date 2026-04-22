@@ -45,14 +45,15 @@ export const GamePage: React.FC = () => {
   const { data: otherUsersData } = useQuery(fetchOtherUsers);
   // Fetch static layout (localStorage-cached) and dynamic state in parallel.
   // Layout data never changes after map import; state changes only at turn end.
+  // For new users the cache is always bypassed so they receive the latest layout.
   const fetchProvinces = useCallback(async () => {
     const [layout, state] = await Promise.all([
-      provincesApi.getLayoutCached(),
+      provincesApi.getLayoutCached(userData?.isNew === true),
       provincesApi.getState(),
     ]);
     const stateById = Object.fromEntries(state.map(s => [s.id, s]));
     return layout.map(l => ({ ...l, ...(stateById[l.id] ?? {}) }));
-  }, []);
+  }, [userData?.isNew]);
   const { data: provinces, loading, error } = useQuery(fetchProvinces, []);
   const fetchUserActions = useCallback(() => actionsApi.getUserActions(), []);
   const { data: actions } = useQuery(fetchUserActions, []);

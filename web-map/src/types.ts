@@ -126,6 +126,7 @@ export enum ActionType {
   UPGRADE = 'UPGRADE',
   TRANSFER_TROOPS = 'TRANSFER_TROOPS',
   RESEARCH = 'RESEARCH',
+  REMOVE = 'REMOVE',
 }
 
 export interface ActionData {
