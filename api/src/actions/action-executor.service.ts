@@ -460,6 +460,13 @@ export class UpgradeActionHandler implements ActionHandler {
         throw new Error('User not found');
       }
 
+      const allowedResources = RESOURCE_BUILDING_REQUIREMENTS[upgradeBuilding.type];
+      if (allowedResources && !allowedResources.includes(province.resource_type)) {
+        throw new Error(
+          `${upgradeBuilding.name} can only be built on provinces with resource type: ${allowedResources.join(', ')} (this province: ${province.resource_type ?? 'none'})`,
+        );
+      }
+
       const completedResearch = user.completed_research ?? [];
       const missingTech = (upgradeBuilding.requirement_tech ?? []).find(
         (tech) => !completedResearch.includes(tech),

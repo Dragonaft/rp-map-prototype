@@ -142,3 +142,9 @@ export interface ActionData {
   upgradeLevel?: number;
   [key: string]: any; // Flexible for future action types
 }
+
+export const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> = {
+  [BuildingTypes.MINE]: ['iron', 'gold', 'stone'],
+  [BuildingTypes.FORESTRY]: ['wood'],
+  [BuildingTypes.FARM]: ['grain'],
+};

@@ -2,21 +2,19 @@ import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { selectSelectedProvince, updateProvinceById } from "../store/slices/provincesSlice.ts";
 import { setUser } from "../store/slices/userSlice.ts";
 import type { RootState } from "../store/store.ts";
-import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Slider, Tooltip } from "@mui/material";
+import { Box, Button, Slider } from "@mui/material";
 import { useMutation, useQuery } from "../hooks/useApi.ts";
 import { provincesApi } from "../api/provinces.ts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { buildingsApi } from "../api/buildings.ts";
-import { ActionType, Building, BuildingTypes } from "../types.ts";
+import { ActionType, Building, BuildingTypes, RESOURCE_BUILDING_REQUIREMENTS } from "../types.ts";
 import { actionsApi } from "../api/actions.ts";
 import { addAction, removeActionById } from "../store/slices/actionsSlice.ts";
 import { BUILDING_ICONS } from "../constants/buildingIcons.ts";
-
-const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> = {
-  [BuildingTypes.MINE]: ['iron', 'gold', 'stone'],
-  [BuildingTypes.FORESTRY]: ['wood'],
-  [BuildingTypes.FARM]: ['grain'],
-};
+import { BuildMenuModal } from "./Modals/BuildMenuModal.tsx";
+import { BuildingActionsModal } from "./Modals/BuildingActionsModal.tsx";
+import { CancelActionModal } from "./Modals/CancelActionModal.tsx";
+import { DeleteBuildingModal } from "./Modals/DeleteBuildingModal.tsx";
 
 export const SelectedProvinceHover = () => {
   const dispatch = useAppDispatch();
@@ -27,29 +25,24 @@ export const SelectedProvinceHover = () => {
   const techs = useAppSelector((state: RootState) => state.techs.techs);
   const { mutate } = useMutation(provincesApi.setupUser);
   const isUserOwner = user.id === selectedProvince?.userId;
-  const [isOpenBuildMenu, setIsOpenBuildMenu] = useState<boolean>(false);
-  const [isOpenDeployMenu, setIsOpenDeployMenu] = useState<boolean>(false);
-  const [buildingsState, setBuildingsState] = useState<Building[]>([]);
-  const fetchBuildings = useCallback(() => buildingsApi.getAll(), []);
-  const { data: buildings, loading } = useQuery(fetchBuildings, []);
-  const [troopCount, setTroopCount] = useState<number>(0);
 
-  // delete flow
+  const [isOpenBuildMenu, setIsOpenBuildMenu] = useState(false);
+  const [isOpenDeployMenu, setIsOpenDeployMenu] = useState(false);
+  const [buildingsState, setBuildingsState] = useState<Building[]>([]);
+  const [troopCount, setTroopCount] = useState(0);
   const [deleteTarget, setDeleteTarget] = useState<Building | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  // upgrade/remove choice modal — shown when building has upgradeTo
   const [actionSelectTarget, setActionSelectTarget] = useState<Building | null>(null);
   const [isUpgrading, setIsUpgrading] = useState(false);
-
-  // cancel pending action (build, remove, or upgrade)
   const [cancelPendingTarget, setCancelPendingTarget] = useState<{ id: string; type: string } | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
 
+  const fetchBuildings = useCallback(() => buildingsApi.getAll(), []);
+  const { data: buildings, loading } = useQuery(fetchBuildings, []);
+
   useEffect(() => {
     if (buildings) {
-      const buildingsWithoutCapital = buildings.filter(building => building.type !== BuildingTypes.CAPITAL);
-      setBuildingsState(buildingsWithoutCapital);
+      setBuildingsState(buildings.filter(b => b.type !== BuildingTypes.CAPITAL));
     }
   }, [buildings]);
 
@@ -63,8 +56,6 @@ export const SelectedProvinceHover = () => {
     buildingsState.reduce<Record<string, Building>>((acc, b) => { acc[b.id] = b; return acc; }, {}),
     [buildingsState],
   );
-
-  // --- Pending action tracking ---
 
   const pendingBuildActionsInProvince = useMemo(() => {
     if (!actions.length || !selectedProvince) return [];
@@ -117,7 +108,6 @@ export const SelectedProvinceHover = () => {
     [pendingUpgradeActionsInProvince],
   );
 
-  // Upgrade target building template for the action-select modal
   const upgradeBuildingForTarget = useMemo(() => {
     if (!actionSelectTarget?.upgradeTo) return null;
     return buildingsState.find(b => b.type === actionSelectTarget.upgradeTo) ?? null;
@@ -129,6 +119,10 @@ export const SelectedProvinceHover = () => {
     if (!user.money || user.money < cost) {
       return `Not enough money (need ${cost}, have ${user.money ?? 0})`;
     }
+    const resourceRequirement = RESOURCE_BUILDING_REQUIREMENTS[upgradeBuildingForTarget.type as BuildingTypes];
+    if (resourceRequirement && selectedProvince && !resourceRequirement.includes(selectedProvince.resourceType)) {
+      return `Requires a province with ${resourceRequirement.join(' or ')} resource (this province: ${selectedProvince.resourceType || 'none'})`;
+    }
     const missing = (upgradeBuildingForTarget.requirementTech ?? []).find(
       t => !user.completedResearch.includes(t),
     );
@@ -137,13 +131,14 @@ export const SelectedProvinceHover = () => {
       return `Missing required technology: ${techName}`;
     }
     return null;
-  }, [upgradeBuildingForTarget, user.money, user.completedResearch, techs]);
+  }, [upgradeBuildingForTarget, user.money, user.completedResearch, techs, selectedProvince]);
+
+  const directlyBuildableBuildings = useMemo(
+    () => buildingsState.filter(b => !b.requirementBuilding),
+    [buildingsState],
+  );
 
   // --- Handlers ---
-
-  const handleGetProvinceOwner = () => {
-    return otherUsers.find((u) => u.id === selectedProvince?.userId);
-  };
 
   const handleOnSetupSelect = async () => {
     if (!selectedProvince) return;
@@ -241,11 +236,6 @@ export const SelectedProvinceHover = () => {
     }
   };
 
-  const handleSliderChange = (_event: Event, newValue: number | number[]) => {
-    setTroopCount(newValue as number);
-  };
-
-  // Building slot click: resolve which modal to open
   const handleBuiltBuildingClick = (b: Building) => {
     if (b.type === BuildingTypes.CAPITAL) return;
     const template = buildingById[b.id] ?? b;
@@ -267,6 +257,13 @@ export const SelectedProvinceHover = () => {
     }
   };
 
+  const builtInProvince = selectedProvince?.buildings ?? [];
+  const usedSlots = builtInProvince.length + pendingBuildActionsInProvince.length;
+  const emptySlotCount = Math.max(0, (selectedProvince?.buildingCap ?? 0) - usedSlots);
+  const provinceOwner = otherUsers.find(u => u.id === selectedProvince?.userId);
+
+  if (!selectedProvince) return null;
+
   const DeployMenu = () => (
     <div className="flex flex-col justify-between h-full">
       <div className="flex flex-col gap-2">
@@ -275,7 +272,7 @@ export const SelectedProvinceHover = () => {
         <Box sx={{ px: 2 }}>
           <Slider
             value={troopCount}
-            onChange={handleSliderChange}
+            onChange={(_e, v) => setTroopCount(v as number)}
             min={1}
             max={user.troops}
             marks
@@ -289,20 +286,10 @@ export const SelectedProvinceHover = () => {
     </div>
   );
 
-  const builtInProvince = selectedProvince?.buildings ?? [];
-  const usedSlots = builtInProvince.length + pendingBuildActionsInProvince.length;
-  const emptySlotCount = Math.max(0, (selectedProvince?.buildingCap ?? 0) - usedSlots);
-
-  // Only directly-buildable buildings shown in build menu (not upgrade-only ones)
-  const directlyBuildableBuildings = useMemo(
-    () => buildingsState.filter(b => !b.requirementBuilding),
-    [buildingsState],
-  );
-
-  if (!selectedProvince) return null;
-
   return (
     <div className="w-60 h-80 bg-gray-400 rounded-lg border border-outline-variant/10 p-5 flex flex-col flex-1 absolute right-5 top-4">
+
+      {/* New user — pick starting province */}
       {user.isNew && (
         <div className="flex flex-col justify-between h-full">
           <div>
@@ -322,13 +309,14 @@ export const SelectedProvinceHover = () => {
         </div>
       )}
 
+      {/* Non-owner view */}
       {!user.isNew && !isUserOwner && (
         <div className="flex flex-col justify-between h-full">
           <div>
             <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
             <p>Landscape: {selectedProvince.landscape}</p>
             <p>Resource: {selectedProvince.resourceType}</p>
-            {handleGetProvinceOwner() && <p>Owner: {handleGetProvinceOwner()?.countryName}</p>}
+            {provinceOwner && <p>Owner: {provinceOwner.countryName}</p>}
             {builtInProvince.length > 0 && (
               <div className="flex flex-wrap gap-1 mt-2">
                 {builtInProvince.map((b) => (
@@ -346,6 +334,7 @@ export const SelectedProvinceHover = () => {
         </div>
       )}
 
+      {/* Owner view */}
       {!user.isNew && isUserOwner && (
         <div className="flex flex-col justify-between h-full">
           {isOpenDeployMenu && <DeployMenu />}
@@ -356,7 +345,6 @@ export const SelectedProvinceHover = () => {
                 <p>Landscape: {selectedProvince.landscape}</p>
                 <p>Resource: {selectedProvince.resourceType}</p>
                 <div className="flex flex-wrap gap-1 mt-2">
-                  {/* Built buildings */}
                   {builtInProvince.map((b) => {
                     const hasPendingRemove = pendingRemoveBuildingIds.has(b.id);
                     const hasPendingUpgrade = pendingUpgradeBuildingIds.has(b.id);
@@ -384,7 +372,6 @@ export const SelectedProvinceHover = () => {
                       </button>
                     );
                   })}
-                  {/* Pending build slots */}
                   {pendingBuildActionsInProvince.map((a) => (
                     <button
                       key={a.id}
@@ -395,7 +382,6 @@ export const SelectedProvinceHover = () => {
                       {BUILDING_ICONS[a.type] ?? '🏗️'}
                     </button>
                   ))}
-                  {/* Empty slots */}
                   {Array.from({ length: emptySlotCount }).map((_, i) => (
                     <button
                       key={`empty-${i}`}
@@ -415,147 +401,43 @@ export const SelectedProvinceHover = () => {
         </div>
       )}
 
-      {/* Build menu dialog */}
-      <Dialog open={isOpenBuildMenu} onClose={() => setIsOpenBuildMenu(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Build options</DialogTitle>
-        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 1, overflowY: 'auto', maxHeight: 320 }}>
-          {loading && <p>Loading...</p>}
-          {!loading && directlyBuildableBuildings.map((building) => {
-            const resourceRequirement = RESOURCE_BUILDING_REQUIREMENTS[building.type as BuildingTypes];
-            const resourceMismatch = resourceRequirement
-              ? !resourceRequirement.includes(selectedProvince.resourceType)
-              : false;
-            const missingTechKey = (building.requirementTech ?? []).find(
-              t => !user.completedResearch.includes(t),
-            );
-            const missingTechName = missingTechKey
-              ? (techs.find(t => t.key === missingTechKey)?.name ?? missingTechKey)
-              : null;
-            const disabledReason = resourceMismatch
-              ? `Requires a province with ${resourceRequirement!.join(' or ')} resource (this province: ${selectedProvince.resourceType || 'none'})`
-              : missingTechName
-                ? `Missing required technology: ${missingTechName}`
-                : null;
-            return (
-              <Tooltip key={building.id} title={
-                <>
-                  <p>Cost: {building.cost}</p>
-                  {building.modifier && <p>Modifier: {building.modifier}</p>}
-                  {building.income != null && building.income > 0 && <p>Income: {building.income}</p>}
-                  {building.upkeep != null && building.upkeep > 0 && <p>Upkeep: {building.upkeep}</p>}
-                  {building.description != null && <p>Description: {building.description}</p>}
-                  {disabledReason && <p style={{ color: '#ffb3b3' }}>{disabledReason}</p>}
-                </>
-              }>
-                <span>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    color="primary"
-                    disabled={
-                      !user.money || user.money < building.cost ||
-                      pendingBuildTypesInProvince.has(building.type) ||
-                      resourceMismatch ||
-                      !!missingTechKey
-                    }
-                    onClick={() => {void handleBuildAction(building.id); setIsOpenBuildMenu(false); }}
-                    startIcon={<span>{BUILDING_ICONS[building.type] ?? '🏗️'}</span>}
-                  >
-                    {building.name}
-                  </Button>
-                </span>
-              </Tooltip>
-            );
-          })}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsOpenBuildMenu(false)}>Cancel</Button>
-        </DialogActions>
-      </Dialog>
+      <BuildMenuModal
+        open={isOpenBuildMenu}
+        onClose={() => setIsOpenBuildMenu(false)}
+        loading={loading}
+        buildings={directlyBuildableBuildings}
+        provinceResourceType={selectedProvince.resourceType}
+        userMoney={user.money}
+        userCompletedResearch={user.completedResearch}
+        pendingBuildTypes={pendingBuildTypesInProvince}
+        techs={techs}
+        onBuild={(id) => { void handleBuildAction(id); setIsOpenBuildMenu(false); }}
+      />
 
-      {/* Action select modal — shown when building has upgradeTo */}
-      <Dialog open={!!actionSelectTarget} onClose={() => !isUpgrading && setActionSelectTarget(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Building Actions</DialogTitle>
-        <DialogContent dividers>
-          <div style={{ display: 'flex', flexDirection: 'row', justifyContent: "space-between", gap: 25 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',  width: '90%' }}>
-              <Button
-                fullWidth
-                variant="contained"
-                color="error"
-                onClick={() => {
-                  const b = actionSelectTarget!;
-                  setActionSelectTarget(null);
-                  setDeleteTarget(b);
-                }}
-              >
-                Remove building
-              </Button>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: '90%' }}>
-              {upgradeBuildingForTarget && (
-                <div className="mb-3 p-2 rounded bg-gray-100 text-sm">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xl">{BUILDING_ICONS[upgradeBuildingForTarget.type] ?? '🏗️'}</span>
-                    <strong>{upgradeBuildingForTarget.name}</strong>
-                  </div>
-                  {upgradeBuildingForTarget.description && <p className="text-gray-600">{upgradeBuildingForTarget.description}</p>}
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-gray-700">
-                    <span>Cost: {upgradeBuildingForTarget.cost}</span>
-                    {upgradeBuildingForTarget.income != null && upgradeBuildingForTarget.income > 0 && <p>Income: {upgradeBuildingForTarget.income}</p>}
-                    {upgradeBuildingForTarget.upkeep != null && upgradeBuildingForTarget.upkeep > 0 && <p>Upkeep: {upgradeBuildingForTarget.upkeep}</p>}
-                  </div>
-                </div>
-              )}
-              <Tooltip title={upgradeDisabledReason ?? ''}>
-              <span style={{ flex: 1 }}>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  disabled={!!upgradeDisabledReason || isUpgrading}
-                  onClick={handleUpgradeAction}
-                >
-                  {isUpgrading ? 'Queuing…' : 'Upgrade'}
-                </Button>
-              </span>
-              </Tooltip>
-            </div>
-          </div>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setActionSelectTarget(null)} disabled={isUpgrading}>Cancel</Button>
-        </DialogActions>
-      </Dialog>
+      <BuildingActionsModal
+        open={!!actionSelectTarget}
+        onClose={() => !isUpgrading && setActionSelectTarget(null)}
+        upgradeBuildingForTarget={upgradeBuildingForTarget}
+        upgradeDisabledReason={upgradeDisabledReason}
+        isUpgrading={isUpgrading}
+        onRemove={() => { const b = actionSelectTarget!; setActionSelectTarget(null); setDeleteTarget(b); }}
+        onUpgrade={handleUpgradeAction}
+      />
 
-      {/* Cancel pending action dialog (build, remove, or upgrade) */}
-      <Dialog open={!!cancelPendingTarget} onClose={() => !isCancelling && setCancelPendingTarget(null)}>
-        <DialogTitle>Cancel Action</DialogTitle>
-        <DialogContent>
-          <p>Are you sure you want to cancel this action?</p>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setCancelPendingTarget(null)} disabled={isCancelling}>No</Button>
-          <Button color="error" onClick={handleCancelAction} disabled={isCancelling}>
-            {isCancelling ? 'Cancelling...' : 'Yes'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <CancelActionModal
+        open={!!cancelPendingTarget}
+        onClose={() => !isCancelling && setCancelPendingTarget(null)}
+        isCancelling={isCancelling}
+        onConfirm={handleCancelAction}
+      />
 
-      {/* Delete building confirmation dialog */}
-      <Dialog open={!!deleteTarget} onClose={() => !isDeleting && setDeleteTarget(null)}>
-        <DialogTitle>Delete Building</DialogTitle>
-        <DialogContent>
-          <p>Are you sure you want to queue removal of <strong>{deleteTarget?.name}</strong>?</p>
-          <p style={{ color: '#888', fontSize: '0.85em', marginTop: 4 }}>Cost: 100</p>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteTarget(null)} disabled={isDeleting}>Cancel</Button>
-          <Button color="error" onClick={handleDeleteAction} disabled={isDeleting}>
-            {isDeleting ? 'Queuing...' : 'Delete'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <DeleteBuildingModal
+        open={!!deleteTarget}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
+        buildingName={deleteTarget?.name}
+        isDeleting={isDeleting}
+        onConfirm={handleDeleteAction}
+      />
     </div>
   );
 };
