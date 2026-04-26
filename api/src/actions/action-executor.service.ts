@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { BuildingTypes } from '../buildings/types/building.types';
 import { Building } from '../buildings/entities/building.entity';
 import { Province } from '../provinces/entities/province.entity';
@@ -8,6 +8,9 @@ import { User } from '../users/entities/user.entity';
 import { ActionQueue, ActionType } from './entities/action-queue.entity';
 import { TechsService } from '../techs/techs.service';
 import { BATTLE_RESEARCH_EFFECTS, computeBuildingCap } from '../techs/research-effects';
+import { Army } from '../armies/entities/army.entity';
+import { ArmyUnit } from '../armies/entities/army-unit.entity';
+import { TroopType } from '../armies/entities/troop-type.entity';
 
 const DEFENSIVE_BUILDING_TYPES = new Set<string>([
   BuildingTypes.FORT,
@@ -26,6 +29,8 @@ const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> =
 const DEPLOY_MONEY_PER_TROOP = 1;
 const UNIQUE_PER_PROVINCE: string[] = [BuildingTypes.MINE, BuildingTypes.FORESTRY, BuildingTypes.FORT];
 const REMOVE_COST = 100;
+const ARMY_MIN_SIZE = 100;
+const CASUALTY_FLOOR = 0.05;
 
 function parseBuildingModifier(modifier: string | null | undefined): number {
   const n = Number(modifier);
@@ -586,6 +591,463 @@ export class ResearchActionHandler implements ActionHandler {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Shared army helpers
+// ---------------------------------------------------------------------------
+
+/** Total troop count across all unit types in an army. */
+const armyTotalTroops = (army: Army): number =>
+  (army.units ?? []).reduce((sum, u) => sum + u.count, 0);
+
+/** Offensive power of an army: Σ(count × attack). */
+const armyAttackPower = (army: Army): number =>
+  (army.units ?? []).reduce((sum, u) => sum + u.count * u.troopType.attack, 0);
+
+/** Defensive power of an army: Σ(count × defense). */
+const armyDefensePower = (army: Army): number =>
+  (army.units ?? []).reduce((sum, u) => sum + u.count * u.troopType.defense, 0);
+
+
+/**
+ * Apply a casualty rate to all unit types in an army proportionally.
+ * Removes unit types that reach 0.
+ */
+const applyCasualties = (army: Army, rate: number): void => {
+  for (const unit of army.units) {
+    unit.count = Math.max(0, unit.count - Math.floor(unit.count * rate));
+  }
+  army.units = army.units.filter((u) => u.count > 0);
+};
+
+// ---------------------------------------------------------------------------
+// Army action handlers
+// ---------------------------------------------------------------------------
+
+interface RecruitEntry {
+  troop_type_key: string;
+  count: number;
+}
+
+/** Validates and executes troop recruitment into an army within a transaction. */
+const executeRecruitment = async (
+  manager: EntityManager,
+  userId: string,
+  army: Army,
+  recruits: RecruitEntry[],
+): Promise<void> => {
+  const user = await manager.findOne(User, {
+    where: { id: userId },
+    lock: { mode: 'pessimistic_write' },
+  });
+  if (!user) throw new Error('User not found');
+
+  // Validate each recruit entry
+  for (const entry of recruits) {
+    if (!Number.isFinite(entry.count) || entry.count <= 0) {
+      throw new Error(`Invalid count for troop type "${entry.troop_type_key}"`);
+    }
+
+    const troopType = await manager.findOne(TroopType, { where: { key: entry.troop_type_key } });
+    if (!troopType) throw new Error(`Unknown troop type: ${entry.troop_type_key}`);
+
+    // Tech requirement check
+    if (troopType.tech_requirement) {
+      const hasTech = (user.completed_research ?? []).includes(troopType.tech_requirement);
+      if (!hasTech) {
+        throw new Error(`Technology required to recruit ${troopType.name}: ${troopType.tech_requirement}`);
+      }
+    }
+
+    // Building requirement: user must own at least one province containing that building type
+    if (troopType.building_requirement) {
+      const buildingInProvince = await manager
+        .createQueryBuilder(Province, 'p')
+        .innerJoin('p.buildings', 'b', 'b.type = :btype', { btype: troopType.building_requirement })
+        .where('p.user_id = :uid', { uid: userId })
+        .getOne();
+      if (!buildingInProvince) {
+        throw new Error(
+          `A ${troopType.building_requirement} building is required in at least one owned province to recruit ${troopType.name}`,
+        );
+      }
+    }
+
+    // Deduct cost
+    // Always deduct from the draft pool
+    const pool = Number(user.troops ?? 0);
+    if (pool < entry.count) {
+      throw new Error(
+        `Not enough troops in the draft pool (have ${pool}, need ${entry.count})`,
+      );
+    }
+    user.troops = pool - entry.count;
+
+    // Paid unit types also cost money
+    if (troopType.cost_per_100 > 0) {
+      const cost = Math.ceil((entry.count / 100) * troopType.cost_per_100);
+      const money = Number(user.money ?? 0);
+      if (money < cost) {
+        throw new Error(
+          `Not enough money to recruit ${entry.count} ${troopType.name} (need ${cost}, have ${money})`,
+        );
+      }
+      user.money = money - cost;
+    }
+
+    // Add/update unit in army
+    let unit = army.units.find((u) => u.troopType.key === entry.troop_type_key);
+    if (!unit) {
+      unit = manager.create(ArmyUnit, {
+        army_id: army.id,
+        troop_type_id: troopType.id,
+        troopType,
+        count: 0,
+      });
+      army.units.push(unit);
+    }
+    unit.count += entry.count;
+  }
+
+  await manager.save(User, user);
+}
+
+@Injectable()
+export class ArmyCreateHandler implements ActionHandler {
+  private readonly logger = new Logger(ArmyCreateHandler.name);
+
+  constructor(
+    @InjectRepository(Army)
+    private readonly armyRepo: Repository<Army>,
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
+  ) {}
+
+  handle = async (action: ActionQueue): Promise<void> => {
+    this.logger.log(`Executing ARMY_CREATE for user ${action.userId}`);
+
+    const provinceId = action.actionData?.province_id as string | undefined;
+    const name = action.actionData?.name as string | undefined;
+    const recruits = (action.actionData?.units ?? []) as RecruitEntry[];
+
+    if (!provinceId) throw new Error('province_id is required');
+    if (!recruits.length) throw new Error('units array must not be empty');
+
+    await this.armyRepo.manager.transaction(async (manager) => {
+      const province = await manager.findOne(Province, {
+        where: { id: provinceId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!province) throw new Error('Province not found');
+      if (province.user_id !== action.userId) throw new Error('User does not own this province');
+
+      const army = manager.create(Army, {
+        name: name ?? null,
+        user_id: action.userId,
+        province_id: provinceId,
+        flat_upkeep: 100,
+        units: [],
+      });
+      // Persist army first so we have an id for units
+      const savedArmy = await manager.save(Army, army);
+      savedArmy.units = [];
+
+      await executeRecruitment(manager, action.userId, savedArmy, recruits);
+
+      const total = armyTotalTroops(savedArmy);
+      if (total < ARMY_MIN_SIZE) {
+        throw new Error(`Army must contain at least ${ARMY_MIN_SIZE} troops (currently ${total})`);
+      }
+
+      await manager.save(ArmyUnit, savedArmy.units);
+    });
+  }
+}
+
+@Injectable()
+export class ArmyRecruitHandler implements ActionHandler {
+  private readonly logger = new Logger(ArmyRecruitHandler.name);
+
+  constructor(
+    @InjectRepository(Army)
+    private readonly armyRepo: Repository<Army>,
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
+  ) {}
+
+  handle = async (action: ActionQueue): Promise<void> => {
+    this.logger.log(`Executing ARMY_RECRUIT for user ${action.userId}`);
+
+    const armyId = action.actionData?.army_id as string | undefined;
+    const recruits = (action.actionData?.units ?? []) as RecruitEntry[];
+
+    if (!armyId) throw new Error('army_id is required');
+    if (!recruits.length) throw new Error('units array must not be empty');
+
+    await this.armyRepo.manager.transaction(async (manager) => {
+      const army = await manager.findOne(Army, {
+        where: { id: armyId },
+        relations: ['units', 'units.troopType'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!army) throw new Error('Army not found');
+      if (army.user_id !== action.userId) throw new Error('User does not own this army');
+
+      // Army must be in an owned province to recruit
+      const province = await manager.findOne(Province, { where: { id: army.province_id } });
+      if (!province || province.user_id !== action.userId) {
+        throw new Error('Army must be stationed in an owned province to recruit');
+      }
+
+      await executeRecruitment(manager, action.userId, army, recruits);
+      await manager.save(ArmyUnit, army.units);
+    });
+  }
+}
+
+@Injectable()
+export class ArmyMoveHandler implements ActionHandler {
+  private readonly logger = new Logger(ArmyMoveHandler.name);
+
+  constructor(
+    @InjectRepository(Army)
+    private readonly armyRepo: Repository<Army>,
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
+  ) {}
+
+  handle = async (action: ActionQueue): Promise<void> => {
+    this.logger.log(`Executing ARMY_MOVE for user ${action.userId}`);
+
+    const armyId = action.actionData?.army_id as string | undefined;
+    const toProvinceId = action.actionData?.to_province_id as string | undefined;
+
+    if (!armyId || !toProvinceId) throw new Error('army_id and to_province_id are required');
+
+    await this.armyRepo.manager.transaction(async (manager) => {
+      const army = await manager.findOne(Army, {
+        where: { id: armyId },
+        relations: ['units', 'units.troopType'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!army) throw new Error('Army not found');
+      if (army.user_id !== action.userId) throw new Error('User does not own this army');
+
+      const fromProvince = await manager.findOne(Province, { where: { id: army.province_id } });
+      if (!fromProvince) throw new Error('Source province not found');
+
+      const neighborIds: string[] = fromProvince.neighbor_ids ?? [];
+      if (!neighborIds.includes(toProvinceId)) {
+        throw new Error('Target province is not adjacent to the army\'s current province');
+      }
+
+      const toProvince = await manager.findOne(Province, {
+        where: { id: toProvinceId },
+        relations: ['buildings'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!toProvince) throw new Error('Target province not found');
+
+      // ── Friendly move ────────────────────────────────────────────────────
+      if (toProvince.user_id === action.userId) {
+        army.province_id = toProvinceId;
+        await manager.save(Army, army);
+        return;
+      }
+
+      // ── Combat ───────────────────────────────────────────────────────────
+      const defenderArmies = await manager.find(Army, {
+        where: { province_id: toProvinceId },
+        relations: ['units', 'units.troopType'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      const enemyArmies = defenderArmies.filter((a) => a.user_id !== action.userId);
+
+      // Uncontested: no enemy armies and province is unowned or empty
+      if (enemyArmies.length === 0) {
+        army.province_id = toProvinceId;
+        const isWater = toProvince.type?.toLowerCase() === 'water';
+        if (!isWater && !toProvince.user_id) {
+          toProvince.user_id = action.userId;
+          await manager.save(Province, toProvince);
+        }
+        await manager.save(Army, army);
+        return;
+      }
+
+      // Power calculations
+      const attacker = await manager.findOne(User, { where: { id: action.userId } });
+      const attackCtx = { attackingTroops: armyAttackPower(army) };
+      for (const techKey of (attacker?.completed_research ?? [])) {
+        BATTLE_RESEARCH_EFFECTS[techKey]?.(attackCtx);
+      }
+      const attackerPower = attackCtx.attackingTroops;
+
+      const defenderBasePower = enemyArmies.reduce(
+        (sum, a) => sum + armyDefensePower(a),
+        0,
+      );
+      const buildingModifier = computeBuildModifier(toProvince.buildings);
+      const defenderPower = defenderBasePower * buildingModifier;
+
+      if (attackerPower > defenderPower) {
+        // ── Attacker wins ─────────────────────────────────────────────────
+        const attackerCasualtyRate = Math.max(
+          CASUALTY_FLOOR,
+          defenderPower / (attackerPower + defenderPower),
+        );
+        applyCasualties(army, attackerCasualtyRate);
+
+        // Destroy all defending armies
+        for (const da of enemyArmies) {
+          await manager.delete(ArmyUnit, { army_id: da.id });
+          await manager.delete(Army, da.id);
+        }
+
+        if (armyTotalTroops(army) < ARMY_MIN_SIZE) {
+          // Army took too many casualties even in victory – disband it
+          this.logger.log(`Army ${army.id} fell below min size after victory – disbanding`);
+          await manager.delete(ArmyUnit, { army_id: army.id });
+          await manager.delete(Army, army.id);
+        } else {
+          const isWater = toProvince.type?.toLowerCase() === 'water';
+          if (!isWater) {
+            toProvince.user_id = action.userId;
+            await manager.save(Province, toProvince);
+          }
+          army.province_id = toProvinceId;
+          await manager.save(ArmyUnit, army.units);
+          await manager.save(Army, army);
+        }
+      } else {
+        // ── Defender wins ─────────────────────────────────────────────────
+        // Attacker takes heavy losses and retreats to source province
+        const baseRate = attackerPower / (attackerPower + defenderPower);
+        const attackerCasualtyRate = Math.min(0.8, Math.max(CASUALTY_FLOOR, baseRate * 1.5));
+        applyCasualties(army, attackerCasualtyRate);
+
+        // Defenders take minor losses
+        const defenderCasualtyRate = Math.max(CASUALTY_FLOOR, baseRate * 0.3);
+        for (const da of enemyArmies) {
+          applyCasualties(da, defenderCasualtyRate);
+          if (armyTotalTroops(da) < ARMY_MIN_SIZE) {
+            await manager.delete(ArmyUnit, { army_id: da.id });
+            await manager.delete(Army, da.id);
+          } else {
+            await manager.save(ArmyUnit, da.units);
+            await manager.save(Army, da);
+          }
+        }
+
+        if (armyTotalTroops(army) < ARMY_MIN_SIZE) {
+          this.logger.log(`Army ${army.id} fell below min size after retreat – disbanding`);
+          await manager.delete(ArmyUnit, { army_id: army.id });
+          await manager.delete(Army, army.id);
+        } else {
+          // Retreat: army stays in source province
+          await manager.save(ArmyUnit, army.units);
+          await manager.save(Army, army);
+        }
+      }
+    });
+  }
+}
+
+@Injectable()
+export class ArmyMergeHandler implements ActionHandler {
+  private readonly logger = new Logger(ArmyMergeHandler.name);
+
+  constructor(
+    @InjectRepository(Army)
+    private readonly armyRepo: Repository<Army>,
+  ) {}
+
+  handle = async (action: ActionQueue): Promise<void> => {
+    this.logger.log(`Executing ARMY_MERGE for user ${action.userId}`);
+
+    const sourceId = action.actionData?.source_army_id as string | undefined;
+    const targetId = action.actionData?.target_army_id as string | undefined;
+
+    if (!sourceId || !targetId) throw new Error('source_army_id and target_army_id are required');
+    if (sourceId === targetId) throw new Error('source and target armies must be different');
+
+    await this.armyRepo.manager.transaction(async (manager) => {
+      const [source, target] = await Promise.all([
+        manager.findOne(Army, {
+          where: { id: sourceId },
+          relations: ['units', 'units.troopType'],
+          lock: { mode: 'pessimistic_write' },
+        }),
+        manager.findOne(Army, {
+          where: { id: targetId },
+          relations: ['units', 'units.troopType'],
+          lock: { mode: 'pessimistic_write' },
+        }),
+      ]);
+
+      if (!source) throw new Error('Source army not found');
+      if (!target) throw new Error('Target army not found');
+      if (source.user_id !== action.userId) throw new Error('User does not own source army');
+      if (target.user_id !== action.userId) throw new Error('User does not own target army');
+      if (source.province_id !== target.province_id) {
+        throw new Error('Both armies must be in the same province to merge');
+      }
+
+      // Merge units: add source counts into matching target unit types
+      for (const srcUnit of source.units) {
+        const existing = target.units.find((u) => u.troop_type_id === srcUnit.troop_type_id);
+        if (existing) {
+          existing.count += srcUnit.count;
+        } else {
+          const newUnit = manager.create(ArmyUnit, {
+            army_id: target.id,
+            troop_type_id: srcUnit.troop_type_id,
+            troopType: srcUnit.troopType,
+            count: srcUnit.count,
+          });
+          target.units.push(newUnit);
+        }
+      }
+
+      await manager.save(ArmyUnit, target.units);
+      await manager.delete(ArmyUnit, { army_id: source.id });
+      await manager.delete(Army, source.id);
+    });
+  }
+}
+
+@Injectable()
+export class ArmyDisbandHandler implements ActionHandler {
+  private readonly logger = new Logger(ArmyDisbandHandler.name);
+
+  constructor(
+    @InjectRepository(Army)
+    private readonly armyRepo: Repository<Army>,
+  ) {}
+
+  handle = async (action: ActionQueue): Promise<void> => {
+    this.logger.log(`Executing ARMY_DISBAND for user ${action.userId}`);
+
+    const armyId = action.actionData?.army_id as string | undefined;
+    if (!armyId) throw new Error('army_id is required');
+
+    await this.armyRepo.manager.transaction(async (manager) => {
+      const army = await manager.findOne(Army, {
+        where: { id: armyId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!army) throw new Error('Army not found');
+      if (army.user_id !== action.userId) throw new Error('User does not own this army');
+
+      await manager.delete(ArmyUnit, { army_id: armyId });
+      await manager.delete(Army, armyId);
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ActionExecutorService
+// ---------------------------------------------------------------------------
+
 @Injectable()
 export class ActionExecutorService {
   private readonly logger = new Logger(ActionExecutorService.name);
@@ -599,6 +1061,11 @@ export class ActionExecutorService {
     private transferTroopsHandler: TransferTroopsActionHandler,
     private researchHandler: ResearchActionHandler,
     private removeHandler: RemoveActionHandler,
+    private armyCreateHandler: ArmyCreateHandler,
+    private armyRecruitHandler: ArmyRecruitHandler,
+    private armyMoveHandler: ArmyMoveHandler,
+    private armyMergeHandler: ArmyMergeHandler,
+    private armyDisbandHandler: ArmyDisbandHandler,
   ) {
     this.handlers.set(ActionType.BUILD, buildHandler);
     this.handlers.set(ActionType.INVADE, invadeHandler);
@@ -607,6 +1074,11 @@ export class ActionExecutorService {
     this.handlers.set(ActionType.TRANSFER_TROOPS, transferTroopsHandler);
     this.handlers.set(ActionType.RESEARCH, researchHandler);
     this.handlers.set(ActionType.REMOVE, removeHandler);
+    this.handlers.set(ActionType.ARMY_CREATE, armyCreateHandler);
+    this.handlers.set(ActionType.ARMY_RECRUIT, armyRecruitHandler);
+    this.handlers.set(ActionType.ARMY_MOVE, armyMoveHandler);
+    this.handlers.set(ActionType.ARMY_MERGE, armyMergeHandler);
+    this.handlers.set(ActionType.ARMY_DISBAND, armyDisbandHandler);
   }
 
   async executeAction(action: ActionQueue): Promise<{

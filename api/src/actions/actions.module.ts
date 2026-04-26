@@ -16,12 +16,20 @@ import {
   TransferTroopsActionHandler,
   ResearchActionHandler,
   RemoveActionHandler,
+  ArmyCreateHandler,
+  ArmyRecruitHandler,
+  ArmyMoveHandler,
+  ArmyMergeHandler,
+  ArmyDisbandHandler,
 } from './action-executor.service';
 import { ActionQueue } from './entities/action-queue.entity';
 import { ActionsLog } from './entities/actions-log.entity';
 import { ExecutionLock } from './entities/execution-lock.entity';
 import { Province } from '../provinces/entities/province.entity';
 import { User } from '../users/entities/user.entity';
+import { Army } from '../armies/entities/army.entity';
+import { ArmyUnit } from '../armies/entities/army-unit.entity';
+import { TroopType } from '../armies/entities/troop-type.entity';
 import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
 import { UserStateLoaderService } from './user-state-loader.service';
@@ -30,7 +38,10 @@ import { TechsModule } from '../techs/techs.module';
 @Module({
   imports: [
     ScheduleModule.forRoot(),
-    TypeOrmModule.forFeature([ActionQueue, ActionsLog, ExecutionLock, Province, User]),
+    TypeOrmModule.forFeature([
+      ActionQueue, ActionsLog, ExecutionLock, Province, User,
+      Army, ArmyUnit, TroopType,
+    ]),
     TechsModule,
   ],
   controllers: [ActionsController, ActionExecutionStatusController],
@@ -50,6 +61,11 @@ import { TechsModule } from '../techs/techs.module';
     TransferTroopsActionHandler,
     ResearchActionHandler,
     RemoveActionHandler,
+    ArmyCreateHandler,
+    ArmyRecruitHandler,
+    ArmyMoveHandler,
+    ArmyMergeHandler,
+    ArmyDisbandHandler,
   ],
   exports: [ActionsService, ActionExecutionStateService, ActionExecutionBlockMiddleware],
 })

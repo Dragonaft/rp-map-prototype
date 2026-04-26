@@ -106,5 +106,17 @@
     "upgrade_to": "MARKET",
     "requirement_tech": [],
     "requirement_building": null
+  },
+  {
+    "type": "ARMORY",
+    "name": "Armory",
+    "description": "A fortress workshop equipped to forge heavy armour and weapons. Required to recruit Knights into your armies.",
+    "income": 0,
+    "upkeep": 200,
+    "modifier": null,
+    "cost": 400,
+    "upgrade_to": null,
+    "requirement_tech": ["military.heavy_cavalry"],
+    "requirement_building": null
   }
 ]

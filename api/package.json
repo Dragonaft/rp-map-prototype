@@ -17,7 +17,8 @@
     "migration:fresh:prod": "npm run typeorm -- schema:drop -d src/db/data-source.prod.ts && npm run migration:run",
     "import:provinces": "ts-node src/scripts/import-provinces.ts",
     "seed:buildings": "ts-node src/scripts/seed-buildings.ts",
-    "seed:techs": "ts-node src/scripts/seed-techs.ts"
+    "seed:techs": "ts-node src/scripts/seed-techs.ts",
+    "seed:troop-types": "ts-node src/scripts/seed-troop-types.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",

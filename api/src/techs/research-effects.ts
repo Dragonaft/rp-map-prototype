@@ -48,6 +48,10 @@ export const UPKEEP_RESEARCH_EFFECTS: Partial<Record<string, (ctx: UpkeepContext
   'guild.merchant_guilds': (ctx) => {
     ctx.totalUpkeep = Math.floor(ctx.totalUpkeep * 0.85);
   },
+  /** Professional supply chains reduce total army upkeep by 20%. */
+  'military.army_logistics': (ctx) => {
+    ctx.totalUpkeep = Math.floor(ctx.totalUpkeep * 0.8);
+  },
 };
 
 /** Applied per-user after base research points are calculated. */
@@ -60,6 +64,10 @@ export const RESEARCH_POINT_EFFECTS: Partial<Record<string, (ctx: ResearchPointC
 export const BATTLE_RESEARCH_EFFECTS: Partial<Record<string, (ctx: BattleContext) => void>> = {
   'military.sword_training': (ctx) => {
     ctx.attackingTroops = Math.round(ctx.attackingTroops * 1.15);
+  },
+  /** Veteran officers improve all unit effectiveness by 10% when attacking. */
+  'military.veteran_officers': (ctx) => {
+    ctx.attackingTroops = Math.round(ctx.attackingTroops * 1.1);
   },
 };
 

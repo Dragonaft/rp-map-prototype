@@ -102,11 +102,56 @@
   {
     "key": "military.sword_training",
     "name": "Sword Training",
-    "description": "Train your soldiers in advanced swordsmanship, increasing attacking troop effectiveness by 15%.",
+    "description": "Train your soldiers in advanced swordsmanship, increasing attacking army power by 15%.",
     "branch": "military",
     "isClassRoot": false,
     "cost": 50,
     "prerequisites": []
+  },
+  {
+    "key": "military.ranged_units",
+    "name": "Archery Doctrine",
+    "description": "Organized training in ranged warfare. Unlocks Archers for recruitment into armies.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": []
+  },
+  {
+    "key": "military.pikemen",
+    "name": "Pike Formations",
+    "description": "Disciplined pike squares provide an unbreakable defensive line. Unlocks Pikemen for recruitment.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": []
+  },
+  {
+    "key": "military.heavy_cavalry",
+    "name": "Heavy Cavalry",
+    "description": "Mastery of mounted warfare and armoured horsemanship. Unlocks Knights for recruitment (requires an Armory).",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 30,
+    "prerequisites": ["military.sword_training"]
+  },
+  {
+    "key": "military.veteran_officers",
+    "name": "Veteran Officers",
+    "description": "Experienced commanders improve coordination across all unit types, granting an additional 10% attack power.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 20,
+    "prerequisites": ["military.sword_training"]
+  },
+  {
+    "key": "military.army_logistics",
+    "name": "Army Logistics",
+    "description": "Streamlined supply chains and quartermaster corps reduce total army upkeep by 20%.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 25,
+    "prerequisites": ["military.ranged_units", "military.pikemen"]
   },
 
   {
