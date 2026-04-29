@@ -102,7 +102,7 @@
   {
     "key": "military.sword_training",
     "name": "Sword Training",
-    "description": "Train your soldiers in advanced swordsmanship, increasing attacking army power by 15%.",
+    "description": "Train your soldiers in advanced swordsmanship, increasing attacking army power by 15% and unlocking the infantry type.",
     "branch": "military",
     "isClassRoot": false,
     "cost": 50,
@@ -151,9 +151,17 @@
     "branch": "military",
     "isClassRoot": false,
     "cost": 25,
-    "prerequisites": ["military.ranged_units", "military.pikemen"]
+    "prerequisites": ["military.ranged_units", "military.pikemen", "military.sword_training"]
   },
-
+  {
+    "key": "military.improved_logistics",
+    "name": "Improved Logistics",
+    "description": "Unlocks road construction.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 25,
+    "prerequisites": ["military.army_logistics"]
+  },
   {
     "key": "guild.merchant_guilds",
     "name": "Merchant Guild Charter",
@@ -162,5 +170,104 @@
     "isClassRoot": true,
     "cost": 10,
     "prerequisites": []
+  },
+  {
+    "key": "guild.trade_house",
+    "name": "Trade House",
+    "description": "Buy! Sell! Buy! Sell! Unlocks the Trade House building.",
+    "branch": "guild",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["guild.merchant_guilds"]
+  },
+  {
+    "key": "guild.mercenary_corps",
+    "name": "Mercenary Corps",
+    "description": "Why recruit when you can hire? Unlocks the Mercenary unit type.",
+    "branch": "guild",
+    "isClassRoot": false,
+    "cost": 15,
+    "prerequisites": ["guild.trade_house"]
+  },
+  {
+    "key": "guild.spy_network",
+    "name": "Spy network",
+    "description": "Allows you to spy on other players army composition.",
+    "branch": "guild",
+    "isClassRoot": false,
+    "cost": 30,
+    "prerequisites": ["guild.trade_house"]
+  },
+  {
+    "key": "holy.holy_order",
+    "name": "Holy Order",
+    "description": "A devoted way for your God, heretics will burn, locks you to path of God! Unlocks piety.",
+    "branch": "holy",
+    "isClassRoot": true,
+    "cost": 10,
+    "prerequisites": []
+  },
+  {
+    "key": "holy.temple",
+    "name": "Holy Order",
+    "description": "A place to pray and worship. Unlocks the Temple building.",
+    "branch": "holy",
+    "isClassRoot": false,
+    "cost": 5,
+    "prerequisites": ["holy.holy_order"]
+  },
+  {
+    "key": "holy.warriors_of_god",
+    "name": "Paladins",
+    "description": "True followers of faith. Unlocks the Paladin unit type. Takes piety to recruit.",
+    "branch": "holy",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["holy.holy.temple"]
+  },
+  {
+    "key": "holy.cathedral",
+    "name": "Cathedral",
+    "description": "Great palace of god!. Gives more piety and protection.",
+    "branch": "holy",
+    "isClassRoot": false,
+    "cost": 20,
+    "prerequisites": ["holy.holy.temple"]
+  },
+  {
+    "key": "noble.house",
+    "name": "Noble House",
+    "description": "Way of sword and fire. Locks you in noble path.",
+    "branch": "noble",
+    "isClassRoot": true,
+    "cost": 10,
+    "prerequisites": []
+  },
+  {
+    "key": "noble.knights",
+    "name": "Noble Knights",
+    "description": "Most noble of all. Unlocks the Noble Knight unit type.",
+    "branch": "noble",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["noble.house"]
+  },
+  {
+    "key": "noble.better_fortifications",
+    "name": "Noble Castle",
+    "description": "Best castle from best stone. Unlocks castle building.",
+    "branch": "noble",
+    "isClassRoot": false,
+    "cost": 20,
+    "prerequisites": ["noble.knights"]
+  },
+  {
+    "key": "noble.better_training",
+    "name": "Better training",
+    "description": "Train your soldiers in advanced swordsmanship, increasing units power by 10%.",
+    "branch": "noble",
+    "isClassRoot": false,
+    "cost": 25,
+    "prerequisites": ["noble.house"]
   }
 ]

@@ -6,6 +6,7 @@ export enum TroopCategory {
   RANGED = 'RANGED',
   CAVALRY = 'CAVALRY',
   SPECIAL = 'SPECIAL',
+  PEASANT = 'PEASANT',
 }
 
 @Entity({ name: 'troop_types' })

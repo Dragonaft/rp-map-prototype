@@ -23,6 +23,7 @@ export enum ActionType {
   ARMY_RECRUIT = 'ARMY_RECRUIT',
   ARMY_MERGE = 'ARMY_MERGE',
   ARMY_DISBAND = 'ARMY_DISBAND',
+  ARMY_EDIT = 'ARMY_EDIT',
 }
 
 export enum ActionStatus {

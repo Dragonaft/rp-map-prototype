@@ -118,5 +118,65 @@
     "upgrade_to": null,
     "requirement_tech": ["military.heavy_cavalry"],
     "requirement_building": null
+  },
+  {
+    "type": "Road",
+    "name": "Road",
+    "description": "A good line on earth for trade and logistics.",
+    "income": 0,
+    "upkeep": 50,
+    "modifier": null,
+    "cost": 200,
+    "upgrade_to": null,
+    "requirement_tech": ["military.improved_logistics"],
+    "requirement_building": null
+  },
+  {
+    "type": "TEMPLE",
+    "name": "Temple",
+    "description": "Building of faith, generates piety.",
+    "income": 50,
+    "upkeep": 25,
+    "modifier": null,
+    "cost": 200,
+    "upgrade_to": null,
+    "requirement_tech": ["holy.holy.temple"],
+    "requirement_building": null
+  },
+  {
+    "type": "CATHEDRAL",
+    "name": "Cathedral",
+    "description": "Building of faith, generates piety and gives some protection.",
+    "income": 100,
+    "upkeep": 50,
+    "modifier": "1.2",
+    "cost": 400,
+    "upgrade_to": null,
+    "requirement_tech": ["holy.cathedral"],
+    "requirement_building": null
+  },
+  {
+    "type": "TRADE_HOUSE",
+    "name": "Trade house",
+    "description": "Moneeey!",
+    "income": 200,
+    "upkeep": 50,
+    "modifier": null,
+    "cost": 300,
+    "upgrade_to": null,
+    "requirement_tech": ["guild.trade_house"],
+    "requirement_building": null
+  },
+  {
+    "type": "CASTLE",
+    "name": "Castle",
+    "description": "Better defence! Requires 1 stone to build and upkeep, only 1 per province.!",
+    "income": 100,
+    "upkeep": 250,
+    "modifier": "1.5",
+    "cost": 400,
+    "upgrade_to": null,
+    "requirement_tech": ["noble.better_fortifications"],
+    "requirement_building": null
   }
 ]

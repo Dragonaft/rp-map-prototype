@@ -35,6 +35,9 @@ export class User extends BaseEntity {
   public money: number;
 
   @Column({ nullable: true })
+  public piety: number;
+
+  @Column({ nullable: true })
   public troops: number;
 
   @Column({ default: 0 })
