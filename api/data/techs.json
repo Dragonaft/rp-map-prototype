@@ -163,6 +163,15 @@
     "prerequisites": ["military.sword_training"]
   },
   {
+    "key": "military.best_logistics",
+    "name": "Best Logistics",
+    "description": "Roads are better quality not, extend their reach by 1.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 15,
+    "prerequisites": ["military.improved_logistics"]
+  },
+  {
     "key": "guild.merchant_guilds",
     "name": "Merchant Guild Charter",
     "description": "A formal charter establishes the Merchant Guild as the ruling class. Streamlined economic administration reduces all upkeep by 15%. Commits your nation to the Merchant Guild path.",

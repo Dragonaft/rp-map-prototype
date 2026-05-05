@@ -747,6 +747,56 @@ const executeRecruitment = async (
   await manager.save(User, user);
 }
 
+/** Returns true if the province has a Road building. */
+const hasRoadBuilding = (province: Province): boolean => {
+  return (province.buildings ?? []).some((b) => b.type === BuildingTypes.ROAD);
+}
+
+/**
+ * BFS: returns true if `targetId` is reachable from `from` within `maxHops` steps via roads.
+ * Every intermediate province must be owned by `userId` and have a Road building.
+ * The `from` province is assumed to already have a Road before calling this.
+ */
+const isReachableByRoad = async (
+  manager: EntityManager,
+  from: Province,
+  targetId: string,
+  userId: string,
+  maxHops: number,
+): Promise<boolean> => {
+  const visited = new Set<string>([from.id]);
+  let frontier: Province[] = [from];
+
+  for (let hop = 0; hop < maxHops; hop++) {
+    const nextFrontier: Province[] = [];
+
+    for (const current of frontier) {
+      for (const neighborId of (current.neighbor_ids ?? [])) {
+        if (visited.has(neighborId)) continue;
+        visited.add(neighborId);
+
+        if (neighborId === targetId) return true;
+
+        // Expand through user-owned road provinces only (not needed on the last hop)
+        if (hop < maxHops - 1) {
+          const neighbor = await manager.findOne(Province, {
+            where: { id: neighborId },
+            relations: ['buildings'],
+          });
+          if (neighbor && neighbor.user_id === userId && hasRoadBuilding(neighbor)) {
+            nextFrontier.push(neighbor);
+          }
+        }
+      }
+    }
+
+    frontier = nextFrontier;
+    if (frontier.length === 0) break;
+  }
+
+  return false;
+}
+
 @Injectable()
 export class ArmyCreateHandler implements ActionHandler {
   private readonly logger = new Logger(ArmyCreateHandler.name);
@@ -868,12 +918,28 @@ export class ArmyMoveHandler implements ActionHandler {
       if (!army) throw new Error('Army not found');
       if (army.user_id !== action.userId) throw new Error('User does not own this army');
 
-      const fromProvince = await manager.findOne(Province, { where: { id: army.province_id } });
+      const fromProvince = await manager.findOne(Province, {
+        where: { id: army.province_id },
+        relations: ['buildings'],
+      });
       if (!fromProvince) throw new Error('Source province not found');
 
+      const attacker = await manager.findOne(User, { where: { id: action.userId } });
+      const completedResearch = attacker?.completed_research ?? [];
+
       const neighborIds: string[] = fromProvince.neighbor_ids ?? [];
-      if (!neighborIds.includes(toProvinceId)) {
-        throw new Error('Target province is not adjacent to the army\'s current province');
+      const isDirectlyAdjacent = neighborIds.includes(toProvinceId);
+
+      if (!isDirectlyAdjacent) {
+        if (!hasRoadBuilding(fromProvince)) {
+          throw new Error('Target province is not adjacent to the army\'s current province');
+        }
+        // Default road reach: 2 hops; extended to 3 with military.best_logistics
+        const maxRoadHops = completedResearch.includes('military.best_logistics') ? 3 : 2;
+        const canReach = await isReachableByRoad(manager, fromProvince, toProvinceId, action.userId, maxRoadHops);
+        if (!canReach) {
+          throw new Error('Target province is not reachable (not adjacent and no valid road path exists)');
+        }
       }
 
       const toProvince = await manager.findOne(Province, {
@@ -911,7 +977,6 @@ export class ArmyMoveHandler implements ActionHandler {
       }
 
       // Power calculations
-      const attacker = await manager.findOne(User, { where: { id: action.userId } });
       const attackCtx = { attackingTroops: armyAttackPower(army) };
       for (const techKey of (attacker?.completed_research ?? [])) {
         BATTLE_RESEARCH_EFFECTS[techKey]?.(attackCtx);
