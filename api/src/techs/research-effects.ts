@@ -57,6 +57,7 @@ export const UPKEEP_RESEARCH_EFFECTS: Partial<Record<string, (ctx: UpkeepContext
 /** Applied per-user after base research points are calculated. */
 export const RESEARCH_POINT_EFFECTS: Partial<Record<string, (ctx: ResearchPointContext) => void>> = {
   'economy.record_keeping': (ctx) => {
+    ctx.researchTotal += ctx.capitalCount;
   },
 };
 

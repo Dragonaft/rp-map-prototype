@@ -11,4 +11,9 @@ export enum BuildingTypes {
   GARDEN = 'GARDEN',
   BAZAAR = 'BAZAAR',
   ARMORY = 'ARMORY',
+  ROAD = 'ROAD',
+  TEMPLE = 'TEMPLE',
+  CATHEDRAL = 'CATHEDRAL',
+  TRADE_HOUSE = 'TRADE_HOUSE',
+  CASTLE = 'CASTLE',
 }

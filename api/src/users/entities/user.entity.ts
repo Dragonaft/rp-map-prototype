@@ -7,6 +7,7 @@ import {
 } from 'typeorm';
 import { Expose, Exclude } from 'class-transformer';
 import { Province } from '../../provinces/entities/province.entity';
+import { UserClasses, UserRoles } from "../types/users.types";
 
 @Entity({ name: 'users' })
 export class User extends BaseEntity {
@@ -49,7 +50,10 @@ export class User extends BaseEntity {
   public completed_research: string[];
 
   @Column({ type: 'varchar', nullable: true })
-  public class: string | null;
+  public class: UserClasses | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  public role: UserRoles | null;
 
   @OneToMany(() => Province, (province) => province.user)
   public readonly provinces?: Province[];

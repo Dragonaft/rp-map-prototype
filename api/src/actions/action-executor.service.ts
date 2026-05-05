@@ -11,6 +11,7 @@ import { BATTLE_RESEARCH_EFFECTS, computeBuildingCap } from '../techs/research-e
 import { Army } from '../armies/entities/army.entity';
 import { ArmyUnit } from '../armies/entities/army-unit.entity';
 import { TroopType } from '../armies/entities/troop-type.entity';
+import { UserClasses } from "../users/types/users.types";
 
 const DEFENSIVE_BUILDING_TYPES = new Set<string>([
   BuildingTypes.FORT,
@@ -583,7 +584,7 @@ export class ResearchActionHandler implements ActionHandler {
       user.completed_research = [...completed, techKey];
 
       if (tech.isClassRoot) {
-        user.class = tech.branch;
+        user.class = tech.branch as UserClasses;
       }
 
       await manager.save(User, user);

@@ -86,7 +86,7 @@
     "description": "Total dominance of regional trade networks. All income is boosted by 60%.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 30,
+    "cost": 25,
     "prerequisites": ["economy.banking", "economy.advanced_taxation"]
   },
   {
@@ -95,7 +95,7 @@
     "description": "A central treasury consolidates the nation's immense wealth. Unlocks the Treasury building.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 50,
+    "cost": 25,
     "prerequisites": ["economy.banking", "economy.monopoly"]
   },
 
@@ -105,7 +105,7 @@
     "description": "Train your soldiers in advanced swordsmanship, increasing attacking army power by 15% and unlocking the infantry type.",
     "branch": "military",
     "isClassRoot": false,
-    "cost": 50,
+    "cost": 20,
     "prerequisites": []
   },
   {
@@ -132,7 +132,7 @@
     "description": "Mastery of mounted warfare and armoured horsemanship. Unlocks Knights for recruitment (requires an Armory).",
     "branch": "military",
     "isClassRoot": false,
-    "cost": 30,
+    "cost": 25,
     "prerequisites": ["military.sword_training"]
   },
   {
@@ -159,8 +159,8 @@
     "description": "Unlocks road construction.",
     "branch": "military",
     "isClassRoot": false,
-    "cost": 25,
-    "prerequisites": ["military.army_logistics"]
+    "cost": 10,
+    "prerequisites": ["military.sword_training"]
   },
   {
     "key": "guild.merchant_guilds",
@@ -195,7 +195,7 @@
     "description": "Allows you to spy on other players army composition.",
     "branch": "guild",
     "isClassRoot": false,
-    "cost": 30,
+    "cost": 20,
     "prerequisites": ["guild.trade_house"]
   },
   {

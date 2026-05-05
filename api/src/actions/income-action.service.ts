@@ -4,16 +4,13 @@ import { BuildingTypes } from '../buildings/types/building.types';
 import { User } from '../users/entities/user.entity';
 import { UserGameState } from './user-state-loader.service';
 import { INCOME_RESEARCH_EFFECTS, RESEARCH_POINT_EFFECTS } from '../techs/research-effects';
+import { parseIncome } from "../utils/parseIncome";
 
-function parseIncome(income: string | number | null | undefined): number {
-  const n = Number(income);
-  return Number.isFinite(n) && n >= 0 ? n : 0;
-}
-
+// TODO: Maybe make dynamic
 const MINE_INCOME_BY_RESOURCE: Record<string, number> = {
-  stone: 100,
-  iron:  150,
-  gold:  400,
+  stone: 75,
+  iron:  125,
+  gold:  300,
 };
 
 /** Runs once per scheduled queue tick before upkeep; credits building income for all users. */
@@ -32,6 +29,7 @@ export class IncomeActionService {
       let capitalCount = 1;
       let researchTotal = 0;
       let farmGardenIncome = 0;
+      let pietyCount = 0;
 
       for (const province of userProvinces) {
         if (!province.buildings?.length) continue;
@@ -58,6 +56,16 @@ export class IncomeActionService {
             case BuildingTypes.MINE: {
               const mineIncome = MINE_INCOME_BY_RESOURCE[province.resource_type] ?? 0;
               incomeTotal += mineIncome;
+              break;
+            }
+            case BuildingTypes.TEMPLE: {
+              pietyCount += 1;
+              incomeTotal += parseIncome(b.income);
+              break;
+            }
+            case BuildingTypes.CATHEDRAL: {
+              pietyCount += 2;
+              incomeTotal += parseIncome(b.income);
               break;
             }
             case BuildingTypes.FORESTRY:
@@ -91,6 +99,7 @@ export class IncomeActionService {
       }
 
       user.research_points = Number(user.research_points ?? 0) + researchTotal;
+      user.piety = Number(user.piety + pietyCount * 10)
     }
 
     for (const user of users) {
@@ -98,6 +107,7 @@ export class IncomeActionService {
         money: user.money,
         troops: user.troops,
         research_points: user.research_points,
+        piety: user.piety,
       });
     }
 
