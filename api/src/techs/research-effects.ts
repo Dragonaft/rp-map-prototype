@@ -70,6 +70,10 @@ export const BATTLE_RESEARCH_EFFECTS: Partial<Record<string, (ctx: BattleContext
   'military.veteran_officers': (ctx) => {
     ctx.attackingTroops = Math.round(ctx.attackingTroops * 1.1);
   },
+  /** Noble training improves all units power by 10% when attacking. */
+  'noble.better_training': (ctx) => {
+    ctx.attackingTroops = Math.round(ctx.attackingTroops * 1.1);
+  },
 };
 
 // ---------------------------------------------------------------------------

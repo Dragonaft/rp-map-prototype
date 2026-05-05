@@ -56,12 +56,19 @@ export class UpkeepActionService {
       }
 
       // Army upkeep: flat_upkeep per army + per-unit-type upkeep
+      // Paladins consume piety for upkeep instead of money
       let armyUpkeep = 0;
+      let pietyUpkeep = 0;
       for (const army of userArmies) {
         armyUpkeep += army.flat_upkeep;
         for (const unit of army.units ?? []) {
           const upkeepPer100 = unit.troopType?.upkeep_per_100 ?? 0;
-          armyUpkeep += Math.ceil(Math.max(0, unit.count) / 100) * upkeepPer100;
+          const amount = Math.ceil(Math.max(0, unit.count) / 100) * upkeepPer100;
+          if (unit.troopType?.key === 'paladins') {
+            pietyUpkeep += amount;
+          } else {
+            armyUpkeep += amount;
+          }
         }
       }
 
@@ -70,10 +77,11 @@ export class UpkeepActionService {
         UPKEEP_RESEARCH_EFFECTS[techKey]?.(upkeepCtx);
       }
       user.money = Math.max(0, Number(user.money ?? 0) - upkeepCtx.totalUpkeep);
+      user.piety = Math.max(0, Number(user.piety ?? 0) - pietyUpkeep);
     }
 
     for (const user of users) {
-      await manager.update(User, { id: user.id }, { money: user.money });
+      await manager.update(User, { id: user.id }, { money: user.money, piety: user.piety });
     }
 
     this.logger.log('Upkeep applied for all users');

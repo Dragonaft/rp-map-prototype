@@ -5,7 +5,7 @@ import { instanceToPlain } from 'class-transformer';
 import { User } from './entities/user.entity';
 import { UsersCreateBodyRequest } from "./requests/users-create-body.request";
 import { UsersUpdateBodyRequest } from "./requests/users-update-body.request";
-import { PartialUser, UserClasses } from "./types/users.types";
+import { PartialUser, UserClasses, UserRoles } from "./types/users.types";
 import { BuildingTypes } from '../buildings/types/building.types';
 import { Army } from '../armies/entities/army.entity';
 import { parseIncome } from '../utils/parseIncome';
@@ -37,9 +37,13 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: UsersCreateBodyRequest): Promise<User> {
+    const count = await this.usersRepository.count();
+    const role = count === 0 ? UserRoles.ADMIN : UserRoles.PLAYER;
+
     const user = this.usersRepository.create({
       ...createUserDto,
       is_new: true,
+      role,
     });
 
     return await this.usersRepository.save(user);
@@ -173,7 +177,18 @@ export class UsersService {
           if (b.type === BuildingTypes.CATHEDRAL) pietyCount += 2;
         }
       }
-      projectedPiety = pietyCount * 10;
+      const pietyIncome = pietyCount * 10;
+
+      let paladinUpkeep = 0;
+      for (const army of armies) {
+        for (const unit of army.units ?? []) {
+          if (unit.troopType?.key === 'paladins') {
+            paladinUpkeep += Math.ceil(Math.max(0, unit.count) / 100) * (unit.troopType.upkeep_per_100 ?? 0);
+          }
+        }
+      }
+
+      projectedPiety = pietyIncome - paladinUpkeep;
     }
 
     return {

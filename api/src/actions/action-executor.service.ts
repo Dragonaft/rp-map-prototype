@@ -17,6 +17,8 @@ const DEFENSIVE_BUILDING_TYPES = new Set<string>([
   BuildingTypes.FORT,
   BuildingTypes.CAPITOL,
   BuildingTypes.CAPITAL,
+  BuildingTypes.CASTLE,
+  BuildingTypes.CATHEDRAL,
 ]);
 
 /** Buildings that can only be placed on provinces whose resource_type is in the allowed list. */
@@ -26,6 +28,7 @@ const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> =
   [BuildingTypes.FARM]:     ['grain'],
 };
 
+// TODO: Make these values dynamic
 /** Server-side money cost per troop when moving troops from the global pool into a province. Maybe transfer to env or db */
 const DEPLOY_MONEY_PER_TROOP = 1;
 const UNIQUE_PER_PROVINCE: string[] = [BuildingTypes.MINE, BuildingTypes.FORESTRY, BuildingTypes.FORT];
@@ -33,12 +36,12 @@ const REMOVE_COST = 100;
 const ARMY_MIN_SIZE = 100;
 const CASUALTY_FLOOR = 0.05;
 
-function parseBuildingModifier(modifier: string | null | undefined): number {
+const parseBuildingModifier = (modifier: string | null | undefined): number => {
   const n = Number(modifier);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-function computeBuildModifier(buildings: Building[] | undefined): number {
+const computeBuildModifier = (buildings: Building[] | undefined): number => {
   if (!buildings?.length) {
     return 1;
   }
@@ -629,6 +632,19 @@ interface RecruitEntry {
   count: number;
 }
 
+// Troop types that require a specific player class to recruit
+const CLASS_RESTRICTED_TROOPS: Partial<Record<string, UserClasses>> = {
+  'noble_knights': UserClasses.NOBLE,
+  'paladins':      UserClasses.HOLY,
+  'mercenaries':   UserClasses.GUILD,
+};
+
+// Troop types whose recruitment cost is paid in piety instead of money
+const PIETY_COST_TROOPS = new Set(['paladins']);
+
+// Troop types that do NOT consume the draft pool (user.troops) on recruitment
+const NO_POOL_TROOPS = new Set(['mercenaries']);
+
 /** Validates and executes troop recruitment into an army within a transaction. */
 const executeRecruitment = async (
   manager: EntityManager,
@@ -650,6 +666,12 @@ const executeRecruitment = async (
 
     const troopType = await manager.findOne(TroopType, { where: { key: entry.troop_type_key } });
     if (!troopType) throw new Error(`Unknown troop type: ${entry.troop_type_key}`);
+
+    // Class requirement check
+    const requiredClass = CLASS_RESTRICTED_TROOPS[entry.troop_type_key];
+    if (requiredClass && user.class !== requiredClass) {
+      throw new Error(`Only ${requiredClass} class can recruit ${troopType.name}`);
+    }
 
     // Tech requirement check
     if (troopType.tech_requirement) {
@@ -673,26 +695,39 @@ const executeRecruitment = async (
       }
     }
 
-    // Deduct cost
-    // Always deduct from the draft pool
-    const pool = Number(user.troops ?? 0);
-    if (pool < entry.count) {
-      throw new Error(
-        `Not enough troops in the draft pool (have ${pool}, need ${entry.count})`,
-      );
-    }
-    user.troops = pool - entry.count;
-
-    // Paid unit types also cost money
-    if (troopType.cost_per_100 > 0) {
-      const cost = Math.ceil((entry.count / 100) * troopType.cost_per_100);
-      const money = Number(user.money ?? 0);
-      if (money < cost) {
+    // Draft pool deduction (mercenaries bypass this — hired directly with money)
+    if (!NO_POOL_TROOPS.has(entry.troop_type_key)) {
+      const pool = Number(user.troops ?? 0);
+      if (pool < entry.count) {
         throw new Error(
-          `Not enough money to recruit ${entry.count} ${troopType.name} (need ${cost}, have ${money})`,
+          `Not enough troops in the draft pool (have ${pool}, need ${entry.count})`,
         );
       }
-      user.money = money - cost;
+      user.troops = pool - entry.count;
+    }
+
+    // Recruitment cost
+    if (troopType.cost_per_100 > 0) {
+      const cost = Math.ceil((entry.count / 100) * troopType.cost_per_100);
+
+      if (PIETY_COST_TROOPS.has(entry.troop_type_key)) {
+        // Paladins are paid for with piety
+        const piety = Number(user.piety ?? 0);
+        if (piety < cost) {
+          throw new Error(
+            `Not enough piety to recruit ${entry.count} ${troopType.name} (need ${cost}, have ${piety})`,
+          );
+        }
+        user.piety = piety - cost;
+      } else {
+        const money = Number(user.money ?? 0);
+        if (money < cost) {
+          throw new Error(
+            `Not enough money to recruit ${entry.count} ${troopType.name} (need ${cost}, have ${money})`,
+          );
+        }
+        user.money = money - cost;
+      }
     }
 
     // Add/update unit in army
