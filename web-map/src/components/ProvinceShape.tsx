@@ -18,6 +18,10 @@ interface Props {
   pendingDeployAction?: PendingDeployAction;
   onCancelAction?: (actionId: string) => void;
   bbox: BBox;
+  armyTroopCount?: number;
+  onArmyCountClick?: (provinceId: string) => void;
+  /** undefined = no enemy armies; null = present but count unknown; number = spy-revealed total */
+  enemyArmyTroopCount?: number | null;
 }
 
 const MAP_VISIBLE_BUILDINGS = new Set(['CAPITAL', 'CAPITOL', 'FORT', 'FORESTRY', 'MINE']);
@@ -33,6 +37,9 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   pendingDeployAction,
   onCancelAction,
   bbox,
+  armyTroopCount,
+  onArmyCountClick,
+  enemyArmyTroopCount,
 }) => {
   const dispatch = useAppDispatch();
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
@@ -77,12 +84,17 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     onRightClick(province);
   }, [onRightClick, province]);
 
+  const displayTroopCount = armyTroopCount != null ? armyTroopCount : (province.localTroops ?? 0);
+
   const handleTroopClick = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     dispatch(setSelectedTroops(
-      isTroopSelected ? null : { provinceId: province.id, troopCount: province.localTroops || 0 }
+      isTroopSelected ? null : { provinceId: province.id, troopCount: displayTroopCount }
     ));
-  }, [dispatch, province.id, province.localTroops, isTroopSelected]);
+    if (!isTroopSelected) {
+      onArmyCountClick?.(province.id);
+    }
+  }, [dispatch, province.id, displayTroopCount, isTroopSelected, onArmyCountClick]);
 
   const renderBuildingIcon = (building: Building, index: number) => {
     const icon = BUILDING_ICONS[building.type] ?? '🏗️';
@@ -100,7 +112,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     );
   };
 
-  const hasLocalTroops = isCurrentUserProvince && province.localTroops != null && province.localTroops > 0;
+  const hasLocalTroops = isCurrentUserProvince && displayTroopCount > 0;
   const deployLabel = (pendingDeployAction && isCurrentUserProvince) ? `+${pendingDeployAction.troopsNumber}` : null;
 
   const landscapeIcon = LANDSCAPE_ICONS[province.landscape];
@@ -144,7 +156,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
       {/* Building icons (map-visible only) */}
       {visibleBuildings.map((b, i) => renderBuildingIcon(b, i))}
 
-      {/* Enemy troops indicator */}
+      {/* Enemy local troops indicator */}
       {!isCurrentUserProvince && province.enemyHere && (
         <g>
           <rect x={cx - 20} y={troopY - 10} width="40" height="20"
@@ -155,6 +167,23 @@ const ProvinceShapeComponent: React.FC<Props> = ({
           </text>
         </g>
       )}
+
+      {/* Enemy army indicator */}
+      {!isCurrentUserProvince && enemyArmyTroopCount !== undefined && (() => {
+        const armyY = troopY + (province.enemyHere ? 24 : 0);
+        const hasCount = typeof enemyArmyTroopCount === 'number';
+        const boxW = hasCount ? Math.max(36, 8 + String(enemyArmyTroopCount).length * 8) : 36;
+        return (
+          <g>
+            <rect x={cx - boxW / 2} y={armyY - 10} width={boxW} height={20}
+              fill="rgb(254,202,202)" stroke="rgb(153,27,27)" strokeWidth={1} rx="3" ry="3" />
+            <text x={cx} y={armyY} fontSize="12" textAnchor="middle" dominantBaseline="middle"
+              pointerEvents="none" style={{ userSelect: 'none' }}>
+              {hasCount ? `⚔${enemyArmyTroopCount}` : '⚔'}
+            </text>
+          </g>
+        );
+      })()}
 
       {/* Own troops count */}
       {hasLocalTroops && (
@@ -167,7 +196,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
           <text x={cx} y={troopY} fontSize="12" fill="#000"
             textAnchor="middle" dominantBaseline="middle" fontWeight="bold"
             pointerEvents="none" style={{ userSelect: 'none' }}>
-            {province.localTroops}
+            {displayTroopCount}
           </text>
         </g>
       )}

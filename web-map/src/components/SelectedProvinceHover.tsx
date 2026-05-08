@@ -7,7 +7,7 @@ import { useMutation, useQuery } from "../hooks/useApi.ts";
 import { provincesApi } from "../api/provinces.ts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { buildingsApi } from "../api/buildings.ts";
-import { ActionType, Building, BuildingTypes, RESOURCE_BUILDING_REQUIREMENTS } from "../types.ts";
+import { ActionType, Army, Building, BuildingTypes, RESOURCE_BUILDING_REQUIREMENTS } from "../types.ts";
 import { actionsApi } from "../api/actions.ts";
 import { addAction, removeActionById } from "../store/slices/actionsSlice.ts";
 import { BUILDING_ICONS } from "../constants/buildingIcons.ts";
@@ -16,13 +16,20 @@ import { BuildingActionsModal } from "./Modals/BuildingActionsModal.tsx";
 import { CancelActionModal } from "./Modals/CancelActionModal.tsx";
 import { DeleteBuildingModal } from "./Modals/DeleteBuildingModal.tsx";
 
-export const SelectedProvinceHover = () => {
+interface Props {
+  onSelectArmy?: (armyId: string | null) => void;
+  onCreateArmy?: () => void;
+  selectedArmyId?: string | null;
+}
+
+export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmyId }: Props) => {
   const dispatch = useAppDispatch();
   const selectedProvince = useAppSelector(selectSelectedProvince);
   const user = useAppSelector((state: RootState) => state.user);
   const otherUsers = useAppSelector((state: RootState) => state.otherUsers.otherUsers);
   const actions = useAppSelector((state: RootState) => state.actions.actions);
   const techs = useAppSelector((state: RootState) => state.techs.techs);
+  const armies = useAppSelector((state: RootState) => state.armies.armies);
   const { mutate } = useMutation(provincesApi.setupUser);
   const isUserOwner = user.id === selectedProvince?.userId;
 
@@ -155,6 +162,8 @@ export const SelectedProvinceHover = () => {
         provinces: response.user.provinces,
         completedResearch: [],
         researchPoints: response.user.researchPoints,
+        piety: 0,
+        class: null,
       }));
     }
     if (response?.province) {
@@ -262,6 +271,31 @@ export const SelectedProvinceHover = () => {
   const emptySlotCount = Math.max(0, (selectedProvince?.buildingCap ?? 0) - usedSlots);
   const provinceOwner = otherUsers.find(u => u.id === selectedProvince?.userId);
 
+  const armiesInProvince = useMemo(() => {
+    if (!selectedProvince) return [];
+    return armies.filter((a) => a.province_id === selectedProvince.id);
+  }, [armies, selectedProvince]);
+
+  const pendingCreateArmyActions = useMemo(() => {
+    if (!selectedProvince) return [];
+    return actions.filter(
+      (a) => a.actionType === ActionType.ARMY_CREATE &&
+        (a.actionData?.province_id ?? a.actionData?.provinceId) === selectedProvince.id,
+    );
+  }, [actions, selectedProvince]);
+
+  const pendingDisbandArmyIds = useMemo(
+    () => new Set(
+      actions
+        .filter((a) => a.actionType === ActionType.ARMY_DISBAND)
+        .map((a) => a.actionData?.army_id as string)
+        .filter(Boolean),
+    ),
+    [actions],
+  );
+
+  const armyTotalTroops = (army: Army) => army.units.reduce((s, u) => s + u.count, 0);
+
   if (!selectedProvince) return null;
 
   const DeployMenu = () => (
@@ -287,7 +321,7 @@ export const SelectedProvinceHover = () => {
   );
 
   return (
-    <div className="w-60 h-80 bg-gray-400 rounded-lg border border-outline-variant/10 p-5 flex flex-col flex-1 absolute right-5 top-4">
+    <div className="w-60 bg-gray-400 rounded-lg border border-outline-variant/10 p-5 flex flex-col flex-1 absolute right-5 top-4 max-h-[90vh] overflow-y-auto">
 
       {/* New user — pick starting province */}
       {user.isNew && (
@@ -311,32 +345,50 @@ export const SelectedProvinceHover = () => {
 
       {/* Non-owner view */}
       {!user.isNew && !isUserOwner && (
-        <div className="flex flex-col justify-between h-full">
-          <div>
-            <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
-            <p>Landscape: {selectedProvince.landscape}</p>
-            <p>Resource: {selectedProvince.resourceType}</p>
-            {provinceOwner && <p>Owner: {provinceOwner.countryName}</p>}
-            {builtInProvince.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-2">
-                {builtInProvince.map((b) => (
+        <div className="flex flex-col gap-2">
+          <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
+          <p>Landscape: {selectedProvince.landscape}</p>
+          <p>Resource: {selectedProvince.resourceType}</p>
+          {provinceOwner && <p>Owner: {provinceOwner.countryName}</p>}
+          {builtInProvince.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {builtInProvince.map((b) => (
+                <div
+                  key={b.id}
+                  className="w-10 h-10 text-lg border border-gray-400 rounded bg-gray-200/40 flex items-center justify-center cursor-default"
+                  title={b.name}
+                >
+                  {BUILDING_ICONS[b.type] ?? '🏗️'}
+                </div>
+              ))}
+            </div>
+          )}
+          {(() => {
+            const enemyArmies = armies.filter((a) => a.province_id === selectedProvince.id && a.user_id !== user.id);
+            if (!enemyArmies.length) return null;
+            return (
+              <div className="flex flex-col gap-1 mt-1">
+                <h3 className="text-xs font-bold uppercase text-gray-600 tracking-wide">Armies</h3>
+                {enemyArmies.map((army) => (
                   <div
-                    key={b.id}
-                    className="w-10 h-10 text-lg border border-gray-400 rounded bg-gray-200/40 flex items-center justify-center cursor-default"
-                    title={b.name}
+                    key={army.id}
+                    className="w-full text-xs px-2 py-1.5 rounded border border-red-300 bg-red-50 flex items-center justify-between"
                   >
-                    {BUILDING_ICONS[b.type] ?? '🏗️'}
+                    <span className="font-medium truncate">⚔ {army.name ?? 'Unknown Army'}</span>
+                    {army.totalTroops != null && (
+                      <span className="font-bold tabular-nums ml-2 shrink-0">{army.totalTroops}</span>
+                    )}
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+            );
+          })()}
         </div>
       )}
 
       {/* Owner view */}
       {!user.isNew && isUserOwner && (
-        <div className="flex flex-col justify-between h-full">
+        <div className="flex flex-col gap-2">
           {isOpenDeployMenu && <DeployMenu />}
           {!isOpenDeployMenu && (
             <>
@@ -393,8 +445,53 @@ export const SelectedProvinceHover = () => {
                   ))}
                 </div>
               </div>
-              <div className="flex flex-col gap-2">
-                <Button variant="contained" color="primary" onClick={() => setIsOpenDeployMenu(true)}>DEPLOY TROOPS</Button>
+              {/* Army list */}
+              {(armiesInProvince.length > 0 || pendingCreateArmyActions.length > 0) && (
+                <div className="flex flex-col gap-1 mt-2">
+                  <h3 className="text-xs font-bold uppercase text-gray-600 tracking-wide">Armies</h3>
+                  {armiesInProvince.map((army) => {
+                    const total = armyTotalTroops(army);
+                    const isSelected = selectedArmyId === army.id;
+                    const isDisbanding = pendingDisbandArmyIds.has(army.id);
+                    return (
+                      <button
+                        key={army.id}
+                        className={`w-full text-left text-xs px-2 py-1.5 rounded border flex items-center justify-between transition-colors ${
+                          isSelected
+                            ? 'bg-blue-200 border-blue-500'
+                            : isDisbanding
+                              ? 'bg-red-100 border-red-400 opacity-70'
+                              : 'bg-gray-200 border-gray-400 hover:bg-gray-300'
+                        }`}
+                        onClick={() => onSelectArmy?.(isSelected ? null : army.id)}
+                        title={isDisbanding ? 'Disbanding queued' : 'Click to manage army'}
+                      >
+                        <span className="font-medium truncate">{army.name ?? 'Unnamed Army'}</span>
+                        <span className="font-bold tabular-nums ml-2 shrink-0">{total}</span>
+                      </button>
+                    );
+                  })}
+                  {pendingCreateArmyActions.map((a) => (
+                    <div key={a.id} className="w-full text-xs px-2 py-1.5 rounded border border-green-500 bg-green-50 flex items-center justify-between">
+                      <span className="text-green-700 truncate">⏳ {a.actionData?.name ?? 'New Army'} (queued)</span>
+                      <button
+                        className="text-green-700 underline shrink-0 ml-2"
+                        onClick={async () => {
+                          try {
+                            await actionsApi.removeAction(a.id);
+                            dispatch(removeActionById(a.id));
+                          } catch { /* ignore */ }
+                        }}
+                      >Cancel</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex flex-col gap-2 mt-2">
+                <Button variant="contained" color="primary" size="small" onClick={() => onCreateArmy?.()}>
+                  Create Army
+                </Button>
               </div>
             </>
           )}

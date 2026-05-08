@@ -8,6 +8,12 @@ interface UserState {
   color: string;
   money: number;
   troops: number;
+  piety: number;
+  class: string | null;
+  projectedIncome: number;
+  projectedPiety: number | null;
+  projectedResearch: number;
+  projectedTroops: number;
   isNew: boolean;
   provinces: Province[];
   completedResearch: string[];
@@ -21,6 +27,12 @@ const initialState: UserState = {
   color: '',
   money: 0,
   troops: 0,
+  piety: 0,
+  class: null,
+  projectedIncome: 0,
+  projectedPiety: null,
+  projectedResearch: 0,
+  projectedTroops: 0,
   isNew: false,
   provinces: [],
   completedResearch: [],
@@ -38,6 +50,12 @@ const userSlice = createSlice({
       state.color = action.payload.color;
       state.money = action.payload.money;
       state.troops = action.payload.troops;
+      state.piety = action.payload.piety ?? 0;
+      state.class = action.payload.class ?? null;
+      state.projectedIncome = action.payload.projectedIncome;
+      state.projectedPiety = action.payload.projectedPiety;
+      state.projectedResearch = action.payload.projectedResearch;
+      state.projectedTroops = action.payload.projectedTroops;
       state.isNew = action.payload.isNew;
       state.provinces = action.payload.provinces;
       state.completedResearch = action.payload.completedResearch ?? [];
@@ -56,6 +74,8 @@ const userSlice = createSlice({
       state.color = '';
       state.money = 0;
       state.troops = 0;
+      state.piety = 0;
+      state.class = null;
       state.isNew = false;
       state.provinces = [];
       state.completedResearch = [];

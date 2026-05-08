@@ -1146,6 +1146,62 @@ export class ArmyDisbandHandler implements ActionHandler {
 }
 
 // ---------------------------------------------------------------------------
+// ArmyEditHandler — removes troops of a specific type from an army
+// ---------------------------------------------------------------------------
+
+@Injectable()
+export class ArmyEditHandler implements ActionHandler {
+  private readonly logger = new Logger(ArmyEditHandler.name);
+
+  constructor(
+    @InjectRepository(Army)
+    private readonly armyRepo: Repository<Army>,
+    @InjectRepository(ArmyUnit)
+    private readonly armyUnitRepo: Repository<ArmyUnit>,
+  ) {}
+
+  handle = async (action: ActionQueue): Promise<void> => {
+    this.logger.log(`Executing ARMY_EDIT for user ${action.userId}`);
+
+    const armyId = action.actionData?.army_id as string | undefined;
+    const troopTypeKey = action.actionData?.troop_type_key as string | undefined;
+    const removeCount = Number(action.actionData?.count);
+
+    if (!armyId || !troopTypeKey || !Number.isFinite(removeCount) || removeCount <= 0) {
+      throw new Error('army_id, troop_type_key, and count (>0) are required');
+    }
+
+    await this.armyRepo.manager.transaction(async (manager) => {
+      const army = await manager.findOne(Army, {
+        where: { id: armyId },
+        relations: ['units', 'units.troopType'],
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!army) throw new Error('Army not found');
+      if (army.user_id !== action.userId) throw new Error('User does not own this army');
+
+      const unit = army.units.find((u) => u.troopType.key === troopTypeKey);
+      if (!unit) throw new Error(`Troop type ${troopTypeKey} not found in army`);
+
+      const totalAfterRemoval = armyTotalTroops(army) - removeCount;
+      if (totalAfterRemoval < ARMY_MIN_SIZE) {
+        throw new Error(
+          `Army must contain at least ${ARMY_MIN_SIZE} troops after removal (would have ${totalAfterRemoval})`,
+        );
+      }
+
+      const newCount = unit.count - removeCount;
+      if (newCount <= 0) {
+        await manager.delete(ArmyUnit, unit.id);
+      } else {
+        unit.count = newCount;
+        await manager.save(ArmyUnit, unit);
+      }
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // ActionExecutorService
 // ---------------------------------------------------------------------------
 
@@ -1167,6 +1223,7 @@ export class ActionExecutorService {
     private armyMoveHandler: ArmyMoveHandler,
     private armyMergeHandler: ArmyMergeHandler,
     private armyDisbandHandler: ArmyDisbandHandler,
+    private armyEditHandler: ArmyEditHandler,
   ) {
     this.handlers.set(ActionType.BUILD, buildHandler);
     this.handlers.set(ActionType.INVADE, invadeHandler);
@@ -1180,6 +1237,7 @@ export class ActionExecutorService {
     this.handlers.set(ActionType.ARMY_MOVE, armyMoveHandler);
     this.handlers.set(ActionType.ARMY_MERGE, armyMergeHandler);
     this.handlers.set(ActionType.ARMY_DISBAND, armyDisbandHandler);
+    this.handlers.set(ActionType.ARMY_EDIT, armyEditHandler);
   }
 
   async executeAction(action: ActionQueue): Promise<{

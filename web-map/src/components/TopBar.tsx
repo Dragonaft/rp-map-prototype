@@ -4,6 +4,7 @@ import { useMutation } from "../hooks/useApi.ts";
 import { authApi } from "../api/auth.ts";
 import { useState } from "react";
 import { TechsModal } from "./Modals/TechsModal.tsx";
+import { UserClasses } from "../types.ts";
 
 export const TopBar = () => {
   const user = useAppSelector(state => state.user);
@@ -35,25 +36,33 @@ export const TopBar = () => {
           <div className="flex items-center gap-6">
             <div
               className="flex items-center gap-4 px-4 py-2 bg-surface-container rounded-lg border border-outline-variant/15">
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-white text-sm" data-icon="church">church</span>
-                <span className="font-headline font-bold text-white text-xs uppercase tracking-wider">Piety: 850</span>
-              </div>
-              <div className="w-px h-4 bg-outline-variant/30"></div>
+              {user.class === UserClasses.HOLY && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-white text-sm" data-icon="church">church</span>
+                    <span className="font-headline font-bold text-white text-xs uppercase tracking-wider">Piety: {user.piety}</span>
+                    <span className={`${user.projectedPiety && user.projectedPiety > 0 ? "text-green-500" : "text-red-500"} font-headline font-bold text-xs uppercase tracking-wider`}>({user.projectedPiety && user.projectedPiety > 0 ? + user.projectedPiety : user.projectedPiety})</span>
+                  </div>
+                  <div className="w-px h-4 bg-outline-variant/30"></div>
+                </>
+              )}
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-tertiary text-sm" data-icon="science">science</span>
                 <span className="font-headline font-bold text-tertiary text-xs uppercase tracking-wider">Research: {user.researchPoints}</span>
+                <span className={`${user.projectedResearch > 0 ? "text-green-500" : "text-red-500"} font-headline font-bold text-xs uppercase tracking-wider`}>({user.projectedResearch > 0 ? + user.projectedResearch : user.projectedResearch})</span>
               </div>
               <div className="w-px h-4 bg-outline-variant/30"></div>
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-sm" data-icon="groups">groups</span>
                 <span
                   className="font-headline font-bold text-primary text-xs uppercase tracking-wider">Troops: {user.troops}</span>
+                <span className={`${user.projectedTroops > 0 ? "text-green-500" : "text-red-500"} font-headline font-bold text-xs uppercase tracking-wider`}>({user.projectedTroops > 0 ? + user.projectedTroops : user.projectedTroops})</span>
               </div>
               <div className="w-px h-4 bg-outline-variant/30"></div>
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-sm" data-icon="payments">payments</span>
                 <span className="font-headline font-bold text-secondary text-xs uppercase tracking-wider">Money: {user.money}</span>
+                <span className={`${user.projectedIncome > 0 ? "text-green-500" : "text-red-500"} font-headline font-bold text-xs uppercase tracking-wider`}>({user.projectedIncome > 0 ? + user.projectedIncome : user.projectedIncome})</span>
               </div>
             </div>
             <Button

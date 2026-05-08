@@ -89,8 +89,8 @@
     "description": "Soldiers of fortune, for hire use a lot of money.",
     "category": "SPECIAL",
     "cost_per_100": 700,
-    "attack": 2.0,
-    "defense": 2.0,
+    "attack": 1.8,
+    "defense": 1.8,
     "upkeep_per_100": 600,
     "tech_requirement": "guild.merchant_guilds",
     "building_requirement": "TRADE_HOUSE"

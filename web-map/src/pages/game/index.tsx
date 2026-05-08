@@ -17,6 +17,8 @@ import { buildingsApi } from "../../api/buildings.ts";
 import { setBuildings } from "../../store/slices/buildingsSlice.ts";
 import { techsApi } from "../../api/techs.ts";
 import { setTechs } from "../../store/slices/techsSlice.ts";
+import { armiesApi } from "../../api/armies.ts";
+import { setArmies, setTroopTypes } from "../../store/slices/armiesSlice.ts";
 
 
 const style = {
@@ -61,6 +63,10 @@ export const GamePage: React.FC = () => {
   const { data: buildingsData } = useQuery(fetchBuildings, []);
   const fetchTechs = useCallback(() => techsApi.getAll(), []);
   const { data: techsData } = useQuery(fetchTechs, []);
+  const fetchArmies = useCallback(() => armiesApi.getUserArmies(), []);
+  const { data: armiesData } = useQuery(fetchArmies, []);
+  const fetchTroopTypes = useCallback(() => armiesApi.getTroopTypes(), []);
+  const { data: troopTypesData } = useQuery(fetchTroopTypes, []);
 
   useEffect(() => {
     if (!userData) return;
@@ -92,6 +98,16 @@ export const GamePage: React.FC = () => {
     if (!techsData) return;
     dispatch(setTechs(techsData));
   }, [techsData, dispatch]);
+
+  useEffect(() => {
+    if (!armiesData) return;
+    dispatch(setArmies(armiesData));
+  }, [armiesData, dispatch]);
+
+  useEffect(() => {
+    if (!troopTypesData) return;
+    dispatch(setTroopTypes(troopTypesData));
+  }, [troopTypesData, dispatch]);
 
   // Prevent browser zoom when Ctrl+wheel anywhere on the page
   useEffect(() => {

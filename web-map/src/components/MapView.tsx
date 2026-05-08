@@ -5,6 +5,8 @@ import { Box, Button, Modal, Typography } from '@mui/material';
 import { ProvinceShape } from './ProvinceShape';
 import { SelectedProvinceHover } from "./SelectedProvinceHover.tsx";
 import { TroopMovementModal } from './TroopMovementModal';
+import { ArmyBlock } from './ArmyBlock.tsx';
+import { CreateArmyModal } from './CreateArmyModal.tsx';
 import { setSelectedProvinceId, setSelectedTroops, updateProvinceById } from '../store/slices/provincesSlice';
 import type { RootState } from '../store/store';
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
@@ -19,6 +21,8 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const userActions = useAppSelector((state: RootState) => state.actions.actions);
   const provinceCentersById = useAppSelector((state: RootState) => state.provinces.provinceCentersById);
   const provinceBBoxById = useAppSelector((state: RootState) => state.provinces.provinceBBoxById);
+  const armies = useAppSelector((state: RootState) => state.armies.armies);
+  const currentUserId = useAppSelector((state: RootState) => state.user.id);
   // Camera state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
   const [isDragging, setIsDragging] = useState(false);
@@ -30,33 +34,34 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   // Modal state
   const [modalState, setModalState] = useState<{
     open: boolean;
-    fromProvinceId: string;
+    armyId: string;
+    armyName: string;
     toProvinceId: string;
-    maxTroops: number;
-    isInvasion: boolean;
   } | null>(null);
   const [cancelActionId, setCancelActionId] = useState<string | null>(null);
   const [isCancellingAction, setIsCancellingAction] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  const [selectedArmyId, setSelectedArmyId] = useState<string | null>(null);
+  const [showCreateArmy, setShowCreateArmy] = useState(false);
 
   const toggleSelect = useCallback((prov: Province) => {
     if (hasDraggedRef.current) return;
     dispatch(setSelectedProvinceId(selectedProvinceId === prov.id ? null : prov.id));
+    setSelectedArmyId(null);
   }, [dispatch, selectedProvinceId]);
 
   const handleProvinceRightClick = useCallback((targetProvince: Province) => {
-    if (!selectedTroops) return;
-    const sourceProvince = provinces.find(p => p.id === selectedTroops.provinceId);
-    if (!sourceProvince) return;
-    if (!sourceProvince.neighbors?.includes(targetProvince.id)) return;
+    if (!selectedArmyId) return;
+    const army = armies.find(a => a.id === selectedArmyId);
+    if (!army) return;
+    if (targetProvince.id === army.province_id) return;
     setModalState({
       open: true,
-      fromProvinceId: sourceProvince.id,
+      armyId: selectedArmyId,
+      armyName: army.name ?? 'Unnamed Army',
       toProvinceId: targetProvince.id,
-      maxTroops: selectedTroops.troopCount,
-      isInvasion: true,
     });
-  }, [selectedTroops, provinces]);
+  }, [selectedArmyId, armies]);
 
   const handleCloseModal = useCallback(() => setModalState(null), []);
 
@@ -96,8 +101,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
 
   const troopMovementOverlays = useMemo(() => {
     if (!userActions?.length) return [];
-    console.log(userActions, 'userActions_TEST')
-    return userActions.filter(a => a.actionType === ActionType.INVADE);
+    return userActions.filter(a => a.actionType === ActionType.ARMY_MOVE);
   }, [userActions]);
 
   const deployActionByProvinceId = useMemo(() => {
@@ -112,6 +116,55 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
         return acc;
       }, {});
   }, [userActions]);
+
+  // ── Army troop counts per province ───────────────────────────────────────
+  const armyTroopsByProvinceId = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const army of armies) {
+      const total = army.units.reduce((s, u) => s + u.count, 0);
+      map[army.province_id] = (map[army.province_id] ?? 0) + total;
+    }
+    return map;
+  }, [armies]);
+
+  const armiesByProvinceId = useMemo(() => {
+    const map: Record<string, typeof armies> = {};
+    for (const army of armies) {
+      if (!map[army.province_id]) map[army.province_id] = [];
+      map[army.province_id].push(army);
+    }
+    return map;
+  }, [armies]);
+
+  // Enemy army presence per province: null = present/unknown count, number = spy-revealed total
+  const enemyArmyInfoByProvinceId = useMemo(() => {
+    const map: Record<string, number | null> = {};
+    for (const army of armies) {
+      if (army.user_id === currentUserId) continue;
+      const prev = map[army.province_id];
+      if (army.totalTroops != null) {
+        map[army.province_id] = prev === undefined ? army.totalTroops : (prev === null ? null : prev + army.totalTroops);
+      } else {
+        map[army.province_id] = null; // present but count unknown
+      }
+    }
+    return map;
+  }, [armies, currentUserId]);
+
+  const handleArmyCountClick = useCallback((provinceId: string) => {
+    dispatch(setSelectedProvinceId(provinceId));
+    const provincArmies = armiesByProvinceId[provinceId] ?? [];
+    if (provincArmies.length === 1) {
+      setSelectedArmyId(provincArmies[0].id);
+    } else {
+      setSelectedArmyId(null);
+    }
+  }, [dispatch, armiesByProvinceId]);
+
+  const selectedArmy = useMemo(
+    () => (selectedArmyId ? armies.find((a) => a.id === selectedArmyId) ?? null : null),
+    [selectedArmyId, armies],
+  );
 
   // ── Viewport culling ──────────────────────────────────────────────────────
   // Only passes provinces whose bbox intersects the current SVG viewBox.
@@ -230,17 +283,33 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '93vh', marginTop: '65px', background: '#1e293b' }}>
-      <SelectedProvinceHover />
+      <SelectedProvinceHover
+        selectedArmyId={selectedArmyId}
+        onSelectArmy={(id) => setSelectedArmyId(id)}
+        onCreateArmy={() => setShowCreateArmy(true)}
+      />
+      {selectedArmy && (
+        <div style={{ position: 'absolute', top: '1rem', right: '310px' }}>
+          <ArmyBlock army={selectedArmy} onClose={() => setSelectedArmyId(null)} />
+        </div>
+      )}
+      {showCreateArmy && selectedProvinceId && (
+        <CreateArmyModal
+          open={showCreateArmy}
+          provinceId={selectedProvinceId}
+          onClose={() => setShowCreateArmy(false)}
+          onCreated={() => setShowCreateArmy(false)}
+        />
+      )}
 
       {modalState && (
         <TroopMovementModal
           open={modalState.open}
           onClose={handleCloseModal}
-          fromProvinceId={modalState.fromProvinceId}
+          armyId={modalState.armyId}
+          armyName={modalState.armyName}
           toProvinceId={modalState.toProvinceId}
-          maxTroops={modalState.maxTroops}
-          isInvasion={modalState.isInvasion}
-          unSelectTroops={() => dispatch(setSelectedTroops(null))}
+          onConfirmed={() => setSelectedArmyId(null)}
         />
       )}
 
@@ -283,6 +352,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
           if (e.target instanceof SVGSVGElement) {
             dispatch(setSelectedProvinceId(null));
             dispatch(setSelectedTroops(null));
+            setSelectedArmyId(null);
           }
         }}
       >
@@ -304,39 +374,41 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
             onRightClick={handleProvinceRightClick}
             pendingDeployAction={deployActionByProvinceId[p.id]}
             onCancelAction={handleOpenCancelModal}
+            armyTroopCount={armyTroopsByProvinceId[p.id]}
+            onArmyCountClick={handleArmyCountClick}
+            enemyArmyTroopCount={enemyArmyInfoByProvinceId[p.id]}
           />
         ))}
 
-        {/* Troop movement arrows */}
+        {/* Army move arrows */}
         <g>
           {troopMovementOverlays.map(action => {
             const raw = action.actionData as {
-              from_province_id?: string; to_province_id?: string; troops_number?: number;
-              fromProvinceId?: string; toProvinceId?: string; troopCount?: number;
+              army_id?: string; to_province_id?: string;
             } | undefined;
-            const fromId = raw?.from_province_id ?? raw?.fromProvinceId;
-            const toId   = raw?.to_province_id   ?? raw?.toProvinceId;
-            const troops = raw?.troops_number     ?? raw?.troopCount;
-            if (fromId == null || toId == null || troops == null) return null;
+            const toId = raw?.to_province_id;
+            const army = armies.find(a => a.id === raw?.army_id);
+            const fromId = army?.province_id;
+            if (!fromId || !toId) return null;
             const fromC = provinceCentersById[fromId];
             const toC   = provinceCentersById[toId];
             if (!fromC || !toC) return null;
             const mx = (fromC.x + toC.x) / 2;
             const my = (fromC.y + toC.y) / 2;
-            const label = String(troops);
-            const boxW = Math.max(28, 8 + label.length * 8);
+            const label = army?.name ?? '⚔';
+            const boxW = Math.max(28, 8 + label.length * 7);
             return (
               <g key={action.id}>
                 <line x1={fromC.x} y1={fromC.y} x2={toC.x} y2={toC.y}
-                  stroke="#ffffff" strokeWidth={2}
+                  stroke="#fbbf24" strokeWidth={2}
                   markerEnd="url(#troop-action-arrowhead)"
                   style={{ pointerEvents: 'none' }} />
                 <rect x={mx - boxW / 2} y={my - 10} width={boxW} height={20}
-                  fill="#ffffff" stroke="#000000" strokeWidth={1} rx={3} ry={3}
+                  fill="#fbbf24" stroke="#92400e" strokeWidth={1} rx={3} ry={3}
                   style={{ cursor: 'pointer' }}
                   onMouseDown={e => e.stopPropagation()}
                   onClick={e => { e.stopPropagation(); handleOpenCancelModal(action.id); }} />
-                <text x={mx} y={my} fontSize={12} fill="#000000"
+                <text x={mx} y={my} fontSize={11} fill="#1c1917"
                   textAnchor="middle" dominantBaseline="middle" fontWeight="bold"
                   style={{ userSelect: 'none', cursor: 'pointer' }}
                   onMouseDown={e => e.stopPropagation()}

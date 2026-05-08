@@ -120,8 +120,8 @@
     "requirement_building": null
   },
   {
-    "type": "Road",
-    "name": "Road",
+    "type": "ROAD",
+    "name": "ROAD",
     "description": "A good line on earth for trade and logistics.",
     "income": 0,
     "upkeep": 25,

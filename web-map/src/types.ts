@@ -16,6 +16,12 @@ export enum BuildingTypes {
   FORESTRY = 'FORESTRY',
   GARDEN = 'GARDEN',
   BAZAAR = 'BAZAAR',
+  ARMORY = 'ARMORY',
+  ROAD = 'ROAD',
+  TEMPLE = 'TEMPLE',
+  CATHEDRAL = 'CATHEDRAL',
+  TRADE_HOUSE = 'TRADE_HOUSE',
+  CASTLE = 'CASTLE',
 }
 
 export interface Tech {
@@ -80,6 +86,12 @@ export interface Province {
   buildingCap: number;
 }
 
+export enum UserClasses {
+  GUILD = 'guild',
+  HOLY = 'holy',
+  NOBLE = 'noble',
+}
+
 export interface User {
   id: string;
   login: string;
@@ -87,10 +99,60 @@ export interface User {
   color: string;
   troops: number;
   money: number;
+  piety: number;
+  class: string | null;
   isNew: boolean;
   provinces: Province[];
   researchPoints: number;
   completedResearch: string[];
+}
+
+export interface UserActive extends User {
+  projectedIncome: number;
+  projectedPiety: number | null;
+  projectedResearch: number;
+  projectedTroops: number;
+}
+
+export enum TroopCategory {
+  INFANTRY = 'INFANTRY',
+  RANGED = 'RANGED',
+  CAVALRY = 'CAVALRY',
+  SPECIAL = 'SPECIAL',
+  PEASANT = 'PEASANT',
+}
+
+export interface TroopType {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  category: TroopCategory;
+  cost_per_100: number;
+  attack: number;
+  defense: number;
+  upkeep_per_100: number;
+  tech_requirement: string | null;
+  building_requirement: string | null;
+}
+
+export interface ArmyUnit {
+  id: string;
+  army_id: string;
+  troop_type_id: string;
+  troopType: TroopType;
+  count: number;
+}
+
+export interface Army {
+  id: string;
+  name: string | null;
+  user_id: string;
+  province_id: string;
+  flat_upkeep: number;
+  units: ArmyUnit[];
+  /** Only present for enemy armies. null = present but count unknown; number = spy network revealed total. */
+  totalTroops?: number | null;
 }
 
 export interface PartialUser {
@@ -131,6 +193,12 @@ export enum ActionType {
   TRANSFER_TROOPS = 'TRANSFER_TROOPS',
   RESEARCH = 'RESEARCH',
   REMOVE = 'REMOVE',
+  ARMY_CREATE = 'ARMY_CREATE',
+  ARMY_MOVE = 'ARMY_MOVE',
+  ARMY_RECRUIT = 'ARMY_RECRUIT',
+  ARMY_MERGE = 'ARMY_MERGE',
+  ARMY_DISBAND = 'ARMY_DISBAND',
+  ARMY_EDIT = 'ARMY_EDIT',
 }
 
 export interface ActionData {

@@ -3,6 +3,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  JoinColumn,
   ManyToOne,
   OneToMany,
   PrimaryColumn,
@@ -23,12 +24,14 @@ export class Army extends BaseEntity {
   public user_id: string;
 
   @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
   public user: User;
 
   @Column()
   public province_id: string;
 
   @ManyToOne(() => Province, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'province_id' })
   public province: Province;
 
   @Column({ default: 100 })
