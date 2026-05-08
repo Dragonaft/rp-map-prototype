@@ -775,17 +775,17 @@ const isReachableByRoad = async (
         if (visited.has(neighborId)) continue;
         visited.add(neighborId);
 
+        const neighbor = await manager.findOne(Province, {
+          where: { id: neighborId },
+          relations: ['buildings'],
+        });
+        if (!neighbor || !hasRoadBuilding(neighbor) || neighbor.user_id !== userId) continue;
+
         if (neighborId === targetId) return true;
 
         // Expand through user-owned road provinces only (not needed on the last hop)
         if (hop < maxHops - 1) {
-          const neighbor = await manager.findOne(Province, {
-            where: { id: neighborId },
-            relations: ['buildings'],
-          });
-          if (neighbor && neighbor.user_id === userId && hasRoadBuilding(neighbor)) {
-            nextFrontier.push(neighbor);
-          }
+          nextFrontier.push(neighbor);
         }
       }
     }

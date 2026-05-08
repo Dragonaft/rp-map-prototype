@@ -10,6 +10,6 @@ export class TechsController {
 
   @Get()
   async getAvailableForUser(@Request() req): Promise<Tech[]> {
-    return this.techsService.getAvailableForUser(req.user.class ?? null);
+    return this.techsService.getAvailableForUser(req.user ?? null);
   }
 }

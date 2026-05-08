@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { Province } from '../types';
-import { ActionType } from '../types';
+import { ActionType, BuildingTypes } from '../types';
 import { Box, Button, Modal, Typography } from '@mui/material';
 import { ProvinceShape } from './ProvinceShape';
 import { SelectedProvinceHover } from "./SelectedProvinceHover.tsx";
@@ -17,12 +17,12 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const dispatch = useAppDispatch();
   const provinces = useAppSelector((state: RootState) => state.provinces.provinces);
   const selectedProvinceId = useAppSelector((state: RootState) => state.provinces.selectedProvinceId);
-  const selectedTroops = useAppSelector((state: RootState) => state.provinces.selectedTroops);
   const userActions = useAppSelector((state: RootState) => state.actions.actions);
   const provinceCentersById = useAppSelector((state: RootState) => state.provinces.provinceCentersById);
   const provinceBBoxById = useAppSelector((state: RootState) => state.provinces.provinceBBoxById);
   const armies = useAppSelector((state: RootState) => state.armies.armies);
   const currentUserId = useAppSelector((state: RootState) => state.user.id);
+  const completedResearch = useAppSelector((state: RootState) => state.user.completedResearch);
   // Camera state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
   const [isDragging, setIsDragging] = useState(false);
@@ -50,18 +50,60 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     setSelectedArmyId(null);
   }, [dispatch, selectedProvinceId]);
 
+  // ── Reachable provinces from selected army (BFS matching BE logic) ────────
+  const reachableFromSelectedArmy = useMemo((): Set<string> | null => {
+    if (!selectedArmyId) return null;
+    const army = armies.find(a => a.id === selectedArmyId);
+    if (!army) return null;
+    const fromProvince = provinces.find(p => p.id === army.province_id);
+    if (!fromProvince) return null;
+
+    const reachable = new Set<string>();
+    // Direct neighbors always reachable
+    for (const nId of (fromProvince.neighbors ?? [])) reachable.add(nId);
+
+    // Road extension
+    const hasRoad = fromProvince.buildings?.some(b => b.type === BuildingTypes.ROAD);
+    if (hasRoad) {
+      const maxHops = completedResearch.includes('military.best_logistics') ? 3 : 2;
+      const visited = new Set<string>([fromProvince.id]);
+      let frontier: Province[] = [fromProvince];
+      for (let hop = 0; hop < maxHops; hop++) {
+        const nextFrontier: Province[] = [];
+        for (const current of frontier) {
+          for (const neighborId of (current.neighbors ?? [])) {
+            if (visited.has(neighborId)) continue;
+            visited.add(neighborId);
+            const neighbor = provinces.find(p => p.id === neighborId);
+            const neighborHasRoad = neighbor?.buildings?.some(b => b.type === BuildingTypes.ROAD) ?? false;
+            if (neighborHasRoad && neighbor?.userId === currentUserId) {
+              reachable.add(neighborId);
+              if (hop < maxHops - 1) {
+                nextFrontier.push(neighbor);
+              }
+            }
+          }
+        }
+        frontier = nextFrontier;
+        if (!frontier.length) break;
+      }
+    }
+    reachable.delete(army.province_id);
+    return reachable;
+  }, [selectedArmyId, armies, provinces, currentUserId, completedResearch]);
+
   const handleProvinceRightClick = useCallback((targetProvince: Province) => {
-    if (!selectedArmyId) return;
+    if (!selectedArmyId || !reachableFromSelectedArmy) return;
+    if (!reachableFromSelectedArmy.has(targetProvince.id)) return;
     const army = armies.find(a => a.id === selectedArmyId);
     if (!army) return;
-    if (targetProvince.id === army.province_id) return;
     setModalState({
       open: true,
       armyId: selectedArmyId,
       armyName: army.name ?? 'Unnamed Army',
       toProvinceId: targetProvince.id,
     });
-  }, [selectedArmyId, armies]);
+  }, [selectedArmyId, armies, reachableFromSelectedArmy]);
 
   const handleCloseModal = useCallback(() => setModalState(null), []);
 
@@ -150,6 +192,31 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     }
     return map;
   }, [armies, currentUserId]);
+
+  // ── Road lines (center-to-center for neighboring road provinces) ─────────
+  const roadLines = useMemo(() => {
+    const roadProvinceIds = new Set(
+      provinces
+        .filter(p => p.buildings?.some(b => b.type === BuildingTypes.ROAD))
+        .map(p => p.id),
+    );
+    const lines: { x1: number; y1: number; x2: number; y2: number; key: string }[] = [];
+    const drawn = new Set<string>();
+    for (const p of provinces) {
+      if (!roadProvinceIds.has(p.id)) continue;
+      for (const neighborId of (p.neighbors ?? [])) {
+        if (!roadProvinceIds.has(neighborId)) continue;
+        const key = [p.id, neighborId].sort().join('|');
+        if (drawn.has(key)) continue;
+        drawn.add(key);
+        const c1 = provinceCentersById[p.id];
+        const c2 = provinceCentersById[neighborId];
+        if (!c1 || !c2) continue;
+        lines.push({ x1: c1.x, y1: c1.y, x2: c2.x, y2: c2.y, key });
+      }
+    }
+    return lines;
+  }, [provinces, provinceCentersById]);
 
   const handleArmyCountClick = useCallback((provinceId: string) => {
     dispatch(setSelectedProvinceId(provinceId));
@@ -379,6 +446,16 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
             enemyArmyTroopCount={enemyArmyInfoByProvinceId[p.id]}
           />
         ))}
+
+        {/* Road lines */}
+        <g pointerEvents="none">
+          {roadLines.map(l => (
+            <line key={l.key}
+              x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+              stroke="#92400e" strokeWidth={3} strokeDasharray="6 4" opacity={0.7}
+            />
+          ))}
+        </g>
 
         {/* Army move arrows */}
         <g>

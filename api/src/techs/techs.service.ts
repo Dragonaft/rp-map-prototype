@@ -2,12 +2,15 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tech } from './entities/tech.entity';
+import { User } from "../users/entities/user.entity";
 
 @Injectable()
 export class TechsService {
   constructor(
     @InjectRepository(Tech)
     private readonly techRepo: Repository<Tech>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>,
   ) {}
 
   async getAll(): Promise<Tech[]> {
@@ -19,12 +22,18 @@ export class TechsService {
    *  - class root techs: visible only if user has no class yet
    *  - class-specific branch: visible only if it matches user's class
    */
-  async getAvailableForUser(userClass: string | null): Promise<Tech[]> {
+  async getAvailableForUser(userData): Promise<Tech[]> {
     const all = await this.techRepo.find();
+    const [user] = await Promise.all([
+      this.usersRepository.findOne({ where: { id: userData.id } }),
+    ]);
+
+    if (user.class === null) return all;
+
     return all.filter((tech) => {
       if (tech.branch === 'economy' || tech.branch === 'military') return true;
-      if (tech.isClassRoot) return userClass === null;
-      return userClass !== null && tech.branch === userClass;
+      if (tech.isClassRoot) return (user.completed_research ?? []).includes(tech.key);
+      return tech.branch === user.class;
     });
   }
 
