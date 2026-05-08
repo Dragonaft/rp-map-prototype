@@ -164,6 +164,11 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         researchPoints: response.user.researchPoints,
         piety: 0,
         class: null,
+        projectedIncome: response.user.projectedIncome,
+        projectedPiety: response.user.projectedPiety,
+        projectedResearch: response.user.projectedResearch,
+        projectedTroops: response.user.projectedTroops,
+        resources: response.user.resources,
       }));
     }
     if (response?.province) {
@@ -347,9 +352,9 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
       {!user.isNew && !isUserOwner && (
         <div className="flex flex-col gap-2">
           <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
-          <p>Landscape: {selectedProvince.landscape}</p>
-          <p>Resource: {selectedProvince.resourceType}</p>
-          {provinceOwner && <p>Owner: {provinceOwner.countryName}</p>}
+          <p className="mb-0 mt-1">Landscape: {selectedProvince.landscape}</p>
+          <p className="mb-0 mt-1">Resource: {selectedProvince.resourceType}</p>
+          {provinceOwner && <p className="mb-0 mt-1">Owner: {provinceOwner.countryName}</p>}
           {builtInProvince.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {builtInProvince.map((b) => (
@@ -508,6 +513,8 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         userCompletedResearch={user.completedResearch}
         pendingBuildTypes={pendingBuildTypesInProvince}
         techs={techs}
+        userResources={user.resources}
+        userProvinces={user.provinces}
         onBuild={(id) => { void handleBuildAction(id); setIsOpenBuildMenu(false); }}
       />
 

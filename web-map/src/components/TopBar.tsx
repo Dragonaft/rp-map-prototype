@@ -1,4 +1,4 @@
-import { AppBar, Button, Toolbar } from "@mui/material";
+import { AppBar, Button, Toolbar, Tooltip } from "@mui/material";
 import { useAppSelector } from "../store/hooks.ts";
 import { useMutation } from "../hooks/useApi.ts";
 import { authApi } from "../api/auth.ts";
@@ -25,7 +25,7 @@ export const TopBar = () => {
       <Toolbar
         className="fixed top-0 flex w-full z-50 items-center bg-[#0e0e0e]/80 backdrop-blur-xl bg-gradient-to-b from-[#1a1a1a] to-transparent shadow-[0_4px_20px_rgba(0,0,0,0.5)] border-b border-outline-variant/10">
         <div className="flex w-full items-center justify-between">
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3">
             <Button
               className="flex items-center mr-12 gap-2 px-4 py-2 bg-inverse-primary border rounded hover:bg-on-primary-fixed-variant transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
               onClick={() => setOpenTechModal(true)}
@@ -34,6 +34,25 @@ export const TopBar = () => {
             </Button>
           </div>
           <div className="flex items-center gap-6">
+            <Tooltip
+              title={
+                <div className="flex flex-col gap-2 p-1" style={{ fontSize: '14px', lineHeight: '1.6' }}>
+                  <div>🪨 Stone: {user.resources?.stone ?? 0}</div>
+                  <div>⚙ Iron: {user.resources?.iron ?? 0}</div>
+                  <div>🪙 Gold: {user.resources?.gold ?? 0}</div>
+                  <div>🪵 Wood: {user.resources?.wood ?? 0}</div>
+                </div>
+              }
+              arrow
+              placement="bottom"
+              componentsProps={{ tooltip: { sx: { fontSize: '14px', p: 1.5 } } }}
+            >
+              <Button
+                className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-xs uppercase tracking-widest cursor-pointer"
+              >
+                Resources
+              </Button>
+            </Tooltip>
             <div
               className="flex items-center gap-4 px-4 py-2 bg-surface-container rounded-lg border border-outline-variant/15">
               {user.class === UserClasses.HOLY && (

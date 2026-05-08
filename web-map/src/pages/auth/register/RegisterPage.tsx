@@ -5,6 +5,7 @@ import { useMutation } from '../../../hooks/useApi.ts';
 import { authApi } from '../../../api/auth.ts';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from "../../../context/AuthContext.tsx";
+import { useSnackbar } from '../../../context/SnackbarContext.tsx';
 
 interface IRegisterFormInput {
   login: string
@@ -17,17 +18,22 @@ export const RegisterPage: React.FC = () => {
   const { register, handleSubmit, watch, formState: { errors } } = useForm<IRegisterFormInput>()
   const { mutate } = useMutation(authApi.register);
   const { isAuthenticated } = useAuth();
+  const { showError } = useSnackbar();
   const navigate = useNavigate();
   const [isCheck, setIsCheck] = useState<boolean>(false);
   const colorValue = watch('color', '');
 
   const onSubmit: SubmitHandler<IRegisterFormInput> = async (data) => {
+    // Show react-hook-form validation errors via snackbar
+    if (errors.color?.message) {
+      showError(errors.color.message);
+      return;
+    }
     try {
       await mutate(data);
-    } catch (e) {
-      console.log(e)
-    } finally {
       navigate('/login');
+    } catch {
+      // Error shown via global snackbar interceptor
     }
   }
 

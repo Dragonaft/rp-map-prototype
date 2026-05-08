@@ -5,6 +5,7 @@ import { useMutation } from '../../../hooks/useApi.ts';
 import { authApi } from '../../../api/auth.ts';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
+import { useSnackbar } from "../../../context/SnackbarContext.tsx";
 
 interface ILoginFormInput {
   login: string
@@ -15,6 +16,7 @@ export const LoginPage: React.FC = () => {
   const { register, handleSubmit } = useForm<ILoginFormInput>()
   const { mutate } = useMutation(authApi.login);
   const { login: setUser, isAuthenticated } = useAuth();
+  const { showError } = useSnackbar();
   const navigate = useNavigate();
 
   const onSubmit: SubmitHandler<ILoginFormInput> = async (data) => {
@@ -24,8 +26,9 @@ export const LoginPage: React.FC = () => {
         setUser(response.user);
         navigate('/');
       }
-    } catch (error) {
-      console.error('Login failed:', error);
+    } catch (error: any) {
+      const message = error?.response?.data?.message || 'Invalid credentials';
+      showError(Array.isArray(message) ? message.join(', ') : String(message));
     }
   }
 

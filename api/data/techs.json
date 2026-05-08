@@ -232,7 +232,7 @@
     "branch": "holy",
     "isClassRoot": false,
     "cost": 10,
-    "prerequisites": ["holy.holy.temple"]
+    "prerequisites": ["holy.temple"]
   },
   {
     "key": "holy.cathedral",
@@ -241,7 +241,7 @@
     "branch": "holy",
     "isClassRoot": false,
     "cost": 20,
-    "prerequisites": ["holy.holy.temple"]
+    "prerequisites": ["holy.temple"]
   },
   {
     "key": "noble.house",

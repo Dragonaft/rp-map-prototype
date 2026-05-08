@@ -92,6 +92,13 @@ export enum UserClasses {
   NOBLE = 'noble',
 }
 
+export interface UserResources {
+  stone: number;
+  iron: number;
+  gold: number;
+  wood: number;
+}
+
 export interface User {
   id: string;
   login: string;
@@ -105,6 +112,7 @@ export interface User {
   provinces: Province[];
   researchPoints: number;
   completedResearch: string[];
+  resources?: UserResources;
 }
 
 export interface UserActive extends User {
@@ -172,6 +180,11 @@ export interface SetupUserResponse {
     is_new: boolean;
     provinces: Province[];
     researchPoints: number;
+    projectedIncome: number,
+    projectedPiety: number,
+    projectedResearch: number,
+    projectedTroops: number,
+    resources: UserResources,
   };
   province: {
     id: string;
@@ -215,4 +228,11 @@ export const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, strin
   [BuildingTypes.MINE]: ['iron', 'gold', 'stone'],
   [BuildingTypes.FORESTRY]: ['wood'],
   [BuildingTypes.FARM]: ['grain'],
+};
+
+/** Maps building types that consume a resource (1 unit per building) */
+export const BUILDING_RESOURCE_COSTS: Partial<Record<BuildingTypes, keyof UserResources>> = {
+  [BuildingTypes.ARMORY]: 'iron',
+  [BuildingTypes.FORT]: 'stone',
+  [BuildingTypes.CASTLE]: 'stone',
 };

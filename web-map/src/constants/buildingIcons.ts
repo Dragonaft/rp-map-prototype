@@ -10,6 +10,12 @@ export const BUILDING_ICONS: Record<string, string> = {
   LIBRARY: '📚',
   GARDEN: '🌻',
   BAZAAR: '🏪',
+  ARMORY: '🔩',
+  ROAD: '🛤️',
+  TEMPLE: '⛪',
+  CATHEDRAL: '🕌',
+  TRADE_HOUSE: '🏦',
+  CASTLE: '🏯',
 };
 
 export const LANDSCAPE_ICONS: Record<string, string> = {

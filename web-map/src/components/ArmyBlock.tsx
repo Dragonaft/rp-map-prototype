@@ -132,10 +132,19 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
   // Troop types already in army
   const unitKeys = useMemo(() => new Set(army.units.map((u) => u.troopType.key)), [army.units]);
 
-  // Types not in army yet (available to add)
+  // Types not in army yet (available to add) — also exclude those with a pending recruit action
   const addableTypes = useMemo(
-    () => troopTypes.filter((tt) => !unitKeys.has(tt.key)),
-    [troopTypes, unitKeys],
+    () => troopTypes.filter((tt) => !unitKeys.has(tt.key) && !pendingRecruitByKey[tt.key]),
+    [troopTypes, unitKeys, pendingRecruitByKey],
+  );
+
+  // Pending recruits for troop types not yet in the army
+  const pendingNewTypeRows = useMemo(
+    () => Object.entries(pendingRecruitByKey)
+      .filter(([key]) => !unitKeys.has(key))
+      .map(([key, entries]) => ({ tt: troopTypes.find((t) => t.key === key), entries }))
+      .filter((row): row is { tt: TroopType; entries: { id: string; count: number }[] } => !!row.tt),
+    [pendingRecruitByKey, unitKeys, troopTypes],
   );
 
   const getBuildingDisabledReason = useCallback(
@@ -410,6 +419,24 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
           );
         })}
       </div>
+
+      {/* Pending new troop types (not yet in army) */}
+      {pendingNewTypeRows.map(({ tt, entries }) => (
+        <div key={tt.key} className="bg-gray-200 rounded p-2 text-sm">
+          <TroopTooltipWrapper troopType={tt}>
+            <div className="flex items-center gap-1 cursor-default">
+              <span className="flex-1 font-medium truncate text-gray-500 italic">{tt.name}</span>
+              <span className="font-bold tabular-nums text-gray-400">0</span>
+            </div>
+          </TroopTooltipWrapper>
+          {entries.map((r) => (
+            <div key={r.id} className="flex items-center gap-1 mt-1 text-xs bg-green-100 border border-green-400 rounded px-1 py-0.5">
+              <span className="text-green-700 flex-1">+{r.count} queued</span>
+              <button className="text-green-700 underline" onClick={() => void handleCancelAction(r.id)}>Cancel</button>
+            </div>
+          ))}
+        </div>
+      ))}
 
       {/* Add troop type section */}
       {showAddType ? (
