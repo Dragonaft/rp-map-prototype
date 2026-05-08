@@ -22,6 +22,7 @@ import {
   ArmyMergeHandler,
   ArmyDisbandHandler,
   ArmyEditHandler,
+  ColonizeActionHandler,
 } from './action-executor.service';
 import { ActionQueue } from './entities/action-queue.entity';
 import { ActionsLog } from './entities/actions-log.entity';
@@ -68,6 +69,7 @@ import { TechsModule } from '../techs/techs.module';
     ArmyMergeHandler,
     ArmyDisbandHandler,
     ArmyEditHandler,
+    ColonizeActionHandler,
   ],
   exports: [ActionsService, ActionExecutionStateService, ActionExecutionBlockMiddleware],
 })

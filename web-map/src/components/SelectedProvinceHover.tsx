@@ -145,6 +145,19 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     [buildingsState],
   );
 
+  const isNeighborOfUser = useMemo(() => {
+    if (!selectedProvince?.neighbors) return false;
+    const userProvinceIds = new Set(user.provinces.map(p => p.id));
+    return selectedProvince.neighbors.some(nId => userProvinceIds.has(nId));
+  }, [selectedProvince, user.provinces]);
+
+  const pendingColonizeAction = useMemo(
+    () => selectedProvince
+      ? actions.find(a => a.actionType === ActionType.COLONIZE && a.actionData?.province_id === selectedProvince.id)
+      : undefined,
+    [actions, selectedProvince],
+  );
+
   // --- Handlers ---
 
   const handleOnSetupSelect = async () => {
@@ -187,6 +200,20 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     } catch (err: any) {
       console.log(err.response?.data?.message || 'Failed to create action');
     }
+  };
+
+  const handleColonize = async () => {
+    if (!selectedProvince) return;
+    const response = await actionsApi.createAction({
+      type: ActionType.COLONIZE,
+      actionData: { province_id: selectedProvince.id },
+    });
+    dispatch(addAction(response));
+  };
+
+  const handleCancelColonize = async (actionId: string) => {
+    await actionsApi.removeAction(actionId);
+    dispatch(removeActionById(actionId));
   };
 
   const handleCancelAction = async () => {
@@ -388,6 +415,34 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
               </div>
             );
           })()}
+
+          {!selectedProvince.userId && isNeighborOfUser && (
+            <div className="mt-2">
+              {pendingColonizeAction ? (
+                <div className="flex items-center justify-between text-xs bg-yellow-100 border border-yellow-400 rounded px-2 py-1.5">
+                  <span className="text-yellow-800 font-semibold">⏳ Colonization queued</span>
+                  <button
+                    className="text-yellow-700 underline"
+                    onClick={() => void handleCancelColonize(pendingColonizeAction.id)}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  variant="contained"
+                  size="small"
+                  color="success"
+                  fullWidth
+                  disabled={user.money < 500}
+                  title={user.money < 500 ? 'Not enough money (need 500)' : 'Colonize this province for 500 gold'}
+                  onClick={() => void handleColonize()}
+                >
+                  Colonize (500 💰)
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

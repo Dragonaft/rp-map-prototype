@@ -99,6 +99,12 @@ export interface UserResources {
   wood: number;
 }
 
+export interface UserUpdate {
+  id: string;
+  color?: string;
+  country_name?: string;
+}
+
 export interface User {
   id: string;
   login: string;
@@ -112,7 +118,7 @@ export interface User {
   provinces: Province[];
   researchPoints: number;
   completedResearch: string[];
-  resources?: UserResources;
+  resources: UserResources;
 }
 
 export interface UserActive extends User {
@@ -212,6 +218,7 @@ export enum ActionType {
   ARMY_MERGE = 'ARMY_MERGE',
   ARMY_DISBAND = 'ARMY_DISBAND',
   ARMY_EDIT = 'ARMY_EDIT',
+  COLONIZE = 'COLONIZE',
 }
 
 export interface ActionData {

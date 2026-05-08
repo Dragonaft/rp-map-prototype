@@ -1202,6 +1202,60 @@ export class ArmyEditHandler implements ActionHandler {
 }
 
 // ---------------------------------------------------------------------------
+// ColonizeActionHandler
+// ---------------------------------------------------------------------------
+
+@Injectable()
+export class ColonizeActionHandler implements ActionHandler {
+  private readonly logger = new Logger(ColonizeActionHandler.name);
+
+  constructor(
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
+  ) {}
+
+  async handle(action: ActionQueue): Promise<void> {
+    this.logger.log(
+      `Executing COLONIZE action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
+    );
+
+    const provinceId = action.actionData?.province_id as string | undefined;
+    if (!provinceId) throw new Error('province_id is required');
+
+    const COLONIZE_COST = 500;
+
+    await this.provinceRepo.manager.transaction(async (manager) => {
+      const province = await manager.findOne(Province, {
+        where: { id: provinceId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!province) throw new Error('Province not found');
+      if (province.user_id !== null) throw new Error('Province is already owned');
+
+      const user = await manager.findOne(User, {
+        where: { id: action.userId },
+        relations: ['provinces'],
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!user) throw new Error('User not found');
+      if ((user.money ?? 0) < COLONIZE_COST) throw new Error('Not enough money to colonize (costs 500)');
+
+      const userProvinceIds = new Set((user.provinces ?? []).map((p) => p.id));
+      const isNeighbor = (province.neighbor_ids ?? []).some((nId) => userProvinceIds.has(nId));
+      if (!isNeighbor) throw new Error('Target province is not adjacent to any of your provinces');
+
+      user.money = (user.money ?? 0) - COLONIZE_COST;
+      province.user_id = action.userId;
+
+      await manager.save(User, user);
+      await manager.save(Province, province);
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
 // ActionExecutorService
 // ---------------------------------------------------------------------------
 
@@ -1224,6 +1278,7 @@ export class ActionExecutorService {
     private armyMergeHandler: ArmyMergeHandler,
     private armyDisbandHandler: ArmyDisbandHandler,
     private armyEditHandler: ArmyEditHandler,
+    private colonizeHandler: ColonizeActionHandler,
   ) {
     this.handlers.set(ActionType.BUILD, buildHandler);
     this.handlers.set(ActionType.INVADE, invadeHandler);
@@ -1238,6 +1293,7 @@ export class ActionExecutorService {
     this.handlers.set(ActionType.ARMY_MERGE, armyMergeHandler);
     this.handlers.set(ActionType.ARMY_DISBAND, armyDisbandHandler);
     this.handlers.set(ActionType.ARMY_EDIT, armyEditHandler);
+    this.handlers.set(ActionType.COLONIZE, colonizeHandler);
   }
 
   async executeAction(action: ActionQueue): Promise<{

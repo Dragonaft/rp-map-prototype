@@ -1,4 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 import { Box, Button } from '@mui/material';
 import { SubmitHandler, useForm } from 'react-hook-form';
 import { useMutation } from '../../../hooks/useApi.ts';
@@ -18,6 +20,21 @@ export const LoginPage: React.FC = () => {
   const { login: setUser, isAuthenticated } = useAuth();
   const { showError } = useSnackbar();
   const navigate = useNavigate();
+  const [sseConnected, setSseConnected] = useState(false);
+  const [queueProcessing, setQueueProcessing] = useState(false);
+
+  useEffect(() => {
+    const es = new EventSource(`${apiBaseUrl}/actions/execution-stream`);
+    es.onopen = () => setSseConnected(true);
+    es.onerror = () => { setSseConnected(false); setQueueProcessing(false); };
+    es.onmessage = (event: MessageEvent<string>) => {
+      try {
+        const data: { processing: boolean } = JSON.parse(event.data);
+        setQueueProcessing(data.processing);
+      } catch { /* ignore */ }
+    };
+    return () => es.close();
+  }, []);
 
   const onSubmit: SubmitHandler<ILoginFormInput> = async (data) => {
     try {
@@ -56,7 +73,7 @@ export const LoginPage: React.FC = () => {
             PR_PROTOTYPE
           </h1>
           <p className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant">
-            v0.5_TEST
+            v0.6_WAR
           </p>
         </div>
         <form
@@ -123,14 +140,12 @@ export const LoginPage: React.FC = () => {
         <div className="mt-8 flex justify-between items-center px-4">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="w-1.5 h-1.5 rounded-full bg-primary shadow-[0_0_8px_rgba(129,236,255,1)]"></div>
+              <div className={`w-1.5 h-1.5 rounded-full transition-colors ${sseConnected ? 'bg-primary shadow-[0_0_8px_rgba(129,236,255,1)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]'}`}></div>
               <span className="font-label text-[10px] text-on-surface-variant uppercase tracking-tighter">Server status</span>
             </div>
             <div className="flex items-center gap-2">
-              <div
-                className="w-1.5 h-1.5 rounded-full bg-secondary shadow-[0_0_8px_rgba(255,215,9,0.6)] animate-pulse"></div>
-              <span
-                className="font-label text-[10px] text-on-surface-variant uppercase tracking-tighter">Queue status</span>
+              <div className={`w-1.5 h-1.5 rounded-full transition-colors ${!sseConnected ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : queueProcessing ? 'bg-secondary shadow-[0_0_8px_rgba(255,215,9,0.6)] animate-pulse' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]'}`}></div>
+              <span className="font-label text-[10px] text-on-surface-variant uppercase tracking-tighter">Queue status</span>
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Box, Button } from '@mui/material';
 import { SubmitHandler, useForm } from 'react-hook-form';
+import { HexColorPicker } from 'react-colorful';
 import { useMutation } from '../../../hooks/useApi.ts';
 import { authApi } from '../../../api/auth.ts';
 import { useNavigate } from 'react-router-dom';
@@ -15,13 +16,26 @@ interface IRegisterFormInput {
 }
 
 export const RegisterPage: React.FC = () => {
-  const { register, handleSubmit, watch, formState: { errors } } = useForm<IRegisterFormInput>()
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<IRegisterFormInput>()
   const { mutate } = useMutation(authApi.register);
   const { isAuthenticated } = useAuth();
   const { showError } = useSnackbar();
   const navigate = useNavigate();
   const [isCheck, setIsCheck] = useState<boolean>(false);
+  const [showPicker, setShowPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
   const colorValue = watch('color', '');
+
+  useEffect(() => {
+    if (!showPicker) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
+        setShowPicker(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showPicker]);
 
   const onSubmit: SubmitHandler<IRegisterFormInput> = async (data) => {
     // Show react-hook-form validation errors via snackbar
@@ -36,10 +50,6 @@ export const RegisterPage: React.FC = () => {
       // Error shown via global snackbar interceptor
     }
   }
-
-  // const onBackToLogin = () => {
-  //   navigate('/login');
-  // }
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -128,10 +138,20 @@ export const RegisterPage: React.FC = () => {
                 type="text"
               />
               <div
-                className="w-7 h-7 rounded-md border border-outline-variant/30 flex-shrink-0 transition-colors"
+                className="w-7 h-7 rounded-md border border-outline-variant/30 flex-shrink-0 transition-colors cursor-pointer hover:scale-110"
                 style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(colorValue) ? colorValue : 'transparent' }}
+                onClick={() => setShowPicker(v => !v)}
+                title="Click to pick a color"
               />
             </div>
+            {showPicker && (
+              <div ref={pickerRef} className="mt-2 p-2 bg-surface-container rounded-lg border border-outline-variant/20 shadow-xl flex justify-center">
+                <HexColorPicker
+                  color={/^#[0-9a-fA-F]{6}$/.test(colorValue) ? colorValue : '#2f528a'}
+                  onChange={(hex) => setValue('color', hex, { shouldValidate: true })}
+                />
+              </div>
+            )}
             {errors.color && (
               <p className="text-[11px] text-red-400 ml-1 mt-1">{errors.color.message}</p>
             )}

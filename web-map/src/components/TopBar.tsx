@@ -4,12 +4,14 @@ import { useMutation } from "../hooks/useApi.ts";
 import { authApi } from "../api/auth.ts";
 import { useState } from "react";
 import { TechsModal } from "./Modals/TechsModal.tsx";
+import { ProfileModal } from "./Modals/ProfileModal.tsx";
 import { UserClasses } from "../types.ts";
 
 export const TopBar = () => {
   const user = useAppSelector(state => state.user);
   const { mutate } = useMutation(authApi.logout);
   const [openTechModal, setOpenTechModal] = useState(false);
+  const [openProfileModal, setOpenProfileModal] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -85,6 +87,13 @@ export const TopBar = () => {
               </div>
             </div>
             <Button
+              className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+              onClick={() => setOpenProfileModal(true)}
+            >
+              <span className="material-symbols-outlined text-sm" data-icon="manage_accounts">manage_accounts</span>
+              Profile
+            </Button>
+            <Button
               className="flex items-center mr-12 gap-2 px-4 py-2 bg-error-container/20 border border-error/30 rounded hover:bg-error-container/40 transition-all active:scale-95 text-error font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
               onClick={handleLogout}
             >
@@ -97,6 +106,10 @@ export const TopBar = () => {
       <TechsModal
         open={openTechModal}
         onClose={() => setOpenTechModal(false)}
+      />
+      <ProfileModal
+        open={openProfileModal}
+        onClose={() => setOpenProfileModal(false)}
       />
     </AppBar>
   )

@@ -70,6 +70,10 @@ const userSlice = createSlice({
     updateUserMoney: (state, action: PayloadAction<number>) => {
       state.money = action.payload;
     },
+    updateUserProfile: (state, action: PayloadAction<{ countryName: string; color: string }>) => {
+      state.countryName = action.payload.countryName;
+      state.color = action.payload.color;
+    },
     resetUserState: (state) => {
       state.id = '';
       state.login = '';
@@ -87,5 +91,5 @@ const userSlice = createSlice({
   },
 });
 
-export const { setUser, updateUserTroops, updateUserMoney, resetUserState } = userSlice.actions;
+export const { setUser, updateUserTroops, updateUserMoney, updateUserProfile, resetUserState } = userSlice.actions;
 export default userSlice.reducer;

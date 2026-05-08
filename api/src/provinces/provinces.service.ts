@@ -7,6 +7,7 @@ import { User } from "../users/entities/user.entity";
 import { Building } from '../buildings/entities/building.entity';
 import { AuthTokenType } from "../auth/types/auth.types";
 import { ActionsService } from '../actions/actions.service';
+import { UsersService } from '../users/users.service';
 import { computeBuildingCap } from '../techs/research-effects';
 import { BuildingTypes } from "../buildings/types/building.types";
 
@@ -20,6 +21,7 @@ export class ProvincesService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly actionsService: ActionsService,
+    private readonly usersService: UsersService,
   ) {}
 
   async getAll(userId: string) {
@@ -164,8 +166,10 @@ export class ProvincesService {
     await this.userRepository.save(updatedUser);
     await this.provinceRepository.save(province);
 
+    const enrichedUser = await this.usersService.findOne(user.id);
+
     return {
-      user: updatedUser,
+      user: enrichedUser,
       province: province,
     }
   }

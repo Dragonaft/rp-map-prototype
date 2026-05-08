@@ -24,6 +24,7 @@ export enum ActionType {
   ARMY_MERGE = 'ARMY_MERGE',
   ARMY_DISBAND = 'ARMY_DISBAND',
   ARMY_EDIT = 'ARMY_EDIT',
+  COLONIZE = 'COLONIZE',
 }
 
 export enum ActionStatus {
