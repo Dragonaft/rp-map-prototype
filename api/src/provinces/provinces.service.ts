@@ -160,7 +160,7 @@ export class ProvincesService {
       troops: 3000,
       money: 5000,
       provinces: [province],
-      research_points: 100,
+      research_points: 10,
     }
 
     await this.userRepository.save(updatedUser);
