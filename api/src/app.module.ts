@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { ActionsModule } from './actions/actions.module';
 import { TechsModule } from './techs/techs.module';
 import { ArmiesModule } from './armies/armies.module';
+import { AdminModule } from './admin/admin.module';
 import { Province } from './provinces/entities/province.entity';
 import { User } from './users/entities/user.entity';
 import { Building } from './buildings/entities/building.entity';
@@ -46,6 +47,7 @@ import { TroopType } from './armies/entities/troop-type.entity';
     ActionsModule,
     TechsModule,
     ArmiesModule,
+    AdminModule,
   ],
   controllers: [AppController],
   providers: [AppService],

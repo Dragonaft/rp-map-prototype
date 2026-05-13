@@ -71,10 +71,8 @@ export class ArmiesService {
         return false;
       }
       const requiredClass = CLASS_RESTRICTED_TROOPS[tt.key];
-      if (requiredClass && user?.class !== requiredClass) {
-        return false;
-      }
-      return true;
+      return !(requiredClass && user?.class !== requiredClass);
+
     });
   }
 
