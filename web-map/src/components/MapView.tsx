@@ -13,6 +13,7 @@ import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { actionsApi } from '../api/actions.ts';
 import { removeActionById } from '../store/slices/actionsSlice.ts';
 
+
 export const MapView = ({ loading, error }: { loading: boolean, error: string | null }) => {
   const dispatch = useAppDispatch();
   const provinces = useAppSelector((state: RootState) => state.provinces.provinces);
@@ -20,6 +21,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const userActions = useAppSelector((state: RootState) => state.actions.actions);
   const provinceCentersById = useAppSelector((state: RootState) => state.provinces.provinceCentersById);
   const provinceBBoxById = useAppSelector((state: RootState) => state.provinces.provinceBBoxById);
+  const mapWidth  = useAppSelector((state: RootState) => state.provinces.mapWidth);
   const armies = useAppSelector((state: RootState) => state.armies.armies);
   const currentUserId = useAppSelector((state: RootState) => state.user.id);
   const completedResearch = useAppSelector((state: RootState) => state.user.completedResearch);
@@ -233,22 +235,47 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     [selectedArmyId, armies],
   );
 
-  // ── Viewport culling ──────────────────────────────────────────────────────
-  // Only passes provinces whose bbox intersects the current SVG viewBox.
-  // Reduces active DOM nodes from N to ~50–150 at typical zoom levels.
-  const visibleProvinces = useMemo(() => {
-    if (!provinces?.length) return [];
-    return provinces.filter(p => {
+  // ── Dynamic tile indices based on current viewBox position ───────────────
+  // viewBox.x is never normalized — it grows/shrinks unboundedly as the user
+  // pans. We derive which integer tile indices are visible each frame, then
+  // render only those copies. This eliminates the discrete jump (flicker) that
+  // happened when viewBox.x was snapped back to [0, mapWidth].
+  const tileIndices = useMemo(() => {
+    if (mapWidth <= 0) return [0];
+    const firstTile = Math.floor(viewBox.x / mapWidth) - 1;
+    const lastTile  = Math.ceil((viewBox.x + viewBox.width) / mapWidth) + 1;
+    const tiles: number[] = [];
+    for (let m = firstTile; m <= lastTile; m++) tiles.push(m);
+    return tiles;
+  }, [viewBox.x, viewBox.width, mapWidth]);
+
+  // ── Viewport culling with wrap-x ──────────────────────────────────────────
+  // For each visible tile copy, collect only provinces whose shifted bbox
+  // intersects the viewBox.
+  const provincesByOffset = useMemo(() => {
+    const mw = mapWidth;
+    const result = new Map<number, Province[]>(tileIndices.map(m => [m * mw, []]));
+    if (!provinces?.length) return result;
+
+    for (const p of provinces) {
       const bb = provinceBBoxById[p.id];
-      if (!bb) return true;
-      return !(
-        bb.x + bb.width  < viewBox.x ||
-        bb.x             > viewBox.x + viewBox.width ||
-        bb.y + bb.height < viewBox.y ||
-        bb.y             > viewBox.y + viewBox.height
-      );
-    });
-  }, [provinces, provinceBBoxById, viewBox]);
+      for (const m of tileIndices) {
+        const offsetX = m * mw;
+        if (!bb) {
+          // No bbox: include in the tile that contains offset 0
+          if (m === 0) result.get(0)!.push(p);
+          continue;
+        }
+        const sx = bb.x + offsetX;
+        if (sx + bb.width  < viewBox.x) continue;
+        if (sx             > viewBox.x + viewBox.width) continue;
+        if (bb.y + bb.height < viewBox.y) continue;
+        if (bb.y             > viewBox.y + viewBox.height) continue;
+        result.get(offsetX)!.push(p);
+      }
+    }
+    return result;
+  }, [provinces, provinceBBoxById, viewBox, mapWidth, tileIndices]);
 
   // ── Wheel zoom ────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -268,12 +295,8 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
         const mouseYInViewBox = prev.y + (mouseY / rect.height) * prev.height;
         const newWidth = prev.width * zoomFactor;
         const newHeight = prev.height * zoomFactor;
-        return {
-          x: mouseXInViewBox - (mouseX / rect.width) * newWidth,
-          y: mouseYInViewBox - (mouseY / rect.height) * newHeight,
-          width: newWidth,
-          height: newHeight,
-        };
+        const x = mouseXInViewBox - (mouseX / rect.width) * newWidth;
+        return { x, y: mouseYInViewBox - (mouseY / rect.height) * newHeight, width: newWidth, height: newHeight };
       });
     };
 
@@ -424,78 +447,103 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
         }}
       >
         <defs>
-          <marker id="troop-action-arrowhead" markerWidth="10" markerHeight="10"
-            refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
-            <path d="M0,0 L0,6 L9,3 z" fill="#ffffff" />
-          </marker>
         </defs>
 
-        {/* Single render pass — viewport-culled provinces only */}
-        {visibleProvinces.map(p => (
-          <ProvinceShape
-            key={p.id}
-            province={p}
-            bbox={provinceBBoxById[p.id] ?? { x: 0, y: 0, width: 0, height: 0 }}
-            isSelected={selectedProvinceId === p.id}
-            onSelect={toggleSelect}
-            onRightClick={handleProvinceRightClick}
-            pendingDeployAction={deployActionByProvinceId[p.id]}
-            onCancelAction={handleOpenCancelModal}
-            armyTroopCount={armyTroopsByProvinceId[p.id]}
-            onArmyCountClick={handleArmyCountClick}
-            enemyArmyTroopCount={enemyArmyInfoByProvinceId[p.id]}
-          />
-        ))}
-
-        {/* Road lines */}
-        <g pointerEvents="none">
-          {roadLines.map(l => (
-            <line key={l.key}
-              x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-              stroke="#92400e" strokeWidth={3} strokeDasharray="6 4" opacity={0.7}
-            />
-          ))}
-        </g>
-
-        {/* Army move arrows */}
-        <g>
-          {troopMovementOverlays.map(action => {
-            const raw = action.actionData as {
-              army_id?: string; to_province_id?: string;
-            } | undefined;
-            const toId = raw?.to_province_id;
-            const army = armies.find(a => a.id === raw?.army_id);
-            const fromId = army?.province_id;
-            if (!fromId || !toId) return null;
-            const fromC = provinceCentersById[fromId];
-            const toC   = provinceCentersById[toId];
-            if (!fromC || !toC) return null;
-            const mx = (fromC.x + toC.x) / 2;
-            const my = (fromC.y + toC.y) / 2;
-            const label = army?.name ?? '⚔';
-            const boxW = Math.max(28, 8 + label.length * 7);
-            return (
-              <g key={action.id}>
-                <line x1={fromC.x} y1={fromC.y} x2={toC.x} y2={toC.y}
-                  stroke="#fbbf24" strokeWidth={2}
-                  markerEnd="url(#troop-action-arrowhead)"
-                  style={{ pointerEvents: 'none' }} />
-                <rect x={mx - boxW / 2} y={my - 10} width={boxW} height={20}
-                  fill="#fbbf24" stroke="#92400e" strokeWidth={1} rx={3} ry={3}
-                  style={{ cursor: 'pointer' }}
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={e => { e.stopPropagation(); handleOpenCancelModal(action.id); }} />
-                <text x={mx} y={my} fontSize={11} fill="#1c1917"
-                  textAnchor="middle" dominantBaseline="middle" fontWeight="bold"
-                  style={{ userSelect: 'none', cursor: 'pointer' }}
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={e => { e.stopPropagation(); handleOpenCancelModal(action.id); }}>
-                  {label}
-                </text>
+        {/* Dynamic tile copies for seamless X-axis wrapping.
+            viewBox.x is never normalized so there are no discrete jumps.
+            tileIndices are computed each frame from the current viewBox position.
+            Viewport culling (provincesByOffset) keeps active node count low. */}
+        {/* Pass 1: all province shapes and roads across all tile copies */}
+        {tileIndices.map(m => {
+          const offsetX = m * mapWidth;
+          const copy = provincesByOffset.get(offsetX) ?? [];
+          const copyRoads = mapWidth > 0
+            ? roadLines.filter(l => Math.abs(l.x2 - l.x1) <= mapWidth / 2)
+            : roadLines;
+          return (
+            <g key={offsetX} transform={`translate(${offsetX}, 0)`}>
+              {copy.map(p => (
+                <ProvinceShape
+                  key={p.id}
+                  province={p}
+                  bbox={provinceBBoxById[p.id] ?? { x: 0, y: 0, width: 0, height: 0 }}
+                  isSelected={selectedProvinceId === p.id}
+                  onSelect={toggleSelect}
+                  onRightClick={handleProvinceRightClick}
+                  pendingDeployAction={deployActionByProvinceId[p.id]}
+                  onCancelAction={handleOpenCancelModal}
+                  armyTroopCount={armyTroopsByProvinceId[p.id]}
+                  onArmyCountClick={handleArmyCountClick}
+                  enemyArmyTroopCount={enemyArmyInfoByProvinceId[p.id]}
+                />
+              ))}
+              <g pointerEvents="none">
+                {copyRoads.map(l => (
+                  <line key={l.key}
+                    x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                    stroke="#92400e" strokeWidth={3} strokeDasharray="6 4" opacity={0.7}
+                  />
+                ))}
               </g>
-            );
-          })}
-        </g>
+            </g>
+          );
+        })}
+
+        {/* Pass 2: army move arrows rendered after all provinces so they're always on top */}
+        {tileIndices.map(m => {
+          const offsetX = m * mapWidth;
+          const copyArrows = troopMovementOverlays.filter(action => {
+            const army = armies.find(a => a.id === action.actionData?.army_id);
+            if (!army) return false;
+            const fromC = provinceCentersById[army.province_id];
+            if (!fromC) return false;
+            const sx = fromC.x + offsetX;
+            return sx >= viewBox.x - viewBox.width && sx <= viewBox.x + 2 * viewBox.width;
+          });
+          if (!copyArrows.length) return null;
+          return (
+            <g key={`arrows-${offsetX}`} transform={`translate(${offsetX}, 0)`}>
+              {copyArrows.map(action => {
+                const raw = action.actionData as { army_id?: string; to_province_id?: string } | undefined;
+                const toId = raw?.to_province_id;
+                const army = armies.find(a => a.id === raw?.army_id);
+                const fromId = army?.province_id;
+                if (!fromId || !toId) return null;
+                const fromC = provinceCentersById[fromId];
+                const toC   = provinceCentersById[toId];
+                if (!fromC || !toC) return null;
+                const dx = toC.x - fromC.x;
+                const toCx = mapWidth > 0 && Math.abs(dx) > mapWidth / 2
+                  ? toC.x + (dx > 0 ? -mapWidth : mapWidth)
+                  : toC.x;
+                const mx = (fromC.x + toCx) / 2;
+                const my = (fromC.y + toC.y) / 2;
+                const label = army?.name ?? '⚔';
+                const boxW = Math.max(28, 8 + label.length * 7);
+                return (
+                  <g key={action.id}>
+                    <line x1={fromC.x} y1={fromC.y} x2={toCx} y2={toC.y}
+                      stroke="#fbbf24" strokeWidth={2}
+                      style={{ pointerEvents: 'none' }} />
+                    <rect x={mx - boxW / 2} y={my - 10} width={boxW} height={20}
+                      fill="#fbbf24" stroke="#92400e" strokeWidth={1} rx={3} ry={3}
+                      style={{ cursor: 'pointer' }}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); handleOpenCancelModal(action.id); }} />
+                    <text x={mx} y={my} fontSize={11} fill="#1c1917"
+                      textAnchor="middle" dominantBaseline="middle" fontWeight="bold"
+                      style={{ userSelect: 'none', cursor: 'pointer' }}
+                      onMouseDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); handleOpenCancelModal(action.id); }}>
+                      {label}
+                    </text>
+                  </g>
+                );
+              })}
+            </g>
+          );
+        })}
+
       </svg>
     </div>
   );

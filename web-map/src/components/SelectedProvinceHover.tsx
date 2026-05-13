@@ -532,7 +532,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
                     );
                   })}
                   {pendingCreateArmyActions.map((a) => (
-                    <div key={a.id} className="w-full text-xs px-2 py-1.5 rounded border border-green-500 bg-green-50 flex items-center justify-between">
+                    <div key={a.id} className="w-[93%] text-xs px-2 py-1.5 rounded border border-green-500 bg-green-50 flex items-center justify-between">
                       <span className="text-green-700 truncate">⏳ {a.actionData?.name ?? 'New Army'} (queued)</span>
                       <button
                         className="text-green-700 underline shrink-0 ml-2"

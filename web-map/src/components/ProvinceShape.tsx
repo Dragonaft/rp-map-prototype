@@ -112,7 +112,9 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     );
   };
 
-  const hasLocalTroops = isCurrentUserProvince && displayTroopCount > 0;
+  // Show the badge when the province is owned and has troops, OR when there are
+  // army troops present regardless of ownership (e.g. naval armies on water tiles).
+  const hasLocalTroops = displayTroopCount > 0 && (isCurrentUserProvince || armyTroopCount != null);
   const deployLabel = (pendingDeployAction && isCurrentUserProvince) ? `+${pendingDeployAction.troopsNumber}` : null;
 
   const landscapeIcon = LANDSCAPE_ICONS[province.landscape];

@@ -2,16 +2,40 @@ import { AppBar, Button, Toolbar, Tooltip } from "@mui/material";
 import { useAppSelector } from "../store/hooks.ts";
 import { useMutation } from "../hooks/useApi.ts";
 import { authApi } from "../api/auth.ts";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { TechsModal } from "./Modals/TechsModal.tsx";
 import { ProfileModal } from "./Modals/ProfileModal.tsx";
-import { UserClasses } from "../types.ts";
+import { ActionType, UserClasses } from "../types.ts";
 
 export const TopBar = () => {
   const user = useAppSelector(state => state.user);
+  const actions = useAppSelector(state => state.actions.actions);
+  const buildings = useAppSelector(state => state.buildings.buildings);
   const { mutate } = useMutation(authApi.logout);
   const [openTechModal, setOpenTechModal] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
+
+  // Sum gold cost of all queued actions that have a known upfront cost.
+  // BUILD: building.cost, UPGRADE: building.cost + 100, COLONIZE: 500.
+  const pendingMoneyCost = useMemo(() => {
+    if (!actions.length) return 0;
+    const buildingById = new Map(buildings.map(b => [String(b.id), b]));
+    let total = 0;
+    for (const action of actions) {
+      if (action.actionType === ActionType.BUILD) {
+        const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
+        const b = buildingById.get(String(bid));
+        if (b) total += b.cost;
+      } else if (action.actionType === ActionType.UPGRADE) {
+        const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
+        const b = buildingById.get(String(bid));
+        if (b) total += b.cost + 100;
+      } else if (action.actionType === ActionType.COLONIZE) {
+        total += 500;
+      }
+    }
+    return total;
+  }, [actions, buildings]);
 
   const handleLogout = async () => {
     try {
@@ -83,6 +107,13 @@ export const TopBar = () => {
               <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-secondary text-sm" data-icon="payments">payments</span>
                 <span className="font-headline font-bold text-secondary text-xs uppercase tracking-wider">Money: {user.money}</span>
+                {pendingMoneyCost > 0 && (
+                  <Tooltip title={`${pendingMoneyCost} gold committed to queued actions`} arrow placement="bottom">
+                    <span className="font-headline font-bold text-orange-400 text-xs uppercase tracking-wider cursor-help">
+                      [{user.money - pendingMoneyCost} free]
+                    </span>
+                  </Tooltip>
+                )}
                 <span className={`${user.projectedIncome > 0 ? "text-green-500" : "text-red-500"} font-headline font-bold text-xs uppercase tracking-wider`}>({user.projectedIncome > 0 ? + user.projectedIncome : user.projectedIncome})</span>
               </div>
             </div>
