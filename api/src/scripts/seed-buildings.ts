@@ -1,19 +1,31 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { AppDataSource } from '../db/data-source.prod';
+import { AppDataSource as AppDataSourceDev } from '../db/data-source';
+import { AppDataSource as AppDataSourceProd } from '../db/data-source.prod';
 import { Building } from '../buildings/entities/building.entity';
 import { BuildingTypes } from '../buildings/types/building.types';
 import { colors, logger } from '../utils/logger';
+
+const env = process.env.NODE_ENV;
+if (env !== 'development' && env !== 'production') {
+  console.error(`NODE_ENV must be "development" or "production", got: "${env}"`);
+  process.exit(1);
+}
+const AppDataSource = env === 'production' ? AppDataSourceProd : AppDataSourceDev;
 
 const LOG_CTX = 'SeedBuildings';
 
 interface BuildingSeedRow {
   type: string;
   name: string;
-  income: string | null;
-  upkeep: string | null;
+  description: string;
+  income: number | null;
+  upkeep: number | null;
   modifier: string | null;
   cost: number | null;
+  upgrade_to: BuildingTypes | null;
+  requirement_tech: string[] | null;
+  requirement_building: BuildingTypes | null;
 }
 
 const BUILDING_TYPE_VALUES = new Set<string>(Object.values(BuildingTypes));
@@ -35,7 +47,7 @@ function validateRow(obj: unknown, index: number): obj is BuildingSeedRow {
     logger.error(`Row ${index}: "name" must be a non-empty string`, LOG_CTX);
     return false;
   }
-  for (const key of ['income', 'upkeep', 'modifier'] as const) {
+  for (const key of ['modifier'] as const) {
     const v = row[key];
     if (v !== null && v !== undefined && typeof v !== 'string') {
       logger.error(`Row ${index}: "${key}" must be a string or null`, LOG_CTX);
@@ -104,10 +116,14 @@ async function seedBuildings() {
   for (const row of rows) {
     const patch = {
       name: row.name,
+      description: row.description,
       income: row.income,
       upkeep: row.upkeep,
       modifier: row.modifier,
       cost: row.cost,
+      upgrade_to: row.upgrade_to,
+      requirement_tech: row.requirement_tech,
+      requirement_building: row.requirement_building,
     };
 
     const existing = await repo.find({

@@ -1,0 +1,282 @@
+[
+  {
+    "key": "economy.surface_mining",
+    "name": "Surface Mining",
+    "description": "Basic extraction techniques allow workers to exploit iron, stone, and gold deposits on the surface. Unlocks the Mine building.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 1,
+    "prerequisites": []
+  },
+  {
+    "key": "economy.foresting",
+    "name": "Organized Foresting",
+    "description": "Systematic logging and replanting turns forests into a reliable source of timber income. Unlocks the Forestry building.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 1,
+    "prerequisites": []
+  },
+  {
+    "key": "economy.record_keeping",
+    "name": "Record Keeping",
+    "description": "Scribes and ledgers allow rulers to extract more research value from their capitals, generating an additional research point per capital each turn.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 2,
+    "prerequisites": []
+  },
+  {
+    "key": "economy.agriculture",
+    "name": "Agricultural Methods",
+    "description": "Improved farming techniques and crop management boost yields from farms and gardens by 15%.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 5,
+    "prerequisites": []
+  },
+  {
+    "key": "economy.library_studies",
+    "name": "Library Studies",
+    "description": "Investment in scholarly infrastructure unlocks the construction of Libraries, which generate research points each turn.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 5,
+    "prerequisites": ["economy.record_keeping"]
+  },
+  {
+    "key": "economy.crop_rotation",
+    "name": "Crop Rotation",
+    "description": "Rotating crops between seasons dramatically increases agricultural output. Unlocks the Granary building.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["economy.agriculture"]
+  },
+  {
+    "key": "economy.banking",
+    "name": "Banking System",
+    "description": "Formal banking institutions enable capital accumulation at scale. Unlocks the Bank building.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 5,
+    "prerequisites": ["economy.record_keeping"]
+  },
+  {
+    "key": "economy.advanced_taxation",
+    "name": "Advanced Taxation",
+    "description": "Sophisticated guild tax collectors extract a flat 50 gold from every owned province each turn.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["economy.banking"]
+  },
+  {
+    "key": "economy.logistics",
+    "name": "Supply Logistics",
+    "description": "Guild-run supply chains eliminate the cost of deploying troops between provinces.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["economy.record_keeping"]
+  },
+  {
+    "key": "economy.monopoly",
+    "name": "Trade Monopoly",
+    "description": "Total dominance of regional trade networks. All income is boosted by 60%.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 25,
+    "prerequisites": ["economy.banking", "economy.advanced_taxation"]
+  },
+  {
+    "key": "economy.grand_treasury",
+    "name": "Grand Treasury",
+    "description": "A central treasury consolidates the nation's immense wealth. Unlocks the Treasury building.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 25,
+    "prerequisites": ["economy.banking", "economy.monopoly"]
+  },
+
+  {
+    "key": "military.sword_training",
+    "name": "Sword Training",
+    "description": "Train your soldiers in advanced swordsmanship, increasing attacking army power by 15% and unlocking the infantry type.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 20,
+    "prerequisites": []
+  },
+  {
+    "key": "military.ranged_units",
+    "name": "Archery Doctrine",
+    "description": "Organized training in ranged warfare. Unlocks Archers for recruitment into armies.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": []
+  },
+  {
+    "key": "military.pikemen",
+    "name": "Pike Formations",
+    "description": "Disciplined pike squares provide an unbreakable defensive line. Unlocks Pikemen for recruitment.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": []
+  },
+  {
+    "key": "military.heavy_cavalry",
+    "name": "Heavy Cavalry",
+    "description": "Mastery of mounted warfare and armoured horsemanship. Unlocks Knights for recruitment (requires an Armory).",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 25,
+    "prerequisites": ["military.sword_training"]
+  },
+  {
+    "key": "military.veteran_officers",
+    "name": "Veteran Officers",
+    "description": "Experienced commanders improve coordination across all unit types, granting an additional 10% attack power.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 20,
+    "prerequisites": ["military.sword_training"]
+  },
+  {
+    "key": "military.army_logistics",
+    "name": "Army Logistics",
+    "description": "Streamlined supply chains and quartermaster corps reduce total army upkeep by 20%.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 25,
+    "prerequisites": ["military.ranged_units", "military.pikemen", "military.sword_training"]
+  },
+  {
+    "key": "military.improved_logistics",
+    "name": "Improved Logistics",
+    "description": "Unlocks road construction.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["military.sword_training"]
+  },
+  {
+    "key": "military.best_logistics",
+    "name": "Best Logistics",
+    "description": "Roads are better quality not, extend their reach by 1.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 15,
+    "prerequisites": ["military.improved_logistics"]
+  },
+  {
+    "key": "guild.merchant_guilds",
+    "name": "Merchant Guild Charter",
+    "description": "A formal charter establishes the Merchant Guild as the ruling class. Streamlined economic administration reduces all upkeep by 15%. Commits your nation to the Merchant Guild path.",
+    "branch": "guild",
+    "isClassRoot": true,
+    "cost": 10,
+    "prerequisites": []
+  },
+  {
+    "key": "guild.trade_house",
+    "name": "Trade House",
+    "description": "Buy! Sell! Buy! Sell! Unlocks the Trade House building.",
+    "branch": "guild",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["guild.merchant_guilds"]
+  },
+  {
+    "key": "guild.mercenary_corps",
+    "name": "Mercenary Corps",
+    "description": "Why recruit when you can hire? Unlocks the Mercenary unit type.",
+    "branch": "guild",
+    "isClassRoot": false,
+    "cost": 15,
+    "prerequisites": ["guild.trade_house"]
+  },
+  {
+    "key": "guild.spy_network",
+    "name": "Spy network",
+    "description": "Allows you to spy on other players army composition.",
+    "branch": "guild",
+    "isClassRoot": false,
+    "cost": 20,
+    "prerequisites": ["guild.trade_house"]
+  },
+  {
+    "key": "holy.holy_order",
+    "name": "Holy Order",
+    "description": "A devoted way for your God, heretics will burn, locks you to path of God! Unlocks piety.",
+    "branch": "holy",
+    "isClassRoot": true,
+    "cost": 10,
+    "prerequisites": []
+  },
+  {
+    "key": "holy.temple",
+    "name": "Holy Order",
+    "description": "A place to pray and worship. Unlocks the Temple building.",
+    "branch": "holy",
+    "isClassRoot": false,
+    "cost": 5,
+    "prerequisites": ["holy.holy_order"]
+  },
+  {
+    "key": "holy.warriors_of_god",
+    "name": "Paladins",
+    "description": "True followers of faith. Unlocks the Paladin unit type. Takes piety to recruit.",
+    "branch": "holy",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["holy.temple"]
+  },
+  {
+    "key": "holy.cathedral",
+    "name": "Cathedral",
+    "description": "Great palace of god!. Gives more piety and protection.",
+    "branch": "holy",
+    "isClassRoot": false,
+    "cost": 20,
+    "prerequisites": ["holy.temple"]
+  },
+  {
+    "key": "noble.house",
+    "name": "Noble House",
+    "description": "Way of sword and fire. Locks you in noble path.",
+    "branch": "noble",
+    "isClassRoot": true,
+    "cost": 10,
+    "prerequisites": []
+  },
+  {
+    "key": "noble.knights",
+    "name": "Noble Knights",
+    "description": "Most noble of all. Unlocks the Noble Knight unit type.",
+    "branch": "noble",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": ["noble.house"]
+  },
+  {
+    "key": "noble.better_fortifications",
+    "name": "Noble Castle",
+    "description": "Best castle from best stone. Unlocks castle building.",
+    "branch": "noble",
+    "isClassRoot": false,
+    "cost": 20,
+    "prerequisites": ["noble.knights"]
+  },
+  {
+    "key": "noble.better_training",
+    "name": "Better training",
+    "description": "Train your soldiers in advanced swordsmanship, increasing units power by 10%.",
+    "branch": "noble",
+    "isClassRoot": false,
+    "cost": 25,
+    "prerequisites": ["noble.house"]
+  }
+]

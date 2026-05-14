@@ -19,6 +19,10 @@ export class UsersUpdateBodyRequest {
   @Expose({ name: 'countryName' })
   public readonly country_name?: string;
 
+  @IsString()
+  @IsOptional()
+  public readonly color?: string;
+
   @IsNumber()
   @IsOptional()
   public readonly money?: number;

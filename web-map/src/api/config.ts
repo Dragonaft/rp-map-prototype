@@ -1,5 +1,9 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 
+// Set by useSnackbarInterceptor hook; called for every non-401 API error
+let _onApiError: ((msg: string) => void) | null = null;
+export const setApiErrorHandler = (fn: (msg: string) => void) => { _onApiError = fn; };
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 export const apiClient = axios.create({
@@ -66,6 +70,15 @@ apiClient.interceptors.response.use(
       } finally {
         isRefreshing = false;
       }
+    }
+
+    // Show generic error for non-401 responses
+    if (error.response?.status !== 401) {
+      const message =
+        (error.response?.data as any)?.message ||
+        error.message ||
+        'An unexpected error occurred';
+      _onApiError?.(Array.isArray(message) ? message.join(', ') : String(message));
     }
 
     return Promise.reject(error);

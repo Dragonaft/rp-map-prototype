@@ -15,6 +15,10 @@ import { useActionExecutionReload } from "../../hooks/useActionExecutionReload.t
 import { setActions } from "../../store/slices/actionsSlice.ts";
 import { buildingsApi } from "../../api/buildings.ts";
 import { setBuildings } from "../../store/slices/buildingsSlice.ts";
+import { techsApi } from "../../api/techs.ts";
+import { setTechs } from "../../store/slices/techsSlice.ts";
+import { armiesApi } from "../../api/armies.ts";
+import { setArmies, setTroopTypes } from "../../store/slices/armiesSlice.ts";
 
 
 const style = {
@@ -43,19 +47,26 @@ export const GamePage: React.FC = () => {
   const { data: otherUsersData } = useQuery(fetchOtherUsers);
   // Fetch static layout (localStorage-cached) and dynamic state in parallel.
   // Layout data never changes after map import; state changes only at turn end.
+  // For new users the cache is always bypassed so they receive the latest layout.
   const fetchProvinces = useCallback(async () => {
     const [layout, state] = await Promise.all([
-      provincesApi.getLayoutCached(),
+      provincesApi.getLayoutCached(userData?.isNew === true),
       provincesApi.getState(),
     ]);
     const stateById = Object.fromEntries(state.map(s => [s.id, s]));
     return layout.map(l => ({ ...l, ...(stateById[l.id] ?? {}) }));
-  }, []);
+  }, [userData?.isNew]);
   const { data: provinces, loading, error } = useQuery(fetchProvinces, []);
   const fetchUserActions = useCallback(() => actionsApi.getUserActions(), []);
   const { data: actions } = useQuery(fetchUserActions, []);
   const fetchBuildings = useCallback(() => buildingsApi.getAll(), []);
   const { data: buildingsData } = useQuery(fetchBuildings, []);
+  const fetchTechs = useCallback(() => techsApi.getAll(), []);
+  const { data: techsData } = useQuery(fetchTechs, []);
+  const fetchArmies = useCallback(() => armiesApi.getUserArmies(), []);
+  const { data: armiesData } = useQuery(fetchArmies, []);
+  const fetchTroopTypes = useCallback(() => armiesApi.getTroopTypes(), []);
+  const { data: troopTypesData } = useQuery(fetchTroopTypes, []);
 
   useEffect(() => {
     if (!userData) return;
@@ -82,6 +93,21 @@ export const GamePage: React.FC = () => {
     if (!buildingsData) return;
     dispatch(setBuildings(buildingsData));
   }, [buildingsData, dispatch]);
+
+  useEffect(() => {
+    if (!techsData) return;
+    dispatch(setTechs(techsData));
+  }, [techsData, dispatch]);
+
+  useEffect(() => {
+    if (!armiesData) return;
+    dispatch(setArmies(armiesData));
+  }, [armiesData, dispatch]);
+
+  useEffect(() => {
+    if (!troopTypesData) return;
+    dispatch(setTroopTypes(troopTypesData));
+  }, [troopTypesData, dispatch]);
 
   // Prevent browser zoom when Ctrl+wheel anywhere on the page
   useEffect(() => {

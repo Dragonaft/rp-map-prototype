@@ -2,12 +2,18 @@ import { apiClient } from './config';
 
 export const authApi = {
   login: async (data: { login: string, password: string }): Promise<any> => {
-    const response = await apiClient.post(`/auth/login`, data);
+    const response = await apiClient.post(`/auth/login`, data, {
+      // @ts-ignore - custom flag: don't try token refresh on auth endpoints
+      _skipAuthRedirect: true,
+    });
     return response.data;
   },
 
   register: async (data: { login: string, password: string, countryName: string, color: string }): Promise<any> => {
-    const response = await apiClient.post(`/auth/register`, data);
+    const response = await apiClient.post(`/auth/register`, data, {
+      // @ts-ignore - custom flag: don't try token refresh on auth endpoints
+      _skipAuthRedirect: true,
+    });
     return response.data;
   },
 

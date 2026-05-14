@@ -6,11 +6,13 @@ import { Province } from './entities/province.entity';
 import { Building } from '../buildings/entities/building.entity';
 import { User } from "../users/entities/user.entity";
 import { ActionsModule } from '../actions/actions.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Province, Building, User]),
     ActionsModule,
+    UsersModule,
   ],
   controllers: [ProvincesController],
   providers: [ProvincesService],

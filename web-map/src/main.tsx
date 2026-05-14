@@ -5,14 +5,17 @@ import { RouterProvider } from 'react-router-dom';
 import { store } from './store/store';
 import { router } from './router';
 import { AuthProvider } from './context/AuthContext';
+import { SnackbarProvider } from './context/SnackbarContext';
 import './index.css';
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
     <Provider store={store}>
-      <AuthProvider>
-        <RouterProvider router={router} />
-      </AuthProvider>
+      <SnackbarProvider>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </SnackbarProvider>
     </Provider>
   </React.StrictMode>
 );

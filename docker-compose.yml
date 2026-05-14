@@ -46,5 +46,17 @@ services:
     depends_on:
       - api
 
+  admin:
+    build:
+      context: .
+      dockerfile: admin-panel/Dockerfile
+      args:
+        VITE_API_BASE_URL: /api
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    depends_on:
+      - api
+
 volumes:
   db_data:

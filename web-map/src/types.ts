@@ -11,6 +11,28 @@ export enum BuildingTypes {
   BARRACKS = 'BARRACKS',
   FORT = 'FORT',
   MARKET = 'MARKET',
+  LIBRARY = 'LIBRARY',
+  MINE = 'MINE',
+  FORESTRY = 'FORESTRY',
+  GARDEN = 'GARDEN',
+  BAZAAR = 'BAZAAR',
+  ARMORY = 'ARMORY',
+  ROAD = 'ROAD',
+  TEMPLE = 'TEMPLE',
+  CATHEDRAL = 'CATHEDRAL',
+  TRADE_HOUSE = 'TRADE_HOUSE',
+  CASTLE = 'CASTLE',
+}
+
+export interface Tech {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  branch: string;
+  isClassRoot: boolean;
+  cost: number;
+  prerequisites: string[];
 }
 
 
@@ -18,10 +40,14 @@ export interface Building {
   id: string;
   type: string;
   name: string;
-  income: string | null;
-  upkeep: string | null;
+  description: string;
+  income: number | null;
+  upkeep: number | null;
   modifier: string | null;
   cost: number;
+  upgradeTo: string | null;
+  requirementTech: string[] | null;
+  requirementBuilding: string | null;
 }
 
 /** Static fields — never change after map import. Safe to cache in localStorage. */
@@ -42,6 +68,7 @@ export interface ProvinceStateData {
   localTroops: number | null;
   enemyHere?: boolean;
   buildings?: Building[];
+  buildingCap: number | null;
 }
 
 export interface Province {
@@ -56,6 +83,26 @@ export interface Province {
   enemyHere?: boolean;
   buildings?: Building[];
   neighbors?: string[] | null;
+  buildingCap: number;
+}
+
+export enum UserClasses {
+  GUILD = 'guild',
+  HOLY = 'holy',
+  NOBLE = 'noble',
+}
+
+export interface UserResources {
+  stone: number;
+  iron: number;
+  gold: number;
+  wood: number;
+}
+
+export interface UserUpdate {
+  id: string;
+  color?: string;
+  country_name?: string;
 }
 
 export interface User {
@@ -65,8 +112,61 @@ export interface User {
   color: string;
   troops: number;
   money: number;
+  piety: number;
+  class: string | null;
   isNew: boolean;
   provinces: Province[];
+  researchPoints: number;
+  completedResearch: string[];
+  resources: UserResources;
+}
+
+export interface UserActive extends User {
+  projectedIncome: number;
+  projectedPiety: number | null;
+  projectedResearch: number;
+  projectedTroops: number;
+}
+
+export enum TroopCategory {
+  INFANTRY = 'INFANTRY',
+  RANGED = 'RANGED',
+  CAVALRY = 'CAVALRY',
+  SPECIAL = 'SPECIAL',
+  PEASANT = 'PEASANT',
+}
+
+export interface TroopType {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  category: TroopCategory;
+  cost_per_100: number;
+  attack: number;
+  defense: number;
+  upkeep_per_100: number;
+  tech_requirement: string | null;
+  building_requirement: string | null;
+}
+
+export interface ArmyUnit {
+  id: string;
+  army_id: string;
+  troop_type_id: string;
+  troopType: TroopType;
+  count: number;
+}
+
+export interface Army {
+  id: string;
+  name: string | null;
+  user_id: string;
+  province_id: string;
+  flat_upkeep: number;
+  units: ArmyUnit[];
+  /** Only present for enemy armies. null = present but count unknown; number = spy network revealed total. */
+  totalTroops?: number | null;
 }
 
 export interface PartialUser {
@@ -85,6 +185,12 @@ export interface SetupUserResponse {
     money: number;
     is_new: boolean;
     provinces: Province[];
+    researchPoints: number;
+    projectedIncome: number,
+    projectedPiety: number,
+    projectedResearch: number,
+    projectedTroops: number,
+    resources: UserResources,
   };
   province: {
     id: string;
@@ -104,6 +210,15 @@ export enum ActionType {
   DEPLOY = 'DEPLOY',
   UPGRADE = 'UPGRADE',
   TRANSFER_TROOPS = 'TRANSFER_TROOPS',
+  RESEARCH = 'RESEARCH',
+  REMOVE = 'REMOVE',
+  ARMY_CREATE = 'ARMY_CREATE',
+  ARMY_MOVE = 'ARMY_MOVE',
+  ARMY_RECRUIT = 'ARMY_RECRUIT',
+  ARMY_MERGE = 'ARMY_MERGE',
+  ARMY_DISBAND = 'ARMY_DISBAND',
+  ARMY_EDIT = 'ARMY_EDIT',
+  COLONIZE = 'COLONIZE',
 }
 
 export interface ActionData {
@@ -115,3 +230,16 @@ export interface ActionData {
   upgradeLevel?: number;
   [key: string]: any; // Flexible for future action types
 }
+
+export const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> = {
+  [BuildingTypes.MINE]: ['iron', 'gold', 'stone'],
+  [BuildingTypes.FORESTRY]: ['wood'],
+  [BuildingTypes.FARM]: ['grain'],
+};
+
+/** Maps building types that consume a resource (1 unit per building) */
+export const BUILDING_RESOURCE_COSTS: Partial<Record<BuildingTypes, keyof UserResources>> = {
+  [BuildingTypes.ARMORY]: 'iron',
+  [BuildingTypes.FORT]: 'stone',
+  [BuildingTypes.CASTLE]: 'stone',
+};

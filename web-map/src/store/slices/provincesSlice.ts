@@ -20,6 +20,8 @@ interface ProvincesState {
   selectedTroops: SelectedTroops | null;
   provinceCentersById: Record<string, { x: number; y: number }>;
   provinceBBoxById: Record<string, BBox>;
+  mapWidth: number;
+  mapHeight: number;
 }
 
 /**
@@ -47,6 +49,8 @@ const initialState: ProvincesState = {
   selectedTroops: null,
   provinceCentersById: {},
   provinceBBoxById: {},
+  mapWidth: 0,
+  mapHeight: 0,
 };
 
 const provincesSlice = createSlice({
@@ -63,14 +67,19 @@ const provincesSlice = createSlice({
       state.provinces = action.payload;
       const centersById: Record<string, { x: number; y: number }> = {};
       const bboxById: Record<string, BBox> = {};
+      let maxX = 0, maxY = 0;
       for (const p of action.payload) {
         if (!p?.polygon) continue;
         const bbox = parseBBox(p.polygon);
         centersById[p.id] = { x: bbox.x + bbox.width / 2, y: bbox.y + bbox.height / 2 };
         bboxById[p.id] = bbox;
+        if (bbox.x + bbox.width > maxX) maxX = bbox.x + bbox.width;
+        if (bbox.y + bbox.height > maxY) maxY = bbox.y + bbox.height;
       }
       state.provinceCentersById = centersById;
       state.provinceBBoxById = bboxById;
+      state.mapWidth = maxX;
+      state.mapHeight = maxY;
     },
     updateProvinceById: (state, action: PayloadAction<{ id: string; updates: Partial<Province> }>) => {
       const { id, updates } = action.payload;
@@ -85,6 +94,8 @@ const provincesSlice = createSlice({
       state.provinces = [];
       state.provinceCentersById = {};
       state.provinceBBoxById = {};
+      state.mapWidth = 0;
+      state.mapHeight = 0;
     },
   },
 });

@@ -14,13 +14,18 @@ export const provincesApi = {
     return response.data;
   },
 
-  /** Returns layout from localStorage if cached, otherwise fetches and caches it. */
-  getLayoutCached: async (): Promise<ProvinceLayout[]> => {
-    try {
-      const cached = localStorage.getItem(LAYOUT_CACHE_KEY);
-      if (cached) return JSON.parse(cached) as ProvinceLayout[];
-    } catch {
-      // corrupted cache — fall through to fetch
+  /** Returns layout from localStorage if cached, otherwise fetches and caches it.
+   *  Pass forceRefresh=true to bypass and clear the cache (e.g. for new users). */
+  getLayoutCached: async (forceRefresh = false): Promise<ProvinceLayout[]> => {
+    if (forceRefresh) {
+      try { localStorage.removeItem(LAYOUT_CACHE_KEY); } catch { /* ignore */ }
+    } else {
+      try {
+        const cached = localStorage.getItem(LAYOUT_CACHE_KEY);
+        if (cached) return JSON.parse(cached) as ProvinceLayout[];
+      } catch {
+        // corrupted cache — fall through to fetch
+      }
     }
     const layout = await provincesApi.getLayout();
     try {

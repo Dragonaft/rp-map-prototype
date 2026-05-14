@@ -1,4 +1,5 @@
 import { generateGridMap } from './generateGrid';
+import { generateRegionMap } from './generateRegion';
 import { importSvgAsMap } from './importSvg';
 import { importPngAsMap } from './importPng';
 import { parseMap } from './parseMap';
@@ -23,6 +24,12 @@ async function main() {
     console.log('  generate --rows 10 --cols 15 --width 4800 --height 3600 --out ./out');
     console.log('           [--seed 42] [--continent-scale 0.1] [--land-threshold 0.48]');
     console.log('           [--rivers 3] [--max-river-length 25]');
+    console.log('');
+    console.log('  generate-region --land ./ne_50m_land.geojson --seas ./ne_110m_geography_marine_polys.geojson');
+    console.log('           --rows 30 --cols 50 --width 4800 --height 3200 --out ./out');
+    console.log('           [--seed 42] [--bbox "-30,25,70,75"] [--noise 0.4]');
+    console.log('           [--wrap-x true] [--rivers 3] [--max-river-length 25]');
+    console.log('');
     console.log('  import-svg --svg ./map.svg --out ./out');
     console.log('  import-png --png ./map.png --out ./out [--min-size 10] [--simplify 2.0]');
     console.log('  parse --file ./out/provinces.json');
@@ -44,6 +51,43 @@ async function main() {
     const maxRiverLength = args['max-river-length'] ? Number(args['max-river-length']) : undefined;
 
     generateGridMap({ rows, cols, width, height, outputDir, seed, continentScale, landThreshold, riverCount, maxRiverLength });
+  } else if (command === 'generate-region') {
+    const land = args.land;
+    const seas = args.seas;
+    const out  = args.out ?? './out';
+
+    if (!land || !seas) {
+      console.error('Missing required arguments: --land and --seas');
+      process.exit(1);
+    }
+
+    const rows           = Number(args.rows ?? 30);
+    const cols           = Number(args.cols ?? 50);
+    const width          = Number(args.width ?? 4800);
+    const height         = Number(args.height ?? 3200);
+    const seed           = args.seed ? Number(args.seed) : undefined;
+    const noiseAmount    = args.noise ? Number(args.noise) : undefined;
+    const wrapX          = args['wrap-x'] === 'true';
+    const riverCount     = args.rivers ? Number(args.rivers) : undefined;
+    const maxRiverLength = args['max-river-length'] ? Number(args['max-river-length']) : undefined;
+
+    let bbox: [number, number, number, number] | undefined;
+    if (args.bbox) {
+      const parts = args.bbox.split(',').map(Number);
+      if (parts.length === 4 && parts.every(n => !isNaN(n))) {
+        bbox = parts as [number, number, number, number];
+      } else {
+        console.error('--bbox must be four comma-separated numbers: minLon,minLat,maxLon,maxLat');
+        process.exit(1);
+      }
+    }
+
+    generateRegionMap({
+      landFile: land, seasFile: seas,
+      rows, cols, width, height, outputDir: out,
+      seed, bbox, noiseAmount, wrapX,
+      rivers: riverCount, maxRiverLength,
+    });
   } else if (command === 'import-svg') {
     const svg = args.svg;
     const out = args.out ?? './out';
