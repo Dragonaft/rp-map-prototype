@@ -22,18 +22,18 @@ function calcMaxAdd(troopType: TroopType, userTroops: number, userMoney: number,
 }
 
 const TroopTooltipContent: React.FC<{ troopType: TroopType }> = ({ troopType }) => (
-  <div className="text-xs">
-    <div className="font-bold mb-1">{troopType.name}</div>
-    {troopType.description && <div className="mb-1 text-gray-300">{troopType.description}</div>}
-    <div>Category: {troopType.category}</div>
-    <div>Attack: {troopType.attack}</div>
-    <div>Defense: {troopType.defense}</div>
-    <div>
-      Cost/100: {troopType.cost_per_100 > 0 ? `${troopType.cost_per_100} ${
+  <div style={{ fontSize: '0.9rem' }}>
+    <div style={{ marginBottom: 2 }} className="font-bold">{troopType.name}</div>
+    {troopType.description && <div style={{ marginBottom: 2 }} className="mb-1 text-gray-300">{troopType.description}</div>}
+    <div style={{ marginBottom: 2 }}>Category: {troopType.category}</div>
+    <div style={{ marginBottom: 2 }}>Attack: {troopType.attack}</div>
+    <div style={{ marginBottom: 2 }}>Defense: {troopType.defense}</div>
+    <div style={{ marginBottom: 2 }}>
+      Cost per 100: {troopType.cost_per_100 > 0 ? `${troopType.cost_per_100} ${
         PIETY_TROOPS.has(troopType.key) ? 'piety' : 'gold'
       }` : 'Free'}
     </div>
-    <div>Upkeep/100: {troopType.upkeep_per_100}</div>
+    <div style={{ marginBottom: 2 }}>Upkeep per 100: {troopType.upkeep_per_100}</div>
   </div>
 );
 

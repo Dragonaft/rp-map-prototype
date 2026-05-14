@@ -43,7 +43,7 @@ interface TroopTooltipProps {
 }
 
 const TroopTooltipContent: React.FC<{ troopType: TroopType }> = ({ troopType }) => (
-  <div className="text-xs">
+  <div style={{ fontSize: '0.9rem' }} className="text-xs">
     <div className="font-bold mb-1">{troopType.name}</div>
     {troopType.description && <div className="mb-1 text-gray-300">{troopType.description}</div>}
     <div>Category: {troopType.category}</div>
