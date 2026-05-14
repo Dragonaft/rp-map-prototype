@@ -1,9 +1,10 @@
 import React, { useMemo } from 'react';
-import { Building, Province } from '../types';
+import { ActionType, Building, Province } from '../types';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { setSelectedTroops } from '../store/slices/provincesSlice';
 import type { BBox } from '../store/slices/provincesSlice';
 import { BUILDING_ICONS, LANDSCAPE_ICONS, RESOURCE_ICONS } from '../constants/buildingIcons';
+import type { RootState } from "../store/store.ts";
 
 interface PendingDeployAction {
   id: string;
@@ -46,10 +47,18 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   const currentUserId = useAppSelector((state) => state.user.id);
   const currentUserColor = useAppSelector((state) => state.user.color);
   const selectedTroops = useAppSelector((state) => state.provinces.selectedTroops);
+  const actions = useAppSelector((state: RootState) => state.actions.actions);
 
   const isWater = province.type === 'water';
   const isCurrentUserProvince = province.userId === currentUserId;
   const isTroopSelected = selectedTroops?.provinceId === province.id;
+
+  const pendingColonizeActions = useMemo(
+    () => actions.filter(a => a.actionType === ActionType.COLONIZE),
+    [actions],
+  );
+
+  const isColonizing = pendingColonizeActions.find((action) => action.actionData?.province_id === province.id);
 
   const provinceOwnerColor = useMemo(() => {
     if (!province.userId) return null;
@@ -125,7 +134,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
       {/* Base shape */}
       <path
         d={province.polygon}
-        fill={fillColor}
+        fill={isColonizing ? "#a3a3a3" : fillColor}
         stroke={strokeColor}
         strokeWidth={strokeWidth}
         onClick={handleClick}

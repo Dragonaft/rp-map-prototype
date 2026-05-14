@@ -25,6 +25,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const armies = useAppSelector((state: RootState) => state.armies.armies);
   const currentUserId = useAppSelector((state: RootState) => state.user.id);
   const completedResearch = useAppSelector((state: RootState) => state.user.completedResearch);
+
   // Camera state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
   const [isDragging, setIsDragging] = useState(false);
