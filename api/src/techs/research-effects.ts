@@ -39,7 +39,7 @@ export const INCOME_RESEARCH_EFFECTS: Partial<Record<string, (ctx: IncomeContext
     ctx.incomeTotal += ctx.provinceCount * 10;
   },
   'economy.monopoly': (ctx) => {
-    ctx.incomeTotal = Math.round(ctx.incomeTotal * 1.6);
+    ctx.incomeTotal = Math.round(ctx.incomeTotal * 1.1);
   },
 };
 

@@ -83,7 +83,7 @@
   {
     "key": "economy.monopoly",
     "name": "Trade Monopoly",
-    "description": "Total dominance of regional trade networks. All income is boosted by 60%.",
+    "description": "Total dominance of regional trade networks. All income is boosted by 10%.",
     "branch": "economy",
     "isClassRoot": false,
     "cost": 25,
