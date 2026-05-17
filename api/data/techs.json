@@ -65,7 +65,7 @@
   {
     "key": "economy.advanced_taxation",
     "name": "Advanced Taxation",
-    "description": "Sophisticated guild tax collectors extract a flat 50 gold from every owned province each turn.",
+    "description": "Sophisticated guild tax collectors extract a flat 10 gold from every owned province each turn.",
     "branch": "economy",
     "isClassRoot": false,
     "cost": 10,
