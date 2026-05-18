@@ -1022,12 +1022,20 @@ export class ArmyMoveHandler implements ActionHandler {
       } else {
         // ── Defender wins ─────────────────────────────────────────────────
         // Attacker takes heavy losses and retreats to source province
-        const baseRate = attackerPower / (attackerPower + defenderPower);
-        const attackerCasualtyRate = Math.min(0.8, Math.max(CASUALTY_FLOOR, baseRate * 1.5));
+        const maxAtttakerLoseRate = 0.8;
+        const baseAttackerRateCoeff = 1.4;
+      
+        const attackerRate = defenderPower / (defenderPower + attackerPower) * baseAttackerRateCoeff;
+         
+        const attackerCasualtyRate = Math.min(maxAtttakerLoseRate, Math.max(CASUALTY_FLOOR, attackerRate));
         applyCasualties(army, attackerCasualtyRate);
 
         // Defenders take minor losses
-        const defenderCasualtyRate = Math.max(CASUALTY_FLOOR, baseRate * 0.3);
+        const baseDefenderRateCoeff = 0.7;
+
+        const baseDefenderRate = attackerPower / (attackerPower + defenderPower) * baseDefenderRateCoeff;
+        const defenderCasualtyRate = Math.max(CASUALTY_FLOOR, baseDefenderRate);
+
         for (const da of enemyArmies) {
           applyCasualties(da, defenderCasualtyRate);
           if (armyTotalTroops(da) < ARMY_MIN_SIZE) {
