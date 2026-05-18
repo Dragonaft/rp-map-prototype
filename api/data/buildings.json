@@ -56,7 +56,7 @@
     "modifier": null,
     "cost": 75,
     "upgrade_to": null,
-    "requirement_tech": ["economy.agriculture"],
+    "requirement_tech": ["economy.crop_rotation"],
     "requirement_building": "GARDEN"
   },
   {

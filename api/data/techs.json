@@ -47,7 +47,7 @@
   {
     "key": "economy.crop_rotation",
     "name": "Crop Rotation",
-    "description": "Rotating crops between seasons dramatically increases agricultural output. Unlocks the Granary building.",
+    "description": "Rotating crops between seasons dramatically increases agricultural output. Unlocks a Farm building.",
     "branch": "economy",
     "isClassRoot": false,
     "cost": 10,
