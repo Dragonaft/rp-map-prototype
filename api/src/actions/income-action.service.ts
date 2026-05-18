@@ -93,13 +93,18 @@ export class IncomeActionService {
 
       const currentMoney = Number(user.money ?? 0);
       user.money = currentMoney + incomeTotal;
+      
+      const barracksTroopsIncome = 50;
 
       if (currentMoney > 0 && barracksCount > 0) {
-        user.troops = Number(user.troops ?? 0) + barracksCount * 50;
+        user.troops = Number(user.troops ?? 0) + barracksCount * barracksTroopsIncome;
       }
 
       user.research_points = Number(user.research_points ?? 0) + researchTotal;
-      user.piety = Number(user.piety + pietyCount * 10)
+
+      const basePietyIncome = 10; 
+
+      user.piety = Number(user.piety + pietyCount * basePietyIncome)
     }
 
     for (const user of users) {

@@ -14,7 +14,7 @@
   {
     "type": "GARDEN",
     "name": "Garden",
-    "description": "Small garden for small income.",
+    "description": "Small garden for small income. Can be upgraded to a farm only on grain provinces",
     "income": 50,
     "upkeep": 0,
     "modifier": null,
@@ -62,7 +62,7 @@
   {
     "type": "BARRACKS",
     "name": "Barracks",
-    "description": "",
+    "description": "A building where future troops are trained. Training 50 troops",
     "income": null,
     "upkeep": 50,
     "modifier": null,
@@ -98,7 +98,7 @@
   {
     "type": "BAZAAR",
     "name": "Bazaar",
-    "description": "Some small cash.",
+    "description": "Some small cash. Can be upgraded to a Market",
     "income": 75,
     "upkeep": 0,
     "modifier": null,
@@ -134,7 +134,7 @@
   {
     "type": "TEMPLE",
     "name": "Temple",
-    "description": "Building of faith, generates piety and some income from donations.",
+    "description": "Building of faith, generates 10 piety and some income from donations.",
     "income": 25,
     "upkeep": 10,
     "modifier": null,
@@ -146,7 +146,7 @@
   {
     "type": "CATHEDRAL",
     "name": "Cathedral",
-    "description": "Building of faith, generates piety and gives some protection and money.",
+    "description": "Building of faith, generates 20 piety and gives some protection and money.",
     "income": 75,
     "upkeep": 25,
     "modifier": "1.2",
@@ -182,7 +182,7 @@
   {
     "type": "LIBRARY",
     "name": "Library",
-    "description": "Keeps track of all of your hidden texts.",
+    "description": "Keeps track of all of your hidden texts. Generates 1 research point",
     "income": 0,
     "upkeep": 25,
     "modifier": null,
