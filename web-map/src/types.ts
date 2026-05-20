@@ -102,7 +102,7 @@ export interface UserResources {
 export interface UserUpdate {
   id: string;
   color?: string;
-  country_name?: string;
+  countryName?: string;
 }
 
 export interface User {
