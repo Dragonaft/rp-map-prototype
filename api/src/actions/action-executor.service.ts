@@ -21,6 +21,11 @@ const DEFENSIVE_BUILDING_TYPES = new Set<string>([
   BuildingTypes.CATHEDRAL,
 ]);
 
+const NO_BUILD_TYPES = new Set<string>([
+  BuildingTypes.CAPITOL,
+  BuildingTypes.CAPITAL,
+]);
+
 /** Buildings that can only be placed on provinces whose resource_type is in the allowed list. */
 const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> = {
   [BuildingTypes.MINE]:     ['iron', 'gold', 'stone'],
@@ -103,9 +108,8 @@ export class BuildActionHandler implements ActionHandler {
         throw new Error('Building not found');
       }
 
-      const cost = Number(buildingTemplate.cost ?? 0);
-      if (!Number.isFinite(cost) || cost < 0) {
-        throw new Error('Invalid building cost');
+      if (NO_BUILD_TYPES.has(buildingTemplate.type)) {
+        throw new Error('Building is not allowed to build');
       }
 
       const user = await manager.findOne(User, {
@@ -117,12 +121,24 @@ export class BuildActionHandler implements ActionHandler {
         throw new Error('User not found');
       }
 
+      const requiredTech = buildingTemplate.requirement_tech ?? [];
+      const completedResearch = user.completed_research ?? [];
+      const missingTech = requiredTech.filter((tech) => !completedResearch.includes(tech));
+      if (missingTech.length > 0) {
+        throw new Error(`Missing required research: ${missingTech.join(', ')}`);
+      }
+
+      const cost = Number(buildingTemplate.cost ?? 0);
+      if (!Number.isFinite(cost) || cost < 0) {
+        throw new Error('Invalid building cost');
+      }
+
       const currentMoney = Number(user.money ?? 0);
       if (currentMoney < cost) {
         throw new Error('Not enough money to build');
       }
 
-      const buildingCap = computeBuildingCap(province.landscape, user.completed_research ?? []);
+      const buildingCap = computeBuildingCap(province.landscape, completedResearch);
       if ((province.buildings?.length ?? 0) >= buildingCap) {
         throw new Error(`Building cap reached for this province (max ${buildingCap})`);
       }
@@ -572,7 +588,7 @@ export class ResearchActionHandler implements ActionHandler {
         if (user.class !== null && user.class !== undefined) {
           throw new Error('Class already selected, cannot research another class root tech');
         }
-      } else if (tech.branch.startsWith('class.')) {
+      } else if (tech.branch.startsWith(UserClasses.GUILD || UserClasses.HOLY || UserClasses.NOBLE)) {
         if (!user.class || user.class !== tech.branch) {
           throw new Error(`This tech requires class: ${tech.branch}`);
         }
@@ -1022,12 +1038,20 @@ export class ArmyMoveHandler implements ActionHandler {
       } else {
         // ── Defender wins ─────────────────────────────────────────────────
         // Attacker takes heavy losses and retreats to source province
-        const baseRate = attackerPower / (attackerPower + defenderPower);
-        const attackerCasualtyRate = Math.min(0.8, Math.max(CASUALTY_FLOOR, baseRate * 1.5));
+        const maxAtttakerLoseRate = 0.8;
+        const baseAttackerRateCoeff = 1.4;
+
+        const attackerRate = defenderPower / (defenderPower + attackerPower) * baseAttackerRateCoeff;
+
+        const attackerCasualtyRate = Math.min(maxAtttakerLoseRate, Math.max(CASUALTY_FLOOR, attackerRate));
         applyCasualties(army, attackerCasualtyRate);
 
         // Defenders take minor losses
-        const defenderCasualtyRate = Math.max(CASUALTY_FLOOR, baseRate * 0.3);
+        const baseDefenderRateCoeff = 0.7;
+
+        const baseDefenderRate = attackerPower / (attackerPower + defenderPower) * baseDefenderRateCoeff;
+        const defenderCasualtyRate = Math.max(CASUALTY_FLOOR, baseDefenderRate);
+
         for (const da of enemyArmies) {
           applyCasualties(da, defenderCasualtyRate);
           if (armyTotalTroops(da) < ARMY_MIN_SIZE) {

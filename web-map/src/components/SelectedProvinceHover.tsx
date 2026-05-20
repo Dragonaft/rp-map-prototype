@@ -404,7 +404,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
                 {enemyArmies.map((army) => (
                   <div
                     key={army.id}
-                    className="w-full text-xs px-2 py-1.5 rounded border border-red-300 bg-red-50 flex items-center justify-between"
+                    className="w-[93%] text-xs px-2 py-1.5 rounded border border-red-300 bg-red-50 flex items-center justify-between"
                   >
                     <span className="font-medium truncate">⚔ {army.name ?? 'Unknown Army'}</span>
                     {army.totalTroops != null && (

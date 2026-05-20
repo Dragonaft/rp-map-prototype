@@ -54,7 +54,7 @@ export const ProfileModal: React.FC<Props> = ({ open, onClose }) => {
     setSaving(true);
     setError(null);
     try {
-      await usersApi.update(user.id, { country_name: countryName.trim(), color });
+      await usersApi.update(user.id, { countryName: countryName.trim(), color });
       dispatch(updateUserProfile({ countryName: countryName.trim(), color }));
       onClose();
     } catch (e: any) {

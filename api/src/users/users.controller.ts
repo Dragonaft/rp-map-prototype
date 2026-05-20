@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Body, Patch, Param, Delete, HttpCode, HttpStatus, UseInterceptors, ClassSerializerInterceptor,
-  UseGuards
+  UseGuards, Request,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { UsersCreateBodyRequest } from "./requests/users-create-body.request";
@@ -24,8 +24,8 @@ export class UsersController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(id);
+  findOne(@Param('id') id: string, @Request() req) {
+    return this.usersService.findOne(id, req.user.id);
   }
 
   @Patch(':id')

@@ -47,7 +47,7 @@
   {
     "key": "economy.crop_rotation",
     "name": "Crop Rotation",
-    "description": "Rotating crops between seasons dramatically increases agricultural output. Unlocks the Granary building.",
+    "description": "Rotating crops between seasons dramatically increases agricultural output. Unlocks a Farm building.",
     "branch": "economy",
     "isClassRoot": false,
     "cost": 10,
@@ -65,7 +65,7 @@
   {
     "key": "economy.advanced_taxation",
     "name": "Advanced Taxation",
-    "description": "Sophisticated guild tax collectors extract a flat 50 gold from every owned province each turn.",
+    "description": "Sophisticated guild tax collectors extract a flat 10 gold from every owned province each turn.",
     "branch": "economy",
     "isClassRoot": false,
     "cost": 10,
@@ -102,7 +102,7 @@
   {
     "key": "military.sword_training",
     "name": "Sword Training",
-    "description": "Train your soldiers in advanced swordsmanship, increasing attacking army power by 15% and unlocking the infantry type.",
+    "description": "Train your soldiers in advanced swordsmanship, increasing attacking army power by 15% and unlocking the infantry type.\nInfantry:\nAttack:1.0\nDefense:1.2\nCost for deploy 100: 0\nUnkeep per 100: 100",
     "branch": "military",
     "isClassRoot": false,
     "cost": 20,
@@ -111,7 +111,7 @@
   {
     "key": "military.ranged_units",
     "name": "Archery Doctrine",
-    "description": "Organized training in ranged warfare. Unlocks Archers for recruitment into armies.",
+    "description": "Organized training in ranged warfare. Unlocks Archers for recruitment into armies.\nArchers:\nAttack:1.4\nDefense:0.7\nCost for deploy 100: 75\nUnkeep per 100: 150",
     "branch": "military",
     "isClassRoot": false,
     "cost": 10,
@@ -120,7 +120,7 @@
   {
     "key": "military.pikemen",
     "name": "Pike Formations",
-    "description": "Disciplined pike squares provide an unbreakable defensive line. Unlocks Pikemen for recruitment.",
+    "description": "Disciplined pike squares provide an unbreakable defensive line. Unlocks Pikemen for recruitment.\nPikemen:\nAttack:0.9\nDefense:1.8\nCost for deploy 100: 60\nUnkeep per 100: 120",
     "branch": "military",
     "isClassRoot": false,
     "cost": 10,
@@ -129,7 +129,7 @@
   {
     "key": "military.heavy_cavalry",
     "name": "Heavy Cavalry",
-    "description": "Mastery of mounted warfare and armoured horsemanship. Unlocks Knights for recruitment (requires an Armory).",
+    "description": "Mastery of mounted warfare and armoured horsemanship. Unlocks Knights for recruitment (requires an Armory).\nKnights:\nAttack:2.0\nDefense:1.5\nCost for deploy 100: 200\nUnkeep per 100: 500",
     "branch": "military",
     "isClassRoot": false,
     "cost": 25,
@@ -192,7 +192,7 @@
   {
     "key": "guild.mercenary_corps",
     "name": "Mercenary Corps",
-    "description": "Why recruit when you can hire? Unlocks the Mercenary unit type.",
+    "description": "Why recruit when you can hire? Unlocks the Mercenary unit type.\nMercenaries:\nAttack:1.8\nDefense:1.8\nCost for deploy 100: 700\nUnkeep per 100: 600",
     "branch": "guild",
     "isClassRoot": false,
     "cost": 15,
@@ -228,7 +228,7 @@
   {
     "key": "holy.warriors_of_god",
     "name": "Paladins",
-    "description": "True followers of faith. Unlocks the Paladin unit type. Takes piety to recruit.",
+    "description": "True followers of faith. Unlocks the Paladin unit type. Takes piety to recruit.\nPaladins:\nAttack:2.0\nDefense:2.5\nCost for deploy 100: 300\nUnkeep per 100: 500",
     "branch": "holy",
     "isClassRoot": false,
     "cost": 10,
@@ -255,7 +255,7 @@
   {
     "key": "noble.knights",
     "name": "Noble Knights",
-    "description": "Most noble of all. Unlocks the Noble Knight unit type.",
+    "description": "Most noble of all. Unlocks the Noble Knight unit type.\nNoble Knight:\nAttack:2.5\nDefense:2.0\nCost for deploy 100: 400\nUnkeep per 100: 600",
     "branch": "noble",
     "isClassRoot": false,
     "cost": 10,
