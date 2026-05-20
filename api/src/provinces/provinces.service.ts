@@ -166,7 +166,7 @@ export class ProvincesService {
     await this.userRepository.save(updatedUser);
     await this.provinceRepository.save(province);
 
-    const enrichedUser = await this.usersService.findOne(user.id);
+    const enrichedUser = await this.usersService.findOne(user.id, user.id);
 
     return {
       user: enrichedUser,

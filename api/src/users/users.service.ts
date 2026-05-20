@@ -71,8 +71,16 @@ export class UsersService {
     return user;
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, callerId: string) {
     const user = await this.findOneEntity(id);
+
+    if (callerId !== id) {
+      return {
+        id: user.id,
+        countryName: user.country_name,
+        color: user.color,
+      };
+    }
 
     const armies = await this.armyRepository.find({
       where: { user_id: id },
