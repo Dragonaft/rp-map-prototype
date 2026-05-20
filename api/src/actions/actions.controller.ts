@@ -15,6 +15,9 @@ import { ActionsService } from './actions.service';
 import { ActionQueue } from './entities/action-queue.entity';
 import { ActionsLog } from './entities/actions-log.entity';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRoles } from '../users/types/users.types';
 
 @Controller('actions')
 @UseGuards(JwtAuthGuard)
@@ -61,6 +64,8 @@ export class ActionsController {
   }
 
   @Get('logs')
+  @UseGuards(RolesGuard)
+  @Roles(UserRoles.ADMIN)
   async getAllLogs(
     @Query('limit') limit?: string,
     @Query('offset') offset?: string,
@@ -72,6 +77,8 @@ export class ActionsController {
   }
 
   @Get('logs/my-actions')
+  @UseGuards(RolesGuard)
+  @Roles(UserRoles.ADMIN)
   async getMyActionsFromLogs(
     @Request() req,
     @Query('limit') limit?: string,
@@ -83,6 +90,8 @@ export class ActionsController {
   }
 
   @Get('logs/timetable/:timetable')
+  @UseGuards(RolesGuard)
+  @Roles(UserRoles.ADMIN)
   async getLogsByTimetable(
     @Param('timetable') timetable: string,
   ): Promise<ActionsLog[]> {
@@ -90,6 +99,8 @@ export class ActionsController {
   }
 
   @Get('logs/:id')
+  @UseGuards(RolesGuard)
+  @Roles(UserRoles.ADMIN)
   async getLogById(@Param('id', ParseIntPipe) id: number): Promise<ActionsLog> {
     return await this.actionsService.getLogById(id);
   }
