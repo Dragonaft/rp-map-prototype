@@ -11,6 +11,8 @@ import { UserStateLoaderService } from './user-state-loader.service';
 import { ActionsLog, ExecutedAction } from './entities/actions-log.entity';
 import { ExecutionLock } from './entities/execution-lock.entity';
 import { ActionQueue, ActionStatus } from './entities/action-queue.entity';
+import { Army } from '../armies/entities/army.entity';
+import { Province } from '../provinces/entities/province.entity';
 import * as os from 'os';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -214,6 +216,9 @@ export class ActionSchedulerService {
       // Clean up completed and failed actions from queue
       await this.cleanupExecutedActions();
 
+      // Double-check province ownership based on army positions
+      await this.syncProvinceOwnershipWithArmies();
+
     } catch (error) {
       this.logger.error(`Error during scheduled action execution for ${timetable}:`, error);
     } finally {
@@ -271,6 +276,48 @@ export class ActionSchedulerService {
       this.logger.log(`Lock released: ${lockKey} by ${this.instanceId}`);
     } catch (error) {
       this.logger.error(`Error releasing lock ${lockKey}:`, error);
+    }
+  }
+
+  /**
+   * After all actions are processed, verify that every non-water province
+   * with an army on it is owned by that army's user.
+   */
+  private async syncProvinceOwnershipWithArmies(): Promise<void> {
+    try {
+      const armies = await this.dataSource.getRepository(Army).find();
+
+      if (armies.length === 0) return;
+
+      const provinceIds = [...new Set(armies.map((a) => a.province_id))];
+      const provinces = await this.dataSource
+        .getRepository(Province)
+        .createQueryBuilder('p')
+        .where('p.id IN (:...ids)', { ids: provinceIds })
+        .getMany();
+
+      const provinceMap = new Map(provinces.map((p) => [p.id, p]));
+      let updated = 0;
+
+      for (const army of armies) {
+        const province = provinceMap.get(army.province_id);
+        if (!province || province.type === 'water') continue;
+
+        if (province.user_id !== army.user_id) {
+          province.user_id = army.user_id;
+          await this.dataSource.getRepository(Province).save(province);
+          updated++;
+          this.logger.warn(
+            `Province ${province.id} ownership corrected to user ${army.user_id} (army ${army.id})`,
+          );
+        }
+      }
+
+      if (updated > 0) {
+        this.logger.log(`syncProvinceOwnershipWithArmies: corrected ${updated} province(s)`);
+      }
+    } catch (error) {
+      this.logger.error('Error during province ownership sync:', error);
     }
   }
 
