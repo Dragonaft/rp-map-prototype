@@ -7,6 +7,7 @@ web-map/.env
 api/node_modules
 api/dist
 api/.env
+api/logs/
 
 /node_modules/
 

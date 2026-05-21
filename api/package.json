@@ -18,7 +18,8 @@
     "import:provinces": "ts-node src/scripts/import-provinces.ts",
     "seed:buildings": "ts-node src/scripts/seed-buildings.ts",
     "seed:techs": "ts-node src/scripts/seed-techs.ts",
-    "seed:troop-types": "ts-node src/scripts/seed-troop-types.ts"
+    "seed:troop-types": "ts-node src/scripts/seed-troop-types.ts",
+    "balance:report": "ts-node --transpile-only src/scripts/balance-report.ts"
   },
   "dependencies": {
     "@nestjs/common": "^10.0.0",
