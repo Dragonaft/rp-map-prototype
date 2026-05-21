@@ -12,14 +12,15 @@ import { Army } from '../armies/entities/army.entity';
 import { ArmyUnit } from '../armies/entities/army-unit.entity';
 import { TroopType } from '../armies/entities/troop-type.entity';
 import { UserClasses } from "../users/types/users.types";
-
-const DEFENSIVE_BUILDING_TYPES = new Set<string>([
-  BuildingTypes.FORT,
-  BuildingTypes.CAPITOL,
-  BuildingTypes.CAPITAL,
-  BuildingTypes.CASTLE,
-  BuildingTypes.CATHEDRAL,
-]);
+import {
+  ARMY_MIN_SIZE,
+  CASUALTY_FLOOR,
+  applyCasualties,
+  armyAttackPower,
+  armyDefensePower,
+  armyTotalTroops,
+  computeBuildModifier,
+} from './combat-calculator';
 
 const NO_BUILD_TYPES = new Set<string>([
   BuildingTypes.CAPITOL,
@@ -38,26 +39,6 @@ const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> =
 const DEPLOY_MONEY_PER_TROOP = 1;
 const UNIQUE_PER_PROVINCE: string[] = [BuildingTypes.MINE, BuildingTypes.FORESTRY, BuildingTypes.FORT];
 const REMOVE_COST = 100;
-const ARMY_MIN_SIZE = 100;
-const CASUALTY_FLOOR = 0.05;
-
-const parseBuildingModifier = (modifier: string | null | undefined): number => {
-  const n = Number(modifier);
-  return Number.isFinite(n) && n > 0 ? n : 0;
-}
-
-const computeBuildModifier = (buildings: Building[] | undefined): number => {
-  if (!buildings?.length) {
-    return 1;
-  }
-  let sum = 0;
-  for (const b of buildings) {
-    if (DEFENSIVE_BUILDING_TYPES.has(b.type)) {
-      sum += parseBuildingModifier(b.modifier);
-    }
-  }
-  return sum > 0 ? sum : 1;
-}
 
 export interface ActionHandler {
   handle(action: ActionQueue): Promise<void>;
@@ -610,34 +591,6 @@ export class ResearchActionHandler implements ActionHandler {
     });
   }
 }
-
-// ---------------------------------------------------------------------------
-// Shared army helpers
-// ---------------------------------------------------------------------------
-
-/** Total troop count across all unit types in an army. */
-const armyTotalTroops = (army: Army): number =>
-  (army.units ?? []).reduce((sum, u) => sum + u.count, 0);
-
-/** Offensive power of an army: Σ(count × attack). */
-const armyAttackPower = (army: Army): number =>
-  (army.units ?? []).reduce((sum, u) => sum + u.count * u.troopType.attack, 0);
-
-/** Defensive power of an army: Σ(count × defense). */
-const armyDefensePower = (army: Army): number =>
-  (army.units ?? []).reduce((sum, u) => sum + u.count * u.troopType.defense, 0);
-
-
-/**
- * Apply a casualty rate to all unit types in an army proportionally.
- * Removes unit types that reach 0.
- */
-const applyCasualties = (army: Army, rate: number): void => {
-  for (const unit of army.units) {
-    unit.count = Math.max(0, unit.count - Math.floor(unit.count * rate));
-  }
-  army.units = army.units.filter((u) => u.count > 0);
-};
 
 // ---------------------------------------------------------------------------
 // Army action handlers
