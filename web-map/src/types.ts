@@ -1,6 +1,6 @@
 // TODO: sort types
 
-export type ProvinceType = 'land' | 'coastal' | 'water';
+export type ProvinceType = 'land' | 'water';
 
 export type Landscape = 'plains' | 'forest' | 'mountain' | 'desert' | 'hills' | 'swamp';
 

@@ -172,21 +172,7 @@ export function generateGridMap(options: GenerateGridOptions) {
     }
   }
 
-  // ── Step 4: Coastal pass — land tiles adjacent to any water ─────────────
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (typeMap[r][c] !== 'land') continue;
-      for (const [dr, dc] of dirs) {
-        const nr = r + dr, nc = c + dc;
-        if (nr >= 0 && nr < rows && nc >= 0 && nc < cols && typeMap[nr][nc] === 'water') {
-          typeMap[r][c] = 'coastal';
-          break;
-        }
-      }
-    }
-  }
-
-  // ── Step 5: Build province objects ──────────────────────────────────────
+  // ── Step 4: Build province objects ──────────────────────────────────────
   const provinces: Province[] = [];
 
   for (let r = 0; r < rows; r++) {
@@ -209,7 +195,7 @@ export function generateGridMap(options: GenerateGridOptions) {
     }
   }
 
-  // ── Step 6: 4-directional neighbors ─────────────────────────────────────
+  // ── Step 5: 4-directional neighbors ─────────────────────────────────────
   console.log('Calculating neighbors...');
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -228,9 +214,8 @@ export function generateGridMap(options: GenerateGridOptions) {
   const outPath = path.join(outputDir, 'provinces.json');
   fs.writeFileSync(outPath, JSON.stringify(provinces, null, 2), 'utf-8');
 
-  const landCount    = provinces.filter(p => p.type === 'land').length;
-  const coastalCount = provinces.filter(p => p.type === 'coastal').length;
-  const waterCount   = provinces.filter(p => p.type === 'water').length;
-  console.log(`Done: ${provinces.length} provinces — ${landCount} land, ${coastalCount} coastal, ${waterCount} water, ${riversPlaced}/${riverCount} rivers placed`);
+  const landCount  = provinces.filter(p => p.type === 'land').length;
+  const waterCount = provinces.filter(p => p.type === 'water').length;
+  console.log(`Done: ${provinces.length} provinces — ${landCount} land, ${waterCount} water, ${riversPlaced}/${riverCount} rivers placed`);
   console.log(`Saved: ${outPath}`);
 }

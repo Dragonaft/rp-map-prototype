@@ -156,7 +156,7 @@ export function importSvgAsMap(options: ImportSvgOptions) {
     const landscapeAttr: string | undefined = el['data-landscape'];
 
     const type: ProvinceType =
-      typeAttr === 'water' || typeAttr === 'coastal' || typeAttr === 'land'
+      typeAttr === 'water' || typeAttr === 'land'
         ? (typeAttr as ProvinceType)
         : 'land';
 

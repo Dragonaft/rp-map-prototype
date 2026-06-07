@@ -15,7 +15,7 @@
   },
   {
     "polygon": "M1755 0 H1800 V72.72727272727273 H1755 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -43,7 +43,7 @@
   },
   {
     "polygon": "M1845 0 H1890 V72.72727272727273 H1845 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -57,7 +57,7 @@
   },
   {
     "polygon": "M1035 72.72727272727273 H1080 V145.45454545454547 H1035 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -71,7 +71,7 @@
   },
   {
     "polygon": "M1080 72.72727272727273 H1125 V145.45454545454547 H1080 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -86,7 +86,7 @@
   },
   {
     "polygon": "M1125 72.72727272727273 H1170 V145.45454545454547 H1125 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "stone",
@@ -100,7 +100,7 @@
   },
   {
     "polygon": "M1215 72.72727272727273 H1260 V145.45454545454547 H1215 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -114,7 +114,7 @@
   },
   {
     "polygon": "M1260 72.72727272727273 H1305 V145.45454545454547 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -129,7 +129,7 @@
   },
   {
     "polygon": "M1305 72.72727272727273 H1350 V145.45454545454547 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -159,7 +159,7 @@
   },
   {
     "polygon": "M1395 72.72727272727273 H1440 V145.45454545454547 H1395 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "iron",
@@ -174,7 +174,7 @@
   },
   {
     "polygon": "M1440 72.72727272727273 H1485 V145.45454545454547 H1440 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "wood",
@@ -189,7 +189,7 @@
   },
   {
     "polygon": "M1485 72.72727272727273 H1530 V145.45454545454547 H1485 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -204,7 +204,7 @@
   },
   {
     "polygon": "M1530 72.72727272727273 H1575 V145.45454545454547 H1530 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -219,7 +219,7 @@
   },
   {
     "polygon": "M1575 72.72727272727273 H1620 V145.45454545454547 H1575 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -234,7 +234,7 @@
   },
   {
     "polygon": "M1620 72.72727272727273 H1665 V145.45454545454547 H1620 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -249,7 +249,7 @@
   },
   {
     "polygon": "M1665 72.72727272727273 H1710 V145.45454545454547 H1665 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -264,7 +264,7 @@
   },
   {
     "polygon": "M1710 72.72727272727273 H1755 V145.45454545454547 H1710 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -324,7 +324,7 @@
   },
   {
     "polygon": "M1890 72.72727272727273 H1935 V145.45454545454547 H1890 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -339,7 +339,7 @@
   },
   {
     "polygon": "M1935 72.72727272727273 H1980 V145.45454545454547 H1935 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -354,7 +354,7 @@
   },
   {
     "polygon": "M1980 72.72727272727273 H2025 V145.45454545454547 H1980 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -369,7 +369,7 @@
   },
   {
     "polygon": "M2025 72.72727272727273 H2070 V145.45454545454547 H2025 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -503,7 +503,7 @@
   },
   {
     "polygon": "M2475 72.72727272727273 H2520 V145.45454545454547 H2475 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -560,7 +560,7 @@
   },
   {
     "polygon": "M2835 72.72727272727273 H2880 V145.45454545454547 H2835 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -740,7 +740,7 @@
   },
   {
     "polygon": "M3375 72.72727272727273 H3420 V145.45454545454547 H3375 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -755,7 +755,7 @@
   },
   {
     "polygon": "M3420 72.72727272727273 H3465 V145.45454545454547 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -799,7 +799,7 @@
   },
   {
     "polygon": "M765 145.45454545454547 H810 V218.1818181818182 H765 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "gold",
@@ -933,7 +933,7 @@
   },
   {
     "polygon": "M1170 145.45454545454547 H1215 V218.1818181818182 H1170 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "iron",
@@ -962,7 +962,7 @@
   },
   {
     "polygon": "M1395 145.45454545454547 H1440 V218.1818181818182 H1395 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -977,7 +977,7 @@
   },
   {
     "polygon": "M1440 145.45454545454547 H1485 V218.1818181818182 H1440 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -992,7 +992,7 @@
   },
   {
     "polygon": "M1485 145.45454545454547 H1530 V218.1818181818182 H1485 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -1157,7 +1157,7 @@
   },
   {
     "polygon": "M1980 145.45454545454547 H2025 V218.1818181818182 H1980 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -1307,7 +1307,7 @@
   },
   {
     "polygon": "M2430 145.45454545454547 H2475 V218.1818181818182 H2430 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -1667,7 +1667,7 @@
   },
   {
     "polygon": "M3510 145.45454545454547 H3555 V218.1818181818182 H3510 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -1799,7 +1799,7 @@
   },
   {
     "polygon": "M675 218.1818181818182 H720 V290.90909090909093 H675 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -1814,7 +1814,7 @@
   },
   {
     "polygon": "M720 218.1818181818182 H765 V290.90909090909093 H720 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -1993,7 +1993,7 @@
   },
   {
     "polygon": "M1530 218.1818181818182 H1575 V290.90909090909093 H1530 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -2007,7 +2007,7 @@
   },
   {
     "polygon": "M1575 218.1818181818182 H1620 V290.90909090909093 H1575 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "grain",
@@ -2127,7 +2127,7 @@
   },
   {
     "polygon": "M1935 218.1818181818182 H1980 V290.90909090909093 H1935 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -2457,7 +2457,7 @@
   },
   {
     "polygon": "M2925 218.1818181818182 H2970 V290.90909090909093 H2925 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -2592,7 +2592,7 @@
   },
   {
     "polygon": "M3330 218.1818181818182 H3375 V290.90909090909093 H3330 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -2607,7 +2607,7 @@
   },
   {
     "polygon": "M3375 218.1818181818182 H3420 V290.90909090909093 H3375 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -2622,7 +2622,7 @@
   },
   {
     "polygon": "M3420 218.1818181818182 H3465 V290.90909090909093 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -2637,7 +2637,7 @@
   },
   {
     "polygon": "M3465 218.1818181818182 H3510 V290.90909090909093 H3465 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -2936,7 +2936,7 @@
   },
   {
     "polygon": "M0 290.90909090909093 H45 V363.6363636363637 H0 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "iron",
@@ -3026,7 +3026,7 @@
   },
   {
     "polygon": "M270 290.90909090909093 H315 V363.6363636363637 H270 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -3071,7 +3071,7 @@
   },
   {
     "polygon": "M765 290.90909090909093 H810 V363.6363636363637 H765 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -3086,7 +3086,7 @@
   },
   {
     "polygon": "M810 290.90909090909093 H855 V363.6363636363637 H810 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -3101,7 +3101,7 @@
   },
   {
     "polygon": "M855 290.90909090909093 H900 V363.6363636363637 H855 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -3116,7 +3116,7 @@
   },
   {
     "polygon": "M900 290.90909090909093 H945 V363.6363636363637 H900 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "stone",
@@ -3161,7 +3161,7 @@
   },
   {
     "polygon": "M1035 290.90909090909093 H1080 V363.6363636363637 H1035 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -3206,7 +3206,7 @@
   },
   {
     "polygon": "M1170 290.90909090909093 H1215 V363.6363636363637 H1170 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -3221,7 +3221,7 @@
   },
   {
     "polygon": "M1215 290.90909090909093 H1260 V363.6363636363637 H1215 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -3236,7 +3236,7 @@
   },
   {
     "polygon": "M1260 290.90909090909093 H1305 V363.6363636363637 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -3251,7 +3251,7 @@
   },
   {
     "polygon": "M1305 290.90909090909093 H1350 V363.6363636363637 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -3280,7 +3280,7 @@
   },
   {
     "polygon": "M1620 290.90909090909093 H1665 V363.6363636363637 H1620 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -3355,7 +3355,7 @@
   },
   {
     "polygon": "M1845 290.90909090909093 H1890 V363.6363636363637 H1845 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -3370,7 +3370,7 @@
   },
   {
     "polygon": "M1890 290.90909090909093 H1935 V363.6363636363637 H1890 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -3385,7 +3385,7 @@
   },
   {
     "polygon": "M1935 290.90909090909093 H1980 V363.6363636363637 H1935 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -3715,7 +3715,7 @@
   },
   {
     "polygon": "M2925 290.90909090909093 H2970 V363.6363636363637 H2925 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -3775,7 +3775,7 @@
   },
   {
     "polygon": "M3105 290.90909090909093 H3150 V363.6363636363637 H3105 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "gold",
@@ -3790,7 +3790,7 @@
   },
   {
     "polygon": "M3150 290.90909090909093 H3195 V363.6363636363637 H3150 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "stone",
@@ -3805,7 +3805,7 @@
   },
   {
     "polygon": "M3195 290.90909090909093 H3240 V363.6363636363637 H3195 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "stone",
@@ -3820,7 +3820,7 @@
   },
   {
     "polygon": "M3240 290.90909090909093 H3285 V363.6363636363637 H3240 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -3835,7 +3835,7 @@
   },
   {
     "polygon": "M3285 290.90909090909093 H3330 V363.6363636363637 H3285 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -3880,7 +3880,7 @@
   },
   {
     "polygon": "M3420 290.90909090909093 H3465 V363.6363636363637 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -3940,7 +3940,7 @@
   },
   {
     "polygon": "M3600 290.90909090909093 H3645 V363.6363636363637 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -3955,7 +3955,7 @@
   },
   {
     "polygon": "M3645 290.90909090909093 H3690 V363.6363636363637 H3645 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -3970,7 +3970,7 @@
   },
   {
     "polygon": "M3690 290.90909090909093 H3735 V363.6363636363637 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "iron",
@@ -3985,7 +3985,7 @@
   },
   {
     "polygon": "M3735 290.90909090909093 H3780 V363.6363636363637 H3735 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -4000,7 +4000,7 @@
   },
   {
     "polygon": "M3780 290.90909090909093 H3825 V363.6363636363637 H3780 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -4015,7 +4015,7 @@
   },
   {
     "polygon": "M3825 290.90909090909093 H3870 V363.6363636363637 H3825 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -4045,7 +4045,7 @@
   },
   {
     "polygon": "M3915 290.90909090909093 H3960 V363.6363636363637 H3915 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -4060,7 +4060,7 @@
   },
   {
     "polygon": "M3960 290.90909090909093 H4005 V363.6363636363637 H3960 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -4075,7 +4075,7 @@
   },
   {
     "polygon": "M4005 290.90909090909093 H4050 V363.6363636363637 H4005 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -4090,7 +4090,7 @@
   },
   {
     "polygon": "M4050 290.90909090909093 H4095 V363.6363636363637 H4050 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "wood",
@@ -4105,7 +4105,7 @@
   },
   {
     "polygon": "M4095 290.90909090909093 H4140 V363.6363636363637 H4095 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -4135,7 +4135,7 @@
   },
   {
     "polygon": "M4185 290.90909090909093 H4230 V363.6363636363637 H4185 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -4240,7 +4240,7 @@
   },
   {
     "polygon": "M0 363.6363636363637 H45 V436.36363636363643 H0 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -4300,7 +4300,7 @@
   },
   {
     "polygon": "M180 363.6363636363637 H225 V436.36363636363643 H180 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "wood",
@@ -4315,7 +4315,7 @@
   },
   {
     "polygon": "M225 363.6363636363637 H270 V436.36363636363643 H225 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "iron",
@@ -4345,7 +4345,7 @@
   },
   {
     "polygon": "M315 363.6363636363637 H360 V436.36363636363643 H315 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "iron",
@@ -4360,7 +4360,7 @@
   },
   {
     "polygon": "M360 363.6363636363637 H405 V436.36363636363643 H360 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -4375,7 +4375,7 @@
   },
   {
     "polygon": "M405 363.6363636363637 H450 V436.36363636363643 H405 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "stone",
@@ -4390,7 +4390,7 @@
   },
   {
     "polygon": "M450 363.6363636363637 H495 V436.36363636363643 H450 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -4405,7 +4405,7 @@
   },
   {
     "polygon": "M495 363.6363636363637 H540 V436.36363636363643 H495 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "stone",
@@ -4420,7 +4420,7 @@
   },
   {
     "polygon": "M540 363.6363636363637 H585 V436.36363636363643 H540 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -4435,7 +4435,7 @@
   },
   {
     "polygon": "M585 363.6363636363637 H630 V436.36363636363643 H585 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -4450,7 +4450,7 @@
   },
   {
     "polygon": "M630 363.6363636363637 H675 V436.36363636363643 H630 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -4465,7 +4465,7 @@
   },
   {
     "polygon": "M675 363.6363636363637 H720 V436.36363636363643 H675 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -4480,7 +4480,7 @@
   },
   {
     "polygon": "M720 363.6363636363637 H765 V436.36363636363643 H720 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -4540,7 +4540,7 @@
   },
   {
     "polygon": "M900 363.6363636363637 H945 V436.36363636363643 H900 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -4585,7 +4585,7 @@
   },
   {
     "polygon": "M1035 363.6363636363637 H1080 V436.36363636363643 H1035 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -4600,7 +4600,7 @@
   },
   {
     "polygon": "M1080 363.6363636363637 H1125 V436.36363636363643 H1080 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -4630,7 +4630,7 @@
   },
   {
     "polygon": "M1170 363.6363636363637 H1215 V436.36363636363643 H1170 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -4690,7 +4690,7 @@
   },
   {
     "polygon": "M1350 363.6363636363637 H1395 V436.36363636363643 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -4705,7 +4705,7 @@
   },
   {
     "polygon": "M1395 363.6363636363637 H1440 V436.36363636363643 H1395 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -4765,7 +4765,7 @@
   },
   {
     "polygon": "M1575 363.6363636363637 H1620 V436.36363636363643 H1575 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -4825,7 +4825,7 @@
   },
   {
     "polygon": "M1755 363.6363636363637 H1800 V436.36363636363643 H1755 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -4840,7 +4840,7 @@
   },
   {
     "polygon": "M1800 363.6363636363637 H1845 V436.36363636363643 H1800 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -5065,7 +5065,7 @@
   },
   {
     "polygon": "M2475 363.6363636363637 H2520 V436.36363636363643 H2475 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -5080,7 +5080,7 @@
   },
   {
     "polygon": "M2520 363.6363636363637 H2565 V436.36363636363643 H2520 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -5095,7 +5095,7 @@
   },
   {
     "polygon": "M2565 363.6363636363637 H2610 V436.36363636363643 H2565 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -5110,7 +5110,7 @@
   },
   {
     "polygon": "M2610 363.6363636363637 H2655 V436.36363636363643 H2610 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -5125,7 +5125,7 @@
   },
   {
     "polygon": "M2655 363.6363636363637 H2700 V436.36363636363643 H2655 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -5140,7 +5140,7 @@
   },
   {
     "polygon": "M2700 363.6363636363637 H2745 V436.36363636363643 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -5170,7 +5170,7 @@
   },
   {
     "polygon": "M2790 363.6363636363637 H2835 V436.36363636363643 H2790 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -5200,7 +5200,7 @@
   },
   {
     "polygon": "M2880 363.6363636363637 H2925 V436.36363636363643 H2880 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -5230,7 +5230,7 @@
   },
   {
     "polygon": "M2970 363.6363636363637 H3015 V436.36363636363643 H2970 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -5245,7 +5245,7 @@
   },
   {
     "polygon": "M3015 363.6363636363637 H3060 V436.36363636363643 H3015 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -5260,7 +5260,7 @@
   },
   {
     "polygon": "M3060 363.6363636363637 H3105 V436.36363636363643 H3060 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -5380,7 +5380,7 @@
   },
   {
     "polygon": "M3420 363.6363636363637 H3465 V436.36363636363643 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "gold",
@@ -5440,7 +5440,7 @@
   },
   {
     "polygon": "M3600 363.6363636363637 H3645 V436.36363636363643 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "stone",
@@ -5530,7 +5530,7 @@
   },
   {
     "polygon": "M3870 363.6363636363637 H3915 V436.36363636363643 H3870 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -5620,7 +5620,7 @@
   },
   {
     "polygon": "M4140 363.6363636363637 H4185 V436.36363636363643 H4140 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -5650,7 +5650,7 @@
   },
   {
     "polygon": "M4230 363.6363636363637 H4275 V436.36363636363643 H4230 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -5665,7 +5665,7 @@
   },
   {
     "polygon": "M4275 363.6363636363637 H4320 V436.36363636363643 H4275 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -5680,7 +5680,7 @@
   },
   {
     "polygon": "M4320 363.6363636363637 H4365 V436.36363636363643 H4320 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "gold",
@@ -5695,7 +5695,7 @@
   },
   {
     "polygon": "M4365 363.6363636363637 H4410 V436.36363636363643 H4365 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -5710,7 +5710,7 @@
   },
   {
     "polygon": "M4410 363.6363636363637 H4455 V436.36363636363643 H4410 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "iron",
@@ -5725,7 +5725,7 @@
   },
   {
     "polygon": "M4455 363.6363636363637 H4500 V436.36363636363643 H4455 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -5755,7 +5755,7 @@
   },
   {
     "polygon": "M45 436.3636363636364 H90 V509.0909090909091 H45 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -5800,7 +5800,7 @@
   },
   {
     "polygon": "M180 436.3636363636364 H225 V509.0909090909091 H180 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "gold",
@@ -6055,7 +6055,7 @@
   },
   {
     "polygon": "M945 436.3636363636364 H990 V509.0909090909091 H945 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -6070,7 +6070,7 @@
   },
   {
     "polygon": "M990 436.3636363636364 H1035 V509.0909090909091 H990 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -6100,7 +6100,7 @@
   },
   {
     "polygon": "M1080 436.3636363636364 H1125 V509.0909090909091 H1080 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "grain",
@@ -6115,7 +6115,7 @@
   },
   {
     "polygon": "M1125 436.3636363636364 H1170 V509.0909090909091 H1125 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -6130,7 +6130,7 @@
   },
   {
     "polygon": "M1170 436.3636363636364 H1215 V509.0909090909091 H1170 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -6145,7 +6145,7 @@
   },
   {
     "polygon": "M1215 436.3636363636364 H1260 V509.0909090909091 H1215 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -6190,7 +6190,7 @@
   },
   {
     "polygon": "M1350 436.3636363636364 H1395 V509.0909090909091 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -6205,7 +6205,7 @@
   },
   {
     "polygon": "M1395 436.3636363636364 H1440 V509.0909090909091 H1395 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -6280,7 +6280,7 @@
   },
   {
     "polygon": "M1620 436.3636363636364 H1665 V509.0909090909091 H1620 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -6310,7 +6310,7 @@
   },
   {
     "polygon": "M1710 436.3636363636364 H1755 V509.0909090909091 H1710 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -6324,7 +6324,7 @@
   },
   {
     "polygon": "M1935 436.3636363636364 H1980 V509.0909090909091 H1935 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -6338,7 +6338,7 @@
   },
   {
     "polygon": "M1980 436.3636363636364 H2025 V509.0909090909091 H1980 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -6353,7 +6353,7 @@
   },
   {
     "polygon": "M2025 436.3636363636364 H2070 V509.0909090909091 H2025 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -6473,7 +6473,7 @@
   },
   {
     "polygon": "M2385 436.3636363636364 H2430 V509.0909090909091 H2385 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -6488,7 +6488,7 @@
   },
   {
     "polygon": "M2430 436.3636363636364 H2475 V509.0909090909091 H2430 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -6593,7 +6593,7 @@
   },
   {
     "polygon": "M2745 436.3636363636364 H2790 V509.0909090909091 H2745 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -6623,7 +6623,7 @@
   },
   {
     "polygon": "M2835 436.3636363636364 H2880 V509.0909090909091 H2835 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -6818,7 +6818,7 @@
   },
   {
     "polygon": "M3420 436.3636363636364 H3465 V509.0909090909091 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -6878,7 +6878,7 @@
   },
   {
     "polygon": "M3600 436.3636363636364 H3645 V509.0909090909091 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -7148,7 +7148,7 @@
   },
   {
     "polygon": "M4410 436.3636363636364 H4455 V509.0909090909091 H4410 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -7163,7 +7163,7 @@
   },
   {
     "polygon": "M4455 436.3636363636364 H4500 V509.0909090909091 H4455 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -7238,7 +7238,7 @@
   },
   {
     "polygon": "M180 509.0909090909091 H225 V581.8181818181819 H180 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -7253,7 +7253,7 @@
   },
   {
     "polygon": "M225 509.0909090909091 H270 V581.8181818181819 H225 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -7283,7 +7283,7 @@
   },
   {
     "polygon": "M315 509.0909090909091 H360 V581.8181818181819 H315 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "stone",
@@ -7298,7 +7298,7 @@
   },
   {
     "polygon": "M360 509.0909090909091 H405 V581.8181818181819 H360 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -7313,7 +7313,7 @@
   },
   {
     "polygon": "M405 509.0909090909091 H450 V581.8181818181819 H405 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -7328,7 +7328,7 @@
   },
   {
     "polygon": "M450 509.0909090909091 H495 V581.8181818181819 H450 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -7343,7 +7343,7 @@
   },
   {
     "polygon": "M495 509.0909090909091 H540 V581.8181818181819 H495 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -7358,7 +7358,7 @@
   },
   {
     "polygon": "M540 509.0909090909091 H585 V581.8181818181819 H540 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "stone",
@@ -7523,7 +7523,7 @@
   },
   {
     "polygon": "M1035 509.0909090909091 H1080 V581.8181818181819 H1035 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -7538,7 +7538,7 @@
   },
   {
     "polygon": "M1260 509.0909090909091 H1305 V581.8181818181819 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -7553,7 +7553,7 @@
   },
   {
     "polygon": "M1305 509.0909090909091 H1350 V581.8181818181819 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -7658,7 +7658,7 @@
   },
   {
     "polygon": "M1620 509.0909090909091 H1665 V581.8181818181819 H1620 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -7673,7 +7673,7 @@
   },
   {
     "polygon": "M1665 509.0909090909091 H1710 V581.8181818181819 H1665 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -7732,7 +7732,7 @@
   },
   {
     "polygon": "M2295 509.0909090909091 H2340 V581.8181818181819 H2295 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -7747,7 +7747,7 @@
   },
   {
     "polygon": "M2340 509.0909090909091 H2385 V581.8181818181819 H2340 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -8107,7 +8107,7 @@
   },
   {
     "polygon": "M3420 509.0909090909091 H3465 V581.8181818181819 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -8167,7 +8167,7 @@
   },
   {
     "polygon": "M3600 509.0909090909091 H3645 V581.8181818181819 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -8302,7 +8302,7 @@
   },
   {
     "polygon": "M4005 509.0909090909091 H4050 V581.8181818181819 H4005 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -8317,7 +8317,7 @@
   },
   {
     "polygon": "M4050 509.0909090909091 H4095 V581.8181818181819 H4050 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -8332,7 +8332,7 @@
   },
   {
     "polygon": "M4095 509.0909090909091 H4140 V581.8181818181819 H4095 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -8347,7 +8347,7 @@
   },
   {
     "polygon": "M4140 509.0909090909091 H4185 V581.8181818181819 H4140 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -8362,7 +8362,7 @@
   },
   {
     "polygon": "M4185 509.0909090909091 H4230 V581.8181818181819 H4185 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -8407,7 +8407,7 @@
   },
   {
     "polygon": "M4320 509.0909090909091 H4365 V581.8181818181819 H4320 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -8422,7 +8422,7 @@
   },
   {
     "polygon": "M4365 509.0909090909091 H4410 V581.8181818181819 H4365 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -8557,7 +8557,7 @@
   },
   {
     "polygon": "M270 581.8181818181819 H315 V654.5454545454546 H270 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "grain",
@@ -8586,7 +8586,7 @@
   },
   {
     "polygon": "M585 581.8181818181819 H630 V654.5454545454546 H585 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -8736,7 +8736,7 @@
   },
   {
     "polygon": "M1035 581.8181818181819 H1080 V654.5454545454546 H1035 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -8751,7 +8751,7 @@
   },
   {
     "polygon": "M1260 581.8181818181819 H1305 V654.5454545454546 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -8780,7 +8780,7 @@
   },
   {
     "polygon": "M1350 581.8181818181819 H1395 V654.5454545454546 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -8810,7 +8810,7 @@
   },
   {
     "polygon": "M1440 581.8181818181819 H1485 V654.5454545454546 H1440 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -8870,7 +8870,7 @@
   },
   {
     "polygon": "M2340 581.8181818181819 H2385 V654.5454545454546 H2340 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -9230,7 +9230,7 @@
   },
   {
     "polygon": "M3420 581.8181818181819 H3465 V654.5454545454546 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -9290,7 +9290,7 @@
   },
   {
     "polygon": "M3600 581.8181818181819 H3645 V654.5454545454546 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -9410,7 +9410,7 @@
   },
   {
     "polygon": "M3960 581.8181818181819 H4005 V654.5454545454546 H3960 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -9439,7 +9439,7 @@
   },
   {
     "polygon": "M4230 581.8181818181819 H4275 V654.5454545454546 H4230 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -9454,7 +9454,7 @@
   },
   {
     "polygon": "M4275 581.8181818181819 H4320 V654.5454545454546 H4275 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -9604,7 +9604,7 @@
   },
   {
     "polygon": "M585 654.5454545454546 H630 V727.2727272727274 H585 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -9769,7 +9769,7 @@
   },
   {
     "polygon": "M1080 654.5454545454546 H1125 V727.2727272727274 H1080 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -9784,7 +9784,7 @@
   },
   {
     "polygon": "M1125 654.5454545454546 H1170 V727.2727272727274 H1125 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -9798,7 +9798,7 @@
   },
   {
     "polygon": "M1305 654.5454545454546 H1350 V727.2727272727274 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -9828,7 +9828,7 @@
   },
   {
     "polygon": "M1395 654.5454545454546 H1440 V727.2727272727274 H1395 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -9843,7 +9843,7 @@
   },
   {
     "polygon": "M1440 654.5454545454546 H1485 V727.2727272727274 H1440 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -9872,7 +9872,7 @@
   },
   {
     "polygon": "M2205 654.5454545454546 H2250 V727.2727272727274 H2205 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -9917,7 +9917,7 @@
   },
   {
     "polygon": "M2340 654.5454545454546 H2385 V727.2727272727274 H2340 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -10277,7 +10277,7 @@
   },
   {
     "polygon": "M3420 654.5454545454546 H3465 V727.2727272727274 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -10337,7 +10337,7 @@
   },
   {
     "polygon": "M3600 654.5454545454546 H3645 V727.2727272727274 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -10442,7 +10442,7 @@
   },
   {
     "polygon": "M3915 654.5454545454546 H3960 V727.2727272727274 H3915 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -10457,7 +10457,7 @@
   },
   {
     "polygon": "M4185 654.5454545454546 H4230 V727.2727272727274 H4185 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -10472,7 +10472,7 @@
   },
   {
     "polygon": "M4230 654.5454545454546 H4275 V727.2727272727274 H4230 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -10603,7 +10603,7 @@
   },
   {
     "polygon": "M630 727.2727272727274 H675 V800.0000000000001 H630 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -10618,7 +10618,7 @@
   },
   {
     "polygon": "M675 727.2727272727274 H720 V800.0000000000001 H675 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -10783,7 +10783,7 @@
   },
   {
     "polygon": "M1170 727.2727272727274 H1215 V800.0000000000001 H1170 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -10798,7 +10798,7 @@
   },
   {
     "polygon": "M1215 727.2727272727274 H1260 V800.0000000000001 H1215 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -10813,7 +10813,7 @@
   },
   {
     "polygon": "M1260 727.2727272727274 H1305 V800.0000000000001 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -10888,7 +10888,7 @@
   },
   {
     "polygon": "M1485 727.2727272727274 H1530 V800.0000000000001 H1485 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -10902,7 +10902,7 @@
   },
   {
     "polygon": "M2115 727.2727272727274 H2160 V800.0000000000001 H2115 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -10930,7 +10930,7 @@
   },
   {
     "polygon": "M2205 727.2727272727274 H2250 V800.0000000000001 H2205 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -10960,7 +10960,7 @@
   },
   {
     "polygon": "M2295 727.2727272727274 H2340 V800.0000000000001 H2295 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -11335,7 +11335,7 @@
   },
   {
     "polygon": "M3420 727.2727272727274 H3465 V800.0000000000001 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -11395,7 +11395,7 @@
   },
   {
     "polygon": "M3600 727.2727272727274 H3645 V800.0000000000001 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -11515,7 +11515,7 @@
   },
   {
     "polygon": "M3960 727.2727272727274 H4005 V800.0000000000001 H3960 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -11530,7 +11530,7 @@
   },
   {
     "polygon": "M4005 727.2727272727274 H4050 V800.0000000000001 H4005 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -11544,7 +11544,7 @@
   },
   {
     "polygon": "M4185 727.2727272727274 H4230 V800.0000000000001 H4185 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -11601,7 +11601,7 @@
   },
   {
     "polygon": "M720 800.0000000000001 H765 V872.7272727272729 H720 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -11841,7 +11841,7 @@
   },
   {
     "polygon": "M1440 800.0000000000001 H1485 V872.7272727272729 H1440 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -11871,7 +11871,7 @@
   },
   {
     "polygon": "M1530 800.0000000000001 H1575 V872.7272727272729 H1530 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -11915,7 +11915,7 @@
   },
   {
     "polygon": "M2250 800.0000000000001 H2295 V872.7272727272729 H2250 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -12305,7 +12305,7 @@
   },
   {
     "polygon": "M3420 800.0000000000001 H3465 V872.7272727272729 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -12365,7 +12365,7 @@
   },
   {
     "polygon": "M3600 800.0000000000001 H3645 V872.7272727272729 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -12485,7 +12485,7 @@
   },
   {
     "polygon": "M3960 800.0000000000001 H4005 V872.7272727272729 H3960 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -12500,7 +12500,7 @@
   },
   {
     "polygon": "M4005 800.0000000000001 H4050 V872.7272727272729 H4005 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -12515,7 +12515,7 @@
   },
   {
     "polygon": "M720 872.7272727272727 H765 V945.4545454545455 H720 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -12725,7 +12725,7 @@
   },
   {
     "polygon": "M1350 872.7272727272727 H1395 V945.4545454545455 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -12740,7 +12740,7 @@
   },
   {
     "polygon": "M1395 872.7272727272727 H1440 V945.4545454545455 H1395 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -12755,7 +12755,7 @@
   },
   {
     "polygon": "M1440 872.7272727272727 H1485 V945.4545454545455 H1440 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -12814,7 +12814,7 @@
   },
   {
     "polygon": "M2250 872.7272727272727 H2295 V945.4545454545455 H2250 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -12934,7 +12934,7 @@
   },
   {
     "polygon": "M2610 872.7272727272727 H2655 V945.4545454545455 H2610 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -12949,7 +12949,7 @@
   },
   {
     "polygon": "M2655 872.7272727272727 H2700 V945.4545454545455 H2655 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -12964,7 +12964,7 @@
   },
   {
     "polygon": "M2700 872.7272727272727 H2745 V945.4545454545455 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -13204,7 +13204,7 @@
   },
   {
     "polygon": "M3420 872.7272727272727 H3465 V945.4545454545455 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -13264,7 +13264,7 @@
   },
   {
     "polygon": "M3600 872.7272727272727 H3645 V945.4545454545455 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -13369,7 +13369,7 @@
   },
   {
     "polygon": "M3915 872.7272727272727 H3960 V945.4545454545455 H3915 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -13383,7 +13383,7 @@
   },
   {
     "polygon": "M4005 872.7272727272727 H4050 V945.4545454545455 H4005 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -13398,7 +13398,7 @@
   },
   {
     "polygon": "M675 945.4545454545455 H720 V1018.1818181818182 H675 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -13607,7 +13607,7 @@
   },
   {
     "polygon": "M1305 945.4545454545455 H1350 V1018.1818181818182 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -13651,7 +13651,7 @@
   },
   {
     "polygon": "M2160 945.4545454545455 H2205 V1018.1818181818182 H2160 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -13666,7 +13666,7 @@
   },
   {
     "polygon": "M2205 945.4545454545455 H2250 V1018.1818181818182 H2205 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -13696,7 +13696,7 @@
   },
   {
     "polygon": "M2295 945.4545454545455 H2340 V1018.1818181818182 H2295 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -13786,7 +13786,7 @@
   },
   {
     "polygon": "M2565 945.4545454545455 H2610 V1018.1818181818182 H2565 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -13801,7 +13801,7 @@
   },
   {
     "polygon": "M2745 945.4545454545455 H2790 V1018.1818181818182 H2745 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -14011,7 +14011,7 @@
   },
   {
     "polygon": "M3375 945.4545454545455 H3420 V1018.1818181818182 H3375 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -14026,7 +14026,7 @@
   },
   {
     "polygon": "M3420 945.4545454545455 H3465 V1018.1818181818182 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -14086,7 +14086,7 @@
   },
   {
     "polygon": "M3600 945.4545454545455 H3645 V1018.1818181818182 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -14101,7 +14101,7 @@
   },
   {
     "polygon": "M3645 945.4545454545455 H3690 V1018.1818181818182 H3645 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -14116,7 +14116,7 @@
   },
   {
     "polygon": "M3690 945.4545454545455 H3735 V1018.1818181818182 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -14131,7 +14131,7 @@
   },
   {
     "polygon": "M3735 945.4545454545455 H3780 V1018.1818181818182 H3735 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -14176,7 +14176,7 @@
   },
   {
     "polygon": "M3870 945.4545454545455 H3915 V1018.1818181818182 H3870 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -14190,7 +14190,7 @@
   },
   {
     "polygon": "M4005 945.4545454545455 H4050 V1018.1818181818182 H4005 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -14204,7 +14204,7 @@
   },
   {
     "polygon": "M675 1018.1818181818182 H720 V1090.909090909091 H675 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -14398,7 +14398,7 @@
   },
   {
     "polygon": "M1260 1018.1818181818182 H1305 V1090.909090909091 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -14413,7 +14413,7 @@
   },
   {
     "polygon": "M2160 1018.1818181818182 H2205 V1090.909090909091 H2160 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -14428,7 +14428,7 @@
   },
   {
     "polygon": "M2205 1018.1818181818182 H2250 V1090.909090909091 H2205 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -14443,7 +14443,7 @@
   },
   {
     "polygon": "M2250 1018.1818181818182 H2295 V1090.909090909091 H2250 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -14457,7 +14457,7 @@
   },
   {
     "polygon": "M2340 1018.1818181818182 H2385 V1090.909090909091 H2340 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -14472,7 +14472,7 @@
   },
   {
     "polygon": "M2385 1018.1818181818182 H2430 V1090.909090909091 H2385 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -14547,7 +14547,7 @@
   },
   {
     "polygon": "M2610 1018.1818181818182 H2655 V1090.909090909091 H2610 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -14562,7 +14562,7 @@
   },
   {
     "polygon": "M2655 1018.1818181818182 H2700 V1090.909090909091 H2655 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -14577,7 +14577,7 @@
   },
   {
     "polygon": "M2700 1018.1818181818182 H2745 V1090.909090909091 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -14787,7 +14787,7 @@
   },
   {
     "polygon": "M3330 1018.1818181818182 H3375 V1090.909090909091 H3330 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -14937,7 +14937,7 @@
   },
   {
     "polygon": "M3780 1018.1818181818182 H3825 V1090.909090909091 H3780 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -14952,7 +14952,7 @@
   },
   {
     "polygon": "M3825 1018.1818181818182 H3870 V1090.909090909091 H3825 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -14967,7 +14967,7 @@
   },
   {
     "polygon": "M720 1090.909090909091 H765 V1163.6363636363637 H720 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -15146,7 +15146,7 @@
   },
   {
     "polygon": "M1260 1090.909090909091 H1305 V1163.6363636363637 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -15160,7 +15160,7 @@
   },
   {
     "polygon": "M2160 1090.909090909091 H2205 V1163.6363636363637 H2160 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -15175,7 +15175,7 @@
   },
   {
     "polygon": "M2340 1090.909090909091 H2385 V1163.6363636363637 H2340 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -15189,7 +15189,7 @@
   },
   {
     "polygon": "M2430 1090.909090909091 H2475 V1163.6363636363637 H2430 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -15203,7 +15203,7 @@
   },
   {
     "polygon": "M2475 1090.909090909091 H2520 V1163.6363636363637 H2475 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -15218,7 +15218,7 @@
   },
   {
     "polygon": "M2520 1090.909090909091 H2565 V1163.6363636363637 H2520 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -15233,7 +15233,7 @@
   },
   {
     "polygon": "M2565 1090.909090909091 H2610 V1163.6363636363637 H2565 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -15248,7 +15248,7 @@
   },
   {
     "polygon": "M2610 1090.909090909091 H2655 V1163.6363636363637 H2610 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -15263,7 +15263,7 @@
   },
   {
     "polygon": "M2655 1090.909090909091 H2700 V1163.6363636363637 H2655 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -15458,7 +15458,7 @@
   },
   {
     "polygon": "M3240 1090.909090909091 H3285 V1163.6363636363637 H3240 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -15473,7 +15473,7 @@
   },
   {
     "polygon": "M3285 1090.909090909091 H3330 V1163.6363636363637 H3285 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -15488,7 +15488,7 @@
   },
   {
     "polygon": "M3330 1090.909090909091 H3375 V1163.6363636363637 H3330 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -15563,7 +15563,7 @@
   },
   {
     "polygon": "M3555 1090.909090909091 H3600 V1163.6363636363637 H3555 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -15578,7 +15578,7 @@
   },
   {
     "polygon": "M3600 1090.909090909091 H3645 V1163.6363636363637 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -15593,7 +15593,7 @@
   },
   {
     "polygon": "M3645 1090.909090909091 H3690 V1163.6363636363637 H3645 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -15608,7 +15608,7 @@
   },
   {
     "polygon": "M3690 1090.909090909091 H3735 V1163.6363636363637 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -15623,7 +15623,7 @@
   },
   {
     "polygon": "M3735 1090.909090909091 H3780 V1163.6363636363637 H3735 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -15653,7 +15653,7 @@
   },
   {
     "polygon": "M3825 1090.909090909091 H3870 V1163.6363636363637 H3825 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -15667,7 +15667,7 @@
   },
   {
     "polygon": "M3960 1090.909090909091 H4005 V1163.6363636363637 H3960 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -15681,7 +15681,7 @@
   },
   {
     "polygon": "M765 1163.6363636363637 H810 V1236.3636363636365 H765 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -15695,7 +15695,7 @@
   },
   {
     "polygon": "M810 1163.6363636363637 H855 V1236.3636363636365 H810 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -15830,7 +15830,7 @@
   },
   {
     "polygon": "M1215 1163.6363636363637 H1260 V1236.3636363636365 H1215 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -15844,7 +15844,7 @@
   },
   {
     "polygon": "M2160 1163.6363636363637 H2205 V1236.3636363636365 H2160 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -15859,7 +15859,7 @@
   },
   {
     "polygon": "M2205 1163.6363636363637 H2250 V1236.3636363636365 H2205 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -15874,7 +15874,7 @@
   },
   {
     "polygon": "M2250 1163.6363636363637 H2295 V1236.3636363636365 H2250 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -15889,7 +15889,7 @@
   },
   {
     "polygon": "M2295 1163.6363636363637 H2340 V1236.3636363636365 H2295 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -15904,7 +15904,7 @@
   },
   {
     "polygon": "M2340 1163.6363636363637 H2385 V1236.3636363636365 H2340 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -15919,7 +15919,7 @@
   },
   {
     "polygon": "M2700 1163.6363636363637 H2745 V1236.3636363636365 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -16084,7 +16084,7 @@
   },
   {
     "polygon": "M3195 1163.6363636363637 H3240 V1236.3636363636365 H3195 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -16204,7 +16204,7 @@
   },
   {
     "polygon": "M3555 1163.6363636363637 H3600 V1236.3636363636365 H3555 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -16249,7 +16249,7 @@
   },
   {
     "polygon": "M3690 1163.6363636363637 H3735 V1236.3636363636365 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -16337,7 +16337,7 @@
   },
   {
     "polygon": "M855 1236.3636363636365 H900 V1309.0909090909092 H855 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -16397,7 +16397,7 @@
   },
   {
     "polygon": "M1035 1236.3636363636365 H1080 V1309.0909090909092 H1035 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -16412,7 +16412,7 @@
   },
   {
     "polygon": "M1080 1236.3636363636365 H1125 V1309.0909090909092 H1080 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -16427,7 +16427,7 @@
   },
   {
     "polygon": "M1125 1236.3636363636365 H1170 V1309.0909090909092 H1125 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -16442,7 +16442,7 @@
   },
   {
     "polygon": "M1170 1236.3636363636365 H1215 V1309.0909090909092 H1170 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -16457,7 +16457,7 @@
   },
   {
     "polygon": "M2115 1236.3636363636365 H2160 V1309.0909090909092 H2115 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -16546,7 +16546,7 @@
   },
   {
     "polygon": "M2385 1236.3636363636365 H2430 V1309.0909090909092 H2385 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -16561,7 +16561,7 @@
   },
   {
     "polygon": "M2430 1236.3636363636365 H2475 V1309.0909090909092 H2430 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -16576,7 +16576,7 @@
   },
   {
     "polygon": "M2475 1236.3636363636365 H2520 V1309.0909090909092 H2475 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -16591,7 +16591,7 @@
   },
   {
     "polygon": "M2520 1236.3636363636365 H2565 V1309.0909090909092 H2520 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -16606,7 +16606,7 @@
   },
   {
     "polygon": "M2565 1236.3636363636365 H2610 V1309.0909090909092 H2565 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -16621,7 +16621,7 @@
   },
   {
     "polygon": "M2610 1236.3636363636365 H2655 V1309.0909090909092 H2610 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -16636,7 +16636,7 @@
   },
   {
     "polygon": "M2655 1236.3636363636365 H2700 V1309.0909090909092 H2655 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -16816,7 +16816,7 @@
   },
   {
     "polygon": "M3195 1236.3636363636365 H3240 V1309.0909090909092 H3195 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -16846,7 +16846,7 @@
   },
   {
     "polygon": "M3285 1236.3636363636365 H3330 V1309.0909090909092 H3285 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -16861,7 +16861,7 @@
   },
   {
     "polygon": "M3330 1236.3636363636365 H3375 V1309.0909090909092 H3330 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -16876,7 +16876,7 @@
   },
   {
     "polygon": "M3375 1236.3636363636365 H3420 V1309.0909090909092 H3375 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -16936,7 +16936,7 @@
   },
   {
     "polygon": "M3555 1236.3636363636365 H3600 V1309.0909090909092 H3555 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -16996,7 +16996,7 @@
   },
   {
     "polygon": "M3735 1236.3636363636365 H3780 V1309.0909090909092 H3735 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -17041,7 +17041,7 @@
   },
   {
     "polygon": "M810 1309.0909090909092 H855 V1381.818181818182 H810 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -17055,7 +17055,7 @@
   },
   {
     "polygon": "M855 1309.0909090909092 H900 V1381.818181818182 H855 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -17100,7 +17100,7 @@
   },
   {
     "polygon": "M990 1309.0909090909092 H1035 V1381.818181818182 H990 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -17115,7 +17115,7 @@
   },
   {
     "polygon": "M1215 1309.0909090909092 H1260 V1381.818181818182 H1215 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -17129,7 +17129,7 @@
   },
   {
     "polygon": "M2070 1309.0909090909092 H2115 V1381.818181818182 H2070 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -17398,7 +17398,7 @@
   },
   {
     "polygon": "M2880 1309.0909090909092 H2925 V1381.818181818182 H2880 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -17428,7 +17428,7 @@
   },
   {
     "polygon": "M2970 1309.0909090909092 H3015 V1381.818181818182 H2970 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -17443,7 +17443,7 @@
   },
   {
     "polygon": "M3015 1309.0909090909092 H3060 V1381.818181818182 H3015 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -17458,7 +17458,7 @@
   },
   {
     "polygon": "M3060 1309.0909090909092 H3105 V1381.818181818182 H3060 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -17503,7 +17503,7 @@
   },
   {
     "polygon": "M3195 1309.0909090909092 H3240 V1381.818181818182 H3195 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -17533,7 +17533,7 @@
   },
   {
     "polygon": "M3285 1309.0909090909092 H3330 V1381.818181818182 H3285 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -17563,7 +17563,7 @@
   },
   {
     "polygon": "M3375 1309.0909090909092 H3420 V1381.818181818182 H3375 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -17623,7 +17623,7 @@
   },
   {
     "polygon": "M3555 1309.0909090909092 H3600 V1381.818181818182 H3555 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -17683,7 +17683,7 @@
   },
   {
     "polygon": "M3735 1309.0909090909092 H3780 V1381.818181818182 H3735 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -17741,7 +17741,7 @@
   },
   {
     "polygon": "M900 1381.818181818182 H945 V1454.5454545454547 H900 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -17771,7 +17771,7 @@
   },
   {
     "polygon": "M990 1381.818181818182 H1035 V1454.5454545454547 H990 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -17786,7 +17786,7 @@
   },
   {
     "polygon": "M1215 1381.818181818182 H1260 V1454.5454545454547 H1215 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -17801,7 +17801,7 @@
   },
   {
     "polygon": "M2070 1381.818181818182 H2115 V1454.5454545454547 H2070 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -18011,7 +18011,7 @@
   },
   {
     "polygon": "M2700 1381.818181818182 H2745 V1454.5454545454547 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -18056,7 +18056,7 @@
   },
   {
     "polygon": "M2835 1381.818181818182 H2880 V1454.5454545454547 H2835 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -18071,7 +18071,7 @@
   },
   {
     "polygon": "M2925 1381.818181818182 H2970 V1454.5454545454547 H2925 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -18101,7 +18101,7 @@
   },
   {
     "polygon": "M3105 1381.818181818182 H3150 V1454.5454545454547 H3105 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -18131,7 +18131,7 @@
   },
   {
     "polygon": "M3195 1381.818181818182 H3240 V1454.5454545454547 H3195 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -18161,7 +18161,7 @@
   },
   {
     "polygon": "M3285 1381.818181818182 H3330 V1454.5454545454547 H3285 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -18191,7 +18191,7 @@
   },
   {
     "polygon": "M3375 1381.818181818182 H3420 V1454.5454545454547 H3375 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -18251,7 +18251,7 @@
   },
   {
     "polygon": "M3555 1381.818181818182 H3600 V1454.5454545454547 H3555 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -18281,7 +18281,7 @@
   },
   {
     "polygon": "M3645 1381.818181818182 H3690 V1454.5454545454547 H3645 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -18296,7 +18296,7 @@
   },
   {
     "polygon": "M3690 1381.818181818182 H3735 V1454.5454545454547 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "grain",
@@ -18340,7 +18340,7 @@
   },
   {
     "polygon": "M945 1454.5454545454547 H990 V1527.2727272727275 H945 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -18355,7 +18355,7 @@
   },
   {
     "polygon": "M990 1454.5454545454547 H1035 V1527.2727272727275 H990 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -18370,7 +18370,7 @@
   },
   {
     "polygon": "M1260 1454.5454545454547 H1305 V1527.2727272727275 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -18383,7 +18383,7 @@
   },
   {
     "polygon": "M2025 1454.5454545454547 H2070 V1527.2727272727275 H2025 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -18591,7 +18591,7 @@
   },
   {
     "polygon": "M2655 1454.5454545454547 H2700 V1527.2727272727275 H2655 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -18606,7 +18606,7 @@
   },
   {
     "polygon": "M2745 1454.5454545454547 H2790 V1527.2727272727275 H2745 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -18651,7 +18651,7 @@
   },
   {
     "polygon": "M2880 1454.5454545454547 H2925 V1527.2727272727275 H2880 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -18681,7 +18681,7 @@
   },
   {
     "polygon": "M2970 1454.5454545454547 H3015 V1527.2727272727275 H2970 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -18695,7 +18695,7 @@
   },
   {
     "polygon": "M3105 1454.5454545454547 H3150 V1527.2727272727275 H3105 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -18724,7 +18724,7 @@
   },
   {
     "polygon": "M3195 1454.5454545454547 H3240 V1527.2727272727275 H3195 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -18754,7 +18754,7 @@
   },
   {
     "polygon": "M3285 1454.5454545454547 H3330 V1527.2727272727275 H3285 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -18769,7 +18769,7 @@
   },
   {
     "polygon": "M3330 1454.5454545454547 H3375 V1527.2727272727275 H3330 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -18828,7 +18828,7 @@
   },
   {
     "polygon": "M3555 1454.5454545454547 H3600 V1527.2727272727275 H3555 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -18843,7 +18843,7 @@
   },
   {
     "polygon": "M3600 1454.5454545454547 H3645 V1527.2727272727275 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -18858,7 +18858,7 @@
   },
   {
     "polygon": "M945 1527.2727272727275 H990 V1600.0000000000002 H945 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -18872,7 +18872,7 @@
   },
   {
     "polygon": "M990 1527.2727272727275 H1035 V1600.0000000000002 H990 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -18887,7 +18887,7 @@
   },
   {
     "polygon": "M1035 1527.2727272727275 H1080 V1600.0000000000002 H1035 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -18917,7 +18917,7 @@
   },
   {
     "polygon": "M1305 1527.2727272727275 H1350 V1600.0000000000002 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "gold",
@@ -18931,7 +18931,7 @@
   },
   {
     "polygon": "M1350 1527.2727272727275 H1395 V1600.0000000000002 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -18945,7 +18945,7 @@
   },
   {
     "polygon": "M2070 1527.2727272727275 H2115 V1600.0000000000002 H2070 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -19155,7 +19155,7 @@
   },
   {
     "polygon": "M2700 1527.2727272727275 H2745 V1600.0000000000002 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -19170,7 +19170,7 @@
   },
   {
     "polygon": "M2745 1527.2727272727275 H2790 V1600.0000000000002 H2745 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -19215,7 +19215,7 @@
   },
   {
     "polygon": "M2880 1527.2727272727275 H2925 V1600.0000000000002 H2880 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -19230,7 +19230,7 @@
   },
   {
     "polygon": "M2925 1527.2727272727275 H2970 V1600.0000000000002 H2925 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -19244,7 +19244,7 @@
   },
   {
     "polygon": "M3150 1527.2727272727275 H3195 V1600.0000000000002 H3150 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -19258,7 +19258,7 @@
   },
   {
     "polygon": "M3195 1527.2727272727275 H3240 V1600.0000000000002 H3195 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -19347,7 +19347,7 @@
   },
   {
     "polygon": "M3600 1527.2727272727275 H3645 V1600.0000000000002 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -19361,7 +19361,7 @@
   },
   {
     "polygon": "M1080 1600.0000000000002 H1125 V1672.727272727273 H1080 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -19375,7 +19375,7 @@
   },
   {
     "polygon": "M1125 1600.0000000000002 H1170 V1672.727272727273 H1125 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -19390,7 +19390,7 @@
   },
   {
     "polygon": "M1170 1600.0000000000002 H1215 V1672.727272727273 H1170 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -19404,7 +19404,7 @@
   },
   {
     "polygon": "M2025 1600.0000000000002 H2070 V1672.727272727273 H2025 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -19628,7 +19628,7 @@
   },
   {
     "polygon": "M2700 1600.0000000000002 H2745 V1672.727272727273 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -19643,7 +19643,7 @@
   },
   {
     "polygon": "M2790 1600.0000000000002 H2835 V1672.727272727273 H2790 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -19658,7 +19658,7 @@
   },
   {
     "polygon": "M2835 1600.0000000000002 H2880 V1672.727272727273 H2835 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -19673,7 +19673,7 @@
   },
   {
     "polygon": "M3195 1600.0000000000002 H3240 V1672.727272727273 H3195 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -19733,7 +19733,7 @@
   },
   {
     "polygon": "M3555 1600.0000000000002 H3600 V1672.727272727273 H3555 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -19748,7 +19748,7 @@
   },
   {
     "polygon": "M3735 1600.0000000000002 H3780 V1672.727272727273 H3735 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -19762,7 +19762,7 @@
   },
   {
     "polygon": "M1170 1672.727272727273 H1215 V1745.4545454545457 H1170 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -19776,7 +19776,7 @@
   },
   {
     "polygon": "M2025 1672.727272727273 H2070 V1745.4545454545457 H2025 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -20015,7 +20015,7 @@
   },
   {
     "polygon": "M2745 1672.727272727273 H2790 V1745.4545454545457 H2745 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -20074,7 +20074,7 @@
   },
   {
     "polygon": "M3195 1672.727272727273 H3240 V1745.4545454545457 H3195 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -20134,7 +20134,7 @@
   },
   {
     "polygon": "M3555 1672.727272727273 H3600 V1745.4545454545457 H3555 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -20177,7 +20177,7 @@
   },
   {
     "polygon": "M1305 1745.4545454545455 H1350 V1818.1818181818182 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -20191,7 +20191,7 @@
   },
   {
     "polygon": "M1350 1745.4545454545455 H1395 V1818.1818181818182 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -20206,7 +20206,7 @@
   },
   {
     "polygon": "M1395 1745.4545454545455 H1440 V1818.1818181818182 H1395 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -20221,7 +20221,7 @@
   },
   {
     "polygon": "M1440 1745.4545454545455 H1485 V1818.1818181818182 H1440 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -20236,7 +20236,7 @@
   },
   {
     "polygon": "M2070 1745.4545454545455 H2115 V1818.1818181818182 H2070 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -20295,7 +20295,7 @@
   },
   {
     "polygon": "M2250 1745.4545454545455 H2295 V1818.1818181818182 H2250 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -20475,7 +20475,7 @@
   },
   {
     "polygon": "M2790 1745.4545454545455 H2835 V1818.1818181818182 H2790 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -20490,7 +20490,7 @@
   },
   {
     "polygon": "M2835 1745.4545454545455 H2880 V1818.1818181818182 H2835 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -20520,7 +20520,7 @@
   },
   {
     "polygon": "M3195 1745.4545454545455 H3240 V1818.1818181818182 H3195 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "iron",
@@ -20609,7 +20609,7 @@
   },
   {
     "polygon": "M1260 1818.1818181818182 H1305 V1890.909090909091 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -20684,7 +20684,7 @@
   },
   {
     "polygon": "M1485 1818.1818181818182 H1530 V1890.909090909091 H1485 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -20698,7 +20698,7 @@
   },
   {
     "polygon": "M2115 1818.1818181818182 H2160 V1890.909090909091 H2115 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -20712,7 +20712,7 @@
   },
   {
     "polygon": "M2160 1818.1818181818182 H2205 V1890.909090909091 H2160 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "grain",
@@ -20727,7 +20727,7 @@
   },
   {
     "polygon": "M2205 1818.1818181818182 H2250 V1890.909090909091 H2205 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -20757,7 +20757,7 @@
   },
   {
     "polygon": "M2295 1818.1818181818182 H2340 V1890.909090909091 H2295 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "iron",
@@ -20772,7 +20772,7 @@
   },
   {
     "polygon": "M2340 1818.1818181818182 H2385 V1890.909090909091 H2340 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -20937,7 +20937,7 @@
   },
   {
     "polygon": "M2835 1818.1818181818182 H2880 V1890.909090909091 H2835 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -20981,7 +20981,7 @@
   },
   {
     "polygon": "M3240 1818.1818181818182 H3285 V1890.909090909091 H3240 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -21025,7 +21025,7 @@
   },
   {
     "polygon": "M3690 1818.1818181818182 H3735 V1890.909090909091 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -21069,7 +21069,7 @@
   },
   {
     "polygon": "M1260 1890.909090909091 H1305 V1963.6363636363637 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -21159,7 +21159,7 @@
   },
   {
     "polygon": "M1530 1890.909090909091 H1575 V1963.6363636363637 H1530 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -21174,7 +21174,7 @@
   },
   {
     "polygon": "M1575 1890.909090909091 H1620 V1963.6363636363637 H1575 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -21248,7 +21248,7 @@
   },
   {
     "polygon": "M2385 1890.909090909091 H2430 V1963.6363636363637 H2385 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -21383,7 +21383,7 @@
   },
   {
     "polygon": "M2790 1890.909090909091 H2835 V1963.6363636363637 H2790 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -21412,7 +21412,7 @@
   },
   {
     "polygon": "M3465 1890.909090909091 H3510 V1963.6363636363637 H3465 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -21426,7 +21426,7 @@
   },
   {
     "polygon": "M3510 1890.909090909091 H3555 V1963.6363636363637 H3510 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -21440,7 +21440,7 @@
   },
   {
     "polygon": "M3645 1890.909090909091 H3690 V1963.6363636363637 H3645 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -21454,7 +21454,7 @@
   },
   {
     "polygon": "M3690 1890.909090909091 H3735 V1963.6363636363637 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "stone",
@@ -21514,7 +21514,7 @@
   },
   {
     "polygon": "M1260 1963.6363636363637 H1305 V2036.3636363636365 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -21619,7 +21619,7 @@
   },
   {
     "polygon": "M1575 1963.6363636363637 H1620 V2036.3636363636365 H1575 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -21648,7 +21648,7 @@
   },
   {
     "polygon": "M2385 1963.6363636363637 H2430 V2036.3636363636365 H2385 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -21768,7 +21768,7 @@
   },
   {
     "polygon": "M2745 1963.6363636363637 H2790 V2036.3636363636365 H2745 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -21795,7 +21795,7 @@
   },
   {
     "polygon": "M3510 1963.6363636363637 H3555 V2036.3636363636365 H3510 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -21810,7 +21810,7 @@
   },
   {
     "polygon": "M3600 1963.6363636363637 H3645 V2036.3636363636365 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -21839,7 +21839,7 @@
   },
   {
     "polygon": "M3690 1963.6363636363637 H3735 V2036.3636363636365 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -21884,7 +21884,7 @@
   },
   {
     "polygon": "M3825 1963.6363636363637 H3870 V2036.3636363636365 H3825 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -21899,7 +21899,7 @@
   },
   {
     "polygon": "M1260 2036.3636363636365 H1305 V2109.090909090909 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -22019,7 +22019,7 @@
   },
   {
     "polygon": "M1620 2036.3636363636365 H1665 V2109.090909090909 H1620 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -22034,7 +22034,7 @@
   },
   {
     "polygon": "M1665 2036.3636363636365 H1710 V2109.090909090909 H1665 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -22049,7 +22049,7 @@
   },
   {
     "polygon": "M1710 2036.3636363636365 H1755 V2109.090909090909 H1710 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -22063,7 +22063,7 @@
   },
   {
     "polygon": "M2385 2036.3636363636365 H2430 V2109.090909090909 H2385 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -22168,7 +22168,7 @@
   },
   {
     "polygon": "M2700 2036.3636363636365 H2745 V2109.090909090909 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -22183,7 +22183,7 @@
   },
   {
     "polygon": "M3510 2036.3636363636365 H3555 V2109.090909090909 H3510 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -22212,7 +22212,7 @@
   },
   {
     "polygon": "M3645 2036.3636363636365 H3690 V2109.090909090909 H3645 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -22302,7 +22302,7 @@
   },
   {
     "polygon": "M3960 2036.3636363636365 H4005 V2109.090909090909 H3960 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -22317,7 +22317,7 @@
   },
   {
     "polygon": "M4005 2036.3636363636365 H4050 V2109.090909090909 H4005 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -22362,7 +22362,7 @@
   },
   {
     "polygon": "M1260 2109.0909090909095 H1305 V2181.818181818182 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -22527,7 +22527,7 @@
   },
   {
     "polygon": "M1755 2109.0909090909095 H1800 V2181.818181818182 H1755 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -22541,7 +22541,7 @@
   },
   {
     "polygon": "M2385 2109.0909090909095 H2430 V2181.818181818182 H2385 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -22645,7 +22645,7 @@
   },
   {
     "polygon": "M2700 2109.0909090909095 H2745 V2181.818181818182 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -22660,7 +22660,7 @@
   },
   {
     "polygon": "M3555 2109.0909090909095 H3600 V2181.818181818182 H3555 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "stone",
@@ -22794,7 +22794,7 @@
   },
   {
     "polygon": "M3960 2109.0909090909095 H4005 V2181.818181818182 H3960 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "grain",
@@ -22809,7 +22809,7 @@
   },
   {
     "polygon": "M4005 2109.0909090909095 H4050 V2181.818181818182 H4005 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -22824,7 +22824,7 @@
   },
   {
     "polygon": "M4050 2109.0909090909095 H4095 V2181.818181818182 H4050 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "grain",
@@ -22868,7 +22868,7 @@
   },
   {
     "polygon": "M1260 2181.818181818182 H1305 V2254.5454545454545 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -23032,7 +23032,7 @@
   },
   {
     "polygon": "M1755 2181.818181818182 H1800 V2254.5454545454545 H1755 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -23046,7 +23046,7 @@
   },
   {
     "polygon": "M2430 2181.818181818182 H2475 V2254.5454545454545 H2430 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -23136,7 +23136,7 @@
   },
   {
     "polygon": "M2700 2181.818181818182 H2745 V2254.5454545454545 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -23165,7 +23165,7 @@
   },
   {
     "polygon": "M3780 2181.818181818182 H3825 V2254.5454545454545 H3780 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -23313,7 +23313,7 @@
   },
   {
     "polygon": "M1305 2254.545454545455 H1350 V2327.2727272727275 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -23448,7 +23448,7 @@
   },
   {
     "polygon": "M1710 2254.545454545455 H1755 V2327.2727272727275 H1710 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -23463,7 +23463,7 @@
   },
   {
     "polygon": "M2430 2254.545454545455 H2475 V2327.2727272727275 H2430 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -23553,7 +23553,7 @@
   },
   {
     "polygon": "M2700 2254.545454545455 H2745 V2327.2727272727275 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -23627,7 +23627,7 @@
   },
   {
     "polygon": "M3870 2254.545454545455 H3915 V2327.2727272727275 H3870 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -23642,7 +23642,7 @@
   },
   {
     "polygon": "M3915 2254.545454545455 H3960 V2327.2727272727275 H3915 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "iron",
@@ -23672,7 +23672,7 @@
   },
   {
     "polygon": "M4005 2254.545454545455 H4050 V2327.2727272727275 H4005 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -23687,7 +23687,7 @@
   },
   {
     "polygon": "M1305 2327.2727272727275 H1350 V2400 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -23821,7 +23821,7 @@
   },
   {
     "polygon": "M1710 2327.2727272727275 H1755 V2400 H1710 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -23836,7 +23836,7 @@
   },
   {
     "polygon": "M2385 2327.2727272727275 H2430 V2400 H2385 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -23940,7 +23940,7 @@
   },
   {
     "polygon": "M2700 2327.2727272727275 H2745 V2400 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "stone",
@@ -23985,7 +23985,7 @@
   },
   {
     "polygon": "M2835 2327.2727272727275 H2880 V2400 H2835 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -24000,7 +24000,7 @@
   },
   {
     "polygon": "M3825 2327.2727272727275 H3870 V2400 H3825 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -24030,7 +24030,7 @@
   },
   {
     "polygon": "M3915 2327.2727272727275 H3960 V2400 H3915 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -24060,7 +24060,7 @@
   },
   {
     "polygon": "M4005 2327.2727272727275 H4050 V2400 H4005 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -24075,7 +24075,7 @@
   },
   {
     "polygon": "M1350 2400 H1395 V2472.7272727272725 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -24194,7 +24194,7 @@
   },
   {
     "polygon": "M1710 2400 H1755 V2472.7272727272725 H1710 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -24209,7 +24209,7 @@
   },
   {
     "polygon": "M2385 2400 H2430 V2472.7272727272725 H2385 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -24298,7 +24298,7 @@
   },
   {
     "polygon": "M2655 2400 H2700 V2472.7272727272725 H2655 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -24343,7 +24343,7 @@
   },
   {
     "polygon": "M2790 2400 H2835 V2472.7272727272725 H2790 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -24358,7 +24358,7 @@
   },
   {
     "polygon": "M2835 2400 H2880 V2472.7272727272725 H2835 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -24372,7 +24372,7 @@
   },
   {
     "polygon": "M3780 2400 H3825 V2472.7272727272725 H3780 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -24431,7 +24431,7 @@
   },
   {
     "polygon": "M3960 2400 H4005 V2472.7272727272725 H3960 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -24461,7 +24461,7 @@
   },
   {
     "polygon": "M4050 2400 H4095 V2472.7272727272725 H4050 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "stone",
@@ -24475,7 +24475,7 @@
   },
   {
     "polygon": "M1395 2472.727272727273 H1440 V2545.4545454545455 H1395 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -24565,7 +24565,7 @@
   },
   {
     "polygon": "M1665 2472.727272727273 H1710 V2545.4545454545455 H1665 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -24580,7 +24580,7 @@
   },
   {
     "polygon": "M1710 2472.727272727273 H1755 V2545.4545454545455 H1710 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -24594,7 +24594,7 @@
   },
   {
     "polygon": "M2430 2472.727272727273 H2475 V2545.4545454545455 H2430 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -24669,7 +24669,7 @@
   },
   {
     "polygon": "M2655 2472.727272727273 H2700 V2545.4545454545455 H2655 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "stone",
@@ -24714,7 +24714,7 @@
   },
   {
     "polygon": "M2790 2472.727272727273 H2835 V2545.4545454545455 H2790 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "stone",
@@ -24729,7 +24729,7 @@
   },
   {
     "polygon": "M3690 2472.727272727273 H3735 V2545.4545454545455 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -24743,7 +24743,7 @@
   },
   {
     "polygon": "M3735 2472.727272727273 H3780 V2545.4545454545455 H3735 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -24863,7 +24863,7 @@
   },
   {
     "polygon": "M4095 2472.727272727273 H4140 V2545.4545454545455 H4095 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -24877,7 +24877,7 @@
   },
   {
     "polygon": "M1350 2545.4545454545455 H1395 V2618.181818181818 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -24966,7 +24966,7 @@
   },
   {
     "polygon": "M1620 2545.4545454545455 H1665 V2618.181818181818 H1620 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -24980,7 +24980,7 @@
   },
   {
     "polygon": "M2430 2545.4545454545455 H2475 V2618.181818181818 H2430 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "iron",
@@ -25055,7 +25055,7 @@
   },
   {
     "polygon": "M2655 2545.4545454545455 H2700 V2618.181818181818 H2655 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -25100,7 +25100,7 @@
   },
   {
     "polygon": "M2790 2545.4545454545455 H2835 V2618.181818181818 H2790 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -25114,7 +25114,7 @@
   },
   {
     "polygon": "M3690 2545.4545454545455 H3735 V2618.181818181818 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -25249,7 +25249,7 @@
   },
   {
     "polygon": "M4095 2545.4545454545455 H4140 V2618.181818181818 H4095 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "grain",
@@ -25264,7 +25264,7 @@
   },
   {
     "polygon": "M1350 2618.1818181818185 H1395 V2690.909090909091 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -25339,7 +25339,7 @@
   },
   {
     "polygon": "M1575 2618.1818181818185 H1620 V2690.909090909091 H1575 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -25354,7 +25354,7 @@
   },
   {
     "polygon": "M2430 2618.1818181818185 H2475 V2690.909090909091 H2430 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -25413,7 +25413,7 @@
   },
   {
     "polygon": "M2610 2618.1818181818185 H2655 V2690.909090909091 H2610 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -25427,7 +25427,7 @@
   },
   {
     "polygon": "M3690 2618.1818181818185 H3735 V2690.909090909091 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -25577,7 +25577,7 @@
   },
   {
     "polygon": "M4140 2618.1818181818185 H4185 V2690.909090909091 H4140 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "wood",
@@ -25591,7 +25591,7 @@
   },
   {
     "polygon": "M1350 2690.909090909091 H1395 V2763.6363636363635 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -25666,7 +25666,7 @@
   },
   {
     "polygon": "M1575 2690.909090909091 H1620 V2763.6363636363635 H1575 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -25680,7 +25680,7 @@
   },
   {
     "polygon": "M2475 2690.909090909091 H2520 V2763.6363636363635 H2475 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -25710,7 +25710,7 @@
   },
   {
     "polygon": "M2565 2690.909090909091 H2610 V2763.6363636363635 H2565 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -25724,7 +25724,7 @@
   },
   {
     "polygon": "M3690 2690.909090909091 H3735 V2763.6363636363635 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -25739,7 +25739,7 @@
   },
   {
     "polygon": "M3735 2690.909090909091 H3780 V2763.6363636363635 H3735 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -25754,7 +25754,7 @@
   },
   {
     "polygon": "M3780 2690.909090909091 H3825 V2763.6363636363635 H3780 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -25769,7 +25769,7 @@
   },
   {
     "polygon": "M3825 2690.909090909091 H3870 V2763.6363636363635 H3825 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -25784,7 +25784,7 @@
   },
   {
     "polygon": "M3870 2690.909090909091 H3915 V2763.6363636363635 H3870 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -25799,7 +25799,7 @@
   },
   {
     "polygon": "M3915 2690.909090909091 H3960 V2763.6363636363635 H3915 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -25874,7 +25874,7 @@
   },
   {
     "polygon": "M4140 2690.909090909091 H4185 V2763.6363636363635 H4140 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -25888,7 +25888,7 @@
   },
   {
     "polygon": "M1350 2763.636363636364 H1395 V2836.3636363636365 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -25948,7 +25948,7 @@
   },
   {
     "polygon": "M1530 2763.636363636364 H1575 V2836.3636363636365 H1530 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -25962,7 +25962,7 @@
   },
   {
     "polygon": "M2475 2763.636363636364 H2520 V2836.3636363636365 H2475 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -25977,7 +25977,7 @@
   },
   {
     "polygon": "M2520 2763.636363636364 H2565 V2836.3636363636365 H2520 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -25991,7 +25991,7 @@
   },
   {
     "polygon": "M3690 2763.636363636364 H3735 V2836.3636363636365 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "grain",
@@ -26080,7 +26080,7 @@
   },
   {
     "polygon": "M3960 2763.636363636364 H4005 V2836.3636363636365 H3960 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26125,7 +26125,7 @@
   },
   {
     "polygon": "M4095 2763.636363636364 H4140 V2836.3636363636365 H4095 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -26140,7 +26140,7 @@
   },
   {
     "polygon": "M1350 2836.3636363636365 H1395 V2909.090909090909 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26185,7 +26185,7 @@
   },
   {
     "polygon": "M1485 2836.3636363636365 H1530 V2909.090909090909 H1485 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -26258,7 +26258,7 @@
   },
   {
     "polygon": "M4005 2836.3636363636365 H4050 V2909.090909090909 H4005 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -26273,7 +26273,7 @@
   },
   {
     "polygon": "M4050 2836.3636363636365 H4095 V2909.090909090909 H4050 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26288,7 +26288,7 @@
   },
   {
     "polygon": "M4095 2836.3636363636365 H4140 V2909.090909090909 H4095 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26302,7 +26302,7 @@
   },
   {
     "polygon": "M4410 2836.3636363636365 H4455 V2909.090909090909 H4410 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -26315,7 +26315,7 @@
   },
   {
     "polygon": "M1350 2909.0909090909095 H1395 V2981.818181818182 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -26345,7 +26345,7 @@
   },
   {
     "polygon": "M1440 2909.0909090909095 H1485 V2981.818181818182 H1440 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "gold",
@@ -26403,7 +26403,7 @@
   },
   {
     "polygon": "M1305 2981.818181818182 H1350 V3054.5454545454545 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -26431,7 +26431,7 @@
   },
   {
     "polygon": "M1395 2981.818181818182 H1440 V3054.5454545454545 H1395 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26460,7 +26460,7 @@
   },
   {
     "polygon": "M4365 2981.818181818182 H4410 V3054.5454545454545 H4365 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -26473,7 +26473,7 @@
   },
   {
     "polygon": "M1350 3054.545454545455 H1395 V3127.2727272727275 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26502,7 +26502,7 @@
   },
   {
     "polygon": "M1305 3127.2727272727275 H1350 V3200 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -26516,7 +26516,7 @@
   },
   {
     "polygon": "M1350 3127.2727272727275 H1395 V3200 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26531,7 +26531,7 @@
   },
   {
     "polygon": "M1305 3200.0000000000005 H1350 V3272.727272727273 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -26545,7 +26545,7 @@
   },
   {
     "polygon": "M1350 3200.0000000000005 H1395 V3272.727272727273 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "gold",
@@ -26573,7 +26573,7 @@
   },
   {
     "polygon": "M1440 3490.909090909091 H1485 V3563.6363636363635 H1440 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26688,7 +26688,7 @@
   },
   {
     "polygon": "M1395 3563.636363636364 H1440 V3636.3636363636365 H1395 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -26701,7 +26701,7 @@
   },
   {
     "polygon": "M2790 3563.636363636364 H2835 V3636.3636363636365 H2790 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -26715,7 +26715,7 @@
   },
   {
     "polygon": "M2835 3563.636363636364 H2880 V3636.3636363636365 H2835 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "wood",
@@ -26730,7 +26730,7 @@
   },
   {
     "polygon": "M2880 3563.636363636364 H2925 V3636.3636363636365 H2880 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -26745,7 +26745,7 @@
   },
   {
     "polygon": "M2925 3563.636363636364 H2970 V3636.3636363636365 H2925 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26760,7 +26760,7 @@
   },
   {
     "polygon": "M2970 3563.636363636364 H3015 V3636.3636363636365 H2970 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "wood",
@@ -26775,7 +26775,7 @@
   },
   {
     "polygon": "M3015 3563.636363636364 H3060 V3636.3636363636365 H3015 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -26790,7 +26790,7 @@
   },
   {
     "polygon": "M3060 3563.636363636364 H3105 V3636.3636363636365 H3060 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -26834,7 +26834,7 @@
   },
   {
     "polygon": "M3240 3563.636363636364 H3285 V3636.3636363636365 H3240 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26848,7 +26848,7 @@
   },
   {
     "polygon": "M3285 3563.636363636364 H3330 V3636.3636363636365 H3285 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -26863,7 +26863,7 @@
   },
   {
     "polygon": "M3330 3563.636363636364 H3375 V3636.3636363636365 H3330 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26878,7 +26878,7 @@
   },
   {
     "polygon": "M3375 3563.636363636364 H3420 V3636.3636363636365 H3375 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -26893,7 +26893,7 @@
   },
   {
     "polygon": "M3420 3563.636363636364 H3465 V3636.3636363636365 H3420 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -26908,7 +26908,7 @@
   },
   {
     "polygon": "M3465 3563.636363636364 H3510 V3636.3636363636365 H3465 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -26923,7 +26923,7 @@
   },
   {
     "polygon": "M3510 3563.636363636364 H3555 V3636.3636363636365 H3510 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -26938,7 +26938,7 @@
   },
   {
     "polygon": "M3555 3563.636363636364 H3600 V3636.3636363636365 H3555 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26953,7 +26953,7 @@
   },
   {
     "polygon": "M3600 3563.636363636364 H3645 V3636.3636363636365 H3600 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -26968,7 +26968,7 @@
   },
   {
     "polygon": "M3645 3563.636363636364 H3690 V3636.3636363636365 H3645 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "iron",
@@ -26983,7 +26983,7 @@
   },
   {
     "polygon": "M3690 3563.636363636364 H3735 V3636.3636363636365 H3690 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -26998,7 +26998,7 @@
   },
   {
     "polygon": "M3735 3563.636363636364 H3780 V3636.3636363636365 H3735 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -27013,7 +27013,7 @@
   },
   {
     "polygon": "M3780 3563.636363636364 H3825 V3636.3636363636365 H3780 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "iron",
@@ -27028,7 +27028,7 @@
   },
   {
     "polygon": "M3825 3563.636363636364 H3870 V3636.3636363636365 H3825 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "wood",
@@ -27043,7 +27043,7 @@
   },
   {
     "polygon": "M3870 3563.636363636364 H3915 V3636.3636363636365 H3870 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "gold",
@@ -27058,7 +27058,7 @@
   },
   {
     "polygon": "M3915 3563.636363636364 H3960 V3636.3636363636365 H3915 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -27073,7 +27073,7 @@
   },
   {
     "polygon": "M3960 3563.636363636364 H4005 V3636.3636363636365 H3960 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -27088,7 +27088,7 @@
   },
   {
     "polygon": "M4005 3563.636363636364 H4050 V3636.3636363636365 H4005 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -27103,7 +27103,7 @@
   },
   {
     "polygon": "M4050 3563.636363636364 H4095 V3636.3636363636365 H4050 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "iron",
@@ -27176,7 +27176,7 @@
   },
   {
     "polygon": "M1350 3636.3636363636365 H1395 V3709.090909090909 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -27206,7 +27206,7 @@
   },
   {
     "polygon": "M1440 3636.3636363636365 H1485 V3709.090909090909 H1440 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -27220,7 +27220,7 @@
   },
   {
     "polygon": "M2250 3636.3636363636365 H2295 V3709.090909090909 H2250 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -27234,7 +27234,7 @@
   },
   {
     "polygon": "M2295 3636.3636363636365 H2340 V3709.090909090909 H2295 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -27249,7 +27249,7 @@
   },
   {
     "polygon": "M2340 3636.3636363636365 H2385 V3709.090909090909 H2340 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -27264,7 +27264,7 @@
   },
   {
     "polygon": "M2385 3636.3636363636365 H2430 V3709.090909090909 H2385 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -27279,7 +27279,7 @@
   },
   {
     "polygon": "M2430 3636.3636363636365 H2475 V3709.090909090909 H2430 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -27294,7 +27294,7 @@
   },
   {
     "polygon": "M2475 3636.3636363636365 H2520 V3709.090909090909 H2475 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -27309,7 +27309,7 @@
   },
   {
     "polygon": "M2520 3636.3636363636365 H2565 V3709.090909090909 H2520 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -27324,7 +27324,7 @@
   },
   {
     "polygon": "M2565 3636.3636363636365 H2610 V3709.090909090909 H2565 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -27339,7 +27339,7 @@
   },
   {
     "polygon": "M2610 3636.3636363636365 H2655 V3709.090909090909 H2610 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -27354,7 +27354,7 @@
   },
   {
     "polygon": "M2655 3636.3636363636365 H2700 V3709.090909090909 H2655 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -27369,7 +27369,7 @@
   },
   {
     "polygon": "M2700 3636.3636363636365 H2745 V3709.090909090909 H2700 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -27384,7 +27384,7 @@
   },
   {
     "polygon": "M2745 3636.3636363636365 H2790 V3709.090909090909 H2745 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -27489,7 +27489,7 @@
   },
   {
     "polygon": "M3060 3636.3636363636365 H3105 V3709.090909090909 H3060 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -27519,7 +27519,7 @@
   },
   {
     "polygon": "M3150 3636.3636363636365 H3195 V3709.090909090909 H3150 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "stone",
@@ -27534,7 +27534,7 @@
   },
   {
     "polygon": "M3195 3636.3636363636365 H3240 V3709.090909090909 H3195 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "mountain",
     "local_troops": 0,
     "resource_type": "stone",
@@ -27834,7 +27834,7 @@
   },
   {
     "polygon": "M4095 3636.3636363636365 H4140 V3709.090909090909 H4095 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "grain",
@@ -27849,7 +27849,7 @@
   },
   {
     "polygon": "M4140 3636.3636363636365 H4185 V3709.090909090909 H4140 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -27864,7 +27864,7 @@
   },
   {
     "polygon": "M4185 3636.3636363636365 H4230 V3709.090909090909 H4185 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -27879,7 +27879,7 @@
   },
   {
     "polygon": "M4230 3636.3636363636365 H4275 V3709.090909090909 H4230 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "gold",
@@ -27894,7 +27894,7 @@
   },
   {
     "polygon": "M4275 3636.3636363636365 H4320 V3709.090909090909 H4275 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "stone",
@@ -27909,7 +27909,7 @@
   },
   {
     "polygon": "M4320 3636.3636363636365 H4365 V3709.090909090909 H4320 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "gold",
@@ -27953,7 +27953,7 @@
   },
   {
     "polygon": "M675 3709.0909090909095 H720 V3781.818181818182 H675 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "gold",
@@ -28028,7 +28028,7 @@
   },
   {
     "polygon": "M990 3709.0909090909095 H1035 V3781.818181818182 H990 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -28043,7 +28043,7 @@
   },
   {
     "polygon": "M1035 3709.0909090909095 H1080 V3781.818181818182 H1035 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -28058,7 +28058,7 @@
   },
   {
     "polygon": "M1080 3709.0909090909095 H1125 V3781.818181818182 H1080 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -28073,7 +28073,7 @@
   },
   {
     "polygon": "M1125 3709.0909090909095 H1170 V3781.818181818182 H1125 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -28088,7 +28088,7 @@
   },
   {
     "polygon": "M1170 3709.0909090909095 H1215 V3781.818181818182 H1170 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "grain",
@@ -28103,7 +28103,7 @@
   },
   {
     "polygon": "M1215 3709.0909090909095 H1260 V3781.818181818182 H1215 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -28118,7 +28118,7 @@
   },
   {
     "polygon": "M1260 3709.0909090909095 H1305 V3781.818181818182 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -28133,7 +28133,7 @@
   },
   {
     "polygon": "M1305 3709.0909090909095 H1350 V3781.818181818182 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -28148,7 +28148,7 @@
   },
   {
     "polygon": "M1350 3709.0909090909095 H1395 V3781.818181818182 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -28163,7 +28163,7 @@
   },
   {
     "polygon": "M1395 3709.0909090909095 H1440 V3781.818181818182 H1395 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "gold",
@@ -28178,7 +28178,7 @@
   },
   {
     "polygon": "M1440 3709.0909090909095 H1485 V3781.818181818182 H1440 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -28192,7 +28192,7 @@
   },
   {
     "polygon": "M2070 3709.0909090909095 H2115 V3781.818181818182 H2070 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "hills",
     "local_troops": 0,
     "resource_type": "gold",
@@ -28207,7 +28207,7 @@
   },
   {
     "polygon": "M2115 3709.0909090909095 H2160 V3781.818181818182 H2115 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -28222,7 +28222,7 @@
   },
   {
     "polygon": "M2160 3709.0909090909095 H2205 V3781.818181818182 H2160 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -28237,7 +28237,7 @@
   },
   {
     "polygon": "M2205 3709.0909090909095 H2250 V3781.818181818182 H2205 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -28537,7 +28537,7 @@
   },
   {
     "polygon": "M3105 3709.0909090909095 H3150 V3781.818181818182 H3105 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -28927,7 +28927,7 @@
   },
   {
     "polygon": "M4275 3709.0909090909095 H4320 V3781.818181818182 H4275 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -28957,7 +28957,7 @@
   },
   {
     "polygon": "M270 3781.818181818182 H315 V3854.5454545454545 H270 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "stone",
@@ -28999,7 +28999,7 @@
   },
   {
     "polygon": "M405 3781.818181818182 H450 V3854.5454545454545 H405 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -29014,7 +29014,7 @@
   },
   {
     "polygon": "M450 3781.818181818182 H495 V3854.5454545454545 H450 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "iron",
@@ -29029,7 +29029,7 @@
   },
   {
     "polygon": "M495 3781.818181818182 H540 V3854.5454545454545 H495 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "iron",
@@ -29044,7 +29044,7 @@
   },
   {
     "polygon": "M540 3781.818181818182 H585 V3854.5454545454545 H540 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -29059,7 +29059,7 @@
   },
   {
     "polygon": "M585 3781.818181818182 H630 V3854.5454545454545 H585 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "stone",
@@ -29074,7 +29074,7 @@
   },
   {
     "polygon": "M630 3781.818181818182 H675 V3854.5454545454545 H630 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "grain",
@@ -29104,7 +29104,7 @@
   },
   {
     "polygon": "M720 3781.818181818182 H765 V3854.5454545454545 H720 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -29119,7 +29119,7 @@
   },
   {
     "polygon": "M765 3781.818181818182 H810 V3854.5454545454545 H765 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -29134,7 +29134,7 @@
   },
   {
     "polygon": "M810 3781.818181818182 H855 V3854.5454545454545 H810 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -29149,7 +29149,7 @@
   },
   {
     "polygon": "M855 3781.818181818182 H900 V3854.5454545454545 H855 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "gold",
@@ -29164,7 +29164,7 @@
   },
   {
     "polygon": "M900 3781.818181818182 H945 V3854.5454545454545 H900 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -29179,7 +29179,7 @@
   },
   {
     "polygon": "M945 3781.818181818182 H990 V3854.5454545454545 H945 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "iron",
@@ -29284,7 +29284,7 @@
   },
   {
     "polygon": "M1260 3781.818181818182 H1305 V3854.5454545454545 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -29299,7 +29299,7 @@
   },
   {
     "polygon": "M1845 3781.818181818182 H1890 V3854.5454545454545 H1845 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "wood",
@@ -29313,7 +29313,7 @@
   },
   {
     "polygon": "M1890 3781.818181818182 H1935 V3854.5454545454545 H1890 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -29328,7 +29328,7 @@
   },
   {
     "polygon": "M1935 3781.818181818182 H1980 V3854.5454545454545 H1935 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "wood",
@@ -29343,7 +29343,7 @@
   },
   {
     "polygon": "M1980 3781.818181818182 H2025 V3854.5454545454545 H1980 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "gold",
@@ -29358,7 +29358,7 @@
   },
   {
     "polygon": "M2025 3781.818181818182 H2070 V3854.5454545454545 H2025 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "iron",
@@ -30093,7 +30093,7 @@
   },
   {
     "polygon": "M4230 3781.818181818182 H4275 V3854.5454545454545 H4230 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -30137,7 +30137,7 @@
   },
   {
     "polygon": "M360 3854.545454545455 H405 V3927.2727272727275 H360 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "wood",
@@ -30437,7 +30437,7 @@
   },
   {
     "polygon": "M1260 3854.545454545455 H1305 V3927.2727272727275 H1260 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -30452,7 +30452,7 @@
   },
   {
     "polygon": "M1575 3854.545454545455 H1620 V3927.2727272727275 H1575 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "grain",
@@ -30466,7 +30466,7 @@
   },
   {
     "polygon": "M1620 3854.545454545455 H1665 V3927.2727272727275 H1620 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "iron",
@@ -30480,7 +30480,7 @@
   },
   {
     "polygon": "M1845 3854.545454545455 H1890 V3927.2727272727275 H1845 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -31260,7 +31260,7 @@
   },
   {
     "polygon": "M4185 3854.545454545455 H4230 V3927.2727272727275 H4185 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -31275,7 +31275,7 @@
   },
   {
     "polygon": "M135 3927.2727272727275 H180 V4000 H135 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -31288,7 +31288,7 @@
   },
   {
     "polygon": "M180 3927.2727272727275 H225 V4000 H180 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -31301,7 +31301,7 @@
   },
   {
     "polygon": "M270 3927.2727272727275 H315 V4000 H270 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -31314,7 +31314,7 @@
   },
   {
     "polygon": "M315 3927.2727272727275 H360 V4000 H315 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -31622,7 +31622,7 @@
   },
   {
     "polygon": "M1305 3927.2727272727275 H1350 V4000 H1305 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "stone",
@@ -31636,7 +31636,7 @@
   },
   {
     "polygon": "M1350 3927.2727272727275 H1395 V4000 H1350 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "desert",
     "local_troops": 0,
     "resource_type": "grain",
@@ -31650,7 +31650,7 @@
   },
   {
     "polygon": "M1395 3927.2727272727275 H1440 V4000 H1395 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "gold",
@@ -31664,7 +31664,7 @@
   },
   {
     "polygon": "M1440 3927.2727272727275 H1485 V4000 H1440 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "iron",
@@ -31678,7 +31678,7 @@
   },
   {
     "polygon": "M1485 3927.2727272727275 H1530 V4000 H1485 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -31692,7 +31692,7 @@
   },
   {
     "polygon": "M1530 3927.2727272727275 H1575 V4000 H1530 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "stone",
@@ -31734,7 +31734,7 @@
   },
   {
     "polygon": "M1665 3927.2727272727275 H1710 V4000 H1665 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "iron",
@@ -31748,7 +31748,7 @@
   },
   {
     "polygon": "M1710 3927.2727272727275 H1755 V4000 H1710 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -31762,7 +31762,7 @@
   },
   {
     "polygon": "M1755 3927.2727272727275 H1800 V4000 H1755 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "wood",
@@ -31776,7 +31776,7 @@
   },
   {
     "polygon": "M1800 3927.2727272727275 H1845 V4000 H1800 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "forest",
     "local_troops": 0,
     "resource_type": "stone",
@@ -32532,7 +32532,7 @@
   },
   {
     "polygon": "M4230 3927.2727272727275 H4275 V4000 H4230 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "iron",
@@ -32546,7 +32546,7 @@
   },
   {
     "polygon": "M4275 3927.2727272727275 H4320 V4000 H4275 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "swamp",
     "local_troops": 0,
     "resource_type": "grain",
@@ -32560,7 +32560,7 @@
   },
   {
     "polygon": "M4320 3927.2727272727275 H4365 V4000 H4320 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
@@ -32574,7 +32574,7 @@
   },
   {
     "polygon": "M4365 3927.2727272727275 H4410 V4000 H4365 Z",
-    "type": "coastal",
+    "type": "land",
     "landscape": "plains",
     "local_troops": 0,
     "resource_type": "grain",
