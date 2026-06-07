@@ -5,6 +5,7 @@ import { Province } from './entities/province.entity';
 import { ProvincesUpdateBodyRequest } from './requests/provinces-update-body.request';
 import { User } from "../users/entities/user.entity";
 import { Building } from '../buildings/entities/building.entity';
+import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { AuthTokenType } from "../auth/types/auth.types";
 import { ActionsService } from '../actions/actions.service';
 import { UsersService } from '../users/users.service';
@@ -26,7 +27,7 @@ export class ProvincesService {
 
   async getAll(userId: string) {
     const provinces = await this.provinceRepository.find({
-      relations: ['buildings']
+      relations: ['provinceBuildings', 'provinceBuildings.building']
     });
 
     const reservedByFromProvince =
@@ -74,7 +75,8 @@ export class ProvincesService {
       this.provinceRepository
         .createQueryBuilder('p')
         .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.resource_type'])
-        .leftJoinAndSelect('p.buildings', 'building')
+        .leftJoinAndSelect('p.provinceBuildings', 'pb')
+        .leftJoinAndSelect('pb.building', 'building')
         .getMany(),
       this.userRepository.findOne({ where: { id: userId } }),
       this.actionsService.getReservedTroopMovesByFromProvince(userId),
@@ -116,7 +118,7 @@ export class ProvincesService {
   async setupStart(id: string, user: AuthTokenType) {
     const province = await this.provinceRepository.findOne({
       where: { id },
-      relations: ['buildings']
+      relations: ['provinceBuildings', 'provinceBuildings.building']
     });
 
     const foundUser = await this.userRepository.findOne({ where: { id: user.id } });
@@ -137,13 +139,13 @@ export class ProvincesService {
       throw new Error(`You cant start on water province!`);
     }
 
-    // Example: Add a building by id to the province
+    // Add CAPITAL building to the province
     const building = await this.buildingRepository.findOne({ where: { type: BuildingTypes.CAPITAL } });
     if (building) {
-      if (!province.buildings) {
-        province.buildings = [];
-      }
-      province.buildings.push(building);
+      const pb = new ProvinceBuilding();
+      pb.province_id = province.id;
+      pb.building_id = building.id;
+      await this.provinceRepository.manager.save(ProvinceBuilding, pb);
     }
 
     const updatedProvince = {

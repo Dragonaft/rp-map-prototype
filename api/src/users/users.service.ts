@@ -61,7 +61,7 @@ export class UsersService {
   private async findOneEntity(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({
       where: { id },
-      relations: ['provinces', 'provinces.buildings'],
+      relations: ['provinces', 'provinces.provinceBuildings', 'provinces.provinceBuildings.building'],
     });
 
     if (!user) {

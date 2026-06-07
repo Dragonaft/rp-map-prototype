@@ -20,7 +20,7 @@ export class UserStateLoaderService {
     const userIds = users.map((u) => u.id);
     const ownedProvinces = await manager.find(Province, {
       where: { user_id: In(userIds) },
-      relations: ['buildings'],
+      relations: ['provinceBuildings', 'provinceBuildings.building'],
     });
 
     const provincesByUser = new Map<string, Province[]>();

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { BuildingTypes } from '../buildings/types/building.types';
 import { Building } from '../buildings/entities/building.entity';
+import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { Province } from '../provinces/entities/province.entity';
 import { User } from '../users/entities/user.entity';
 import { ActionQueue, ActionType } from './entities/action-queue.entity';
@@ -54,7 +55,7 @@ export class BuildActionHandler implements ActionHandler {
     await this.provinceRepo.manager.transaction(async (manager) => {
       const province = await manager.findOne(Province, {
         where: { id: provinceId },
-        relations: ['buildings'],
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -140,7 +141,7 @@ export class BuildActionHandler implements ActionHandler {
         // Count user's available resource (derived from buildings across all provinces)
         const userProvinces = await manager.find(Province, {
           where: { user_id: action.userId },
-          relations: ['buildings'],
+          relations: ['provinceBuildings', 'provinceBuildings.building'],
         });
 
         // Maybe refactor in future and move resource types into separate table
@@ -171,11 +172,10 @@ export class BuildActionHandler implements ActionHandler {
       user.money = currentMoney - cost;
       await manager.save(User, user);
 
-      await manager
-        .createQueryBuilder()
-        .relation(Province, 'buildings')
-        .of(provinceId)
-        .add(buildingId);
+      await manager.save(ProvinceBuilding, manager.create(ProvinceBuilding, {
+        province_id: provinceId,
+        building_id: buildingId,
+      }));
     });
   }
 }
@@ -226,7 +226,7 @@ export class InvadeActionHandler implements ActionHandler {
 
       const toProvince = await manager.findOne(Province, {
         where: { id: toId },
-        relations: ['buildings'],
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -377,7 +377,7 @@ export class RemoveActionHandler implements ActionHandler {
     await this.provinceRepo.manager.transaction(async (manager) => {
       const province = await manager.findOne(Province, {
         where: { id: provinceId },
-        relations: ['buildings'],
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -415,11 +415,10 @@ export class RemoveActionHandler implements ActionHandler {
       user.money = currentMoney - REMOVE_COST;
       await manager.save(User, user);
 
-      await manager
-        .createQueryBuilder()
-        .relation(Province, 'buildings')
-        .of(provinceId)
-        .remove(buildingId);
+      const pb = province.provinceBuildings?.find((pb) => pb.building_id === buildingId);
+      if (pb) {
+        await manager.remove(ProvinceBuilding, pb);
+      }
     });
   }
 }
@@ -448,7 +447,7 @@ export class UpgradeActionHandler implements ActionHandler {
     await this.provinceRepo.manager.transaction(async (manager) => {
       const province = await manager.findOne(Province, {
         where: { id: provinceId },
-        relations: ['buildings'],
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -521,17 +520,17 @@ export class UpgradeActionHandler implements ActionHandler {
       user.money = currentMoney - cost;
       await manager.save(User, user);
 
-      await manager
-        .createQueryBuilder()
-        .relation(Province, 'buildings')
-        .of(provinceId)
-        .remove(buildingId);
+      // Remove old building instance
+      const pb = province.provinceBuildings?.find((pb) => pb.building_id === buildingId);
+      if (pb) {
+        await manager.remove(ProvinceBuilding, pb);
+      }
 
-      await manager
-        .createQueryBuilder()
-        .relation(Province, 'buildings')
-        .of(provinceId)
-        .add(upgradeBuilding.id);
+      // Add upgraded building
+      await manager.save(ProvinceBuilding, manager.create(ProvinceBuilding, {
+        province_id: provinceId,
+        building_id: upgradeBuilding.id,
+      }));
     });
   }
 }
@@ -686,7 +685,8 @@ const executeRecruitment = async (
     if (troopType.building_requirement) {
       const buildingInProvince = await manager
         .createQueryBuilder(Province, 'p')
-        .innerJoin('p.buildings', 'b', 'b.type = :btype', { btype: troopType.building_requirement })
+        .innerJoin('p.provinceBuildings', 'pb')
+        .innerJoin('pb.building', 'b', 'b.type = :btype', { btype: troopType.building_requirement })
         .where('p.user_id = :uid', { uid: userId })
         .getOne();
       if (!buildingInProvince) {
@@ -778,7 +778,7 @@ const isReachableByRoad = async (
 
         const neighbor = await manager.findOne(Province, {
           where: { id: neighborId },
-          relations: ['buildings'],
+          relations: ['provinceBuildings', 'provinceBuildings.building'],
         });
         if (!neighbor || !hasRoadBuilding(neighbor) || neighbor.user_id !== userId) continue;
 
@@ -921,7 +921,7 @@ export class ArmyMoveHandler implements ActionHandler {
 
       const fromProvince = await manager.findOne(Province, {
         where: { id: army.province_id },
-        relations: ['buildings'],
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
       });
       if (!fromProvince) throw new Error('Source province not found');
 
@@ -945,7 +945,7 @@ export class ArmyMoveHandler implements ActionHandler {
 
       const toProvince = await manager.findOne(Province, {
         where: { id: toProvinceId },
-        relations: ['buildings'],
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!toProvince) throw new Error('Target province not found');

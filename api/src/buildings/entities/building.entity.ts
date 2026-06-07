@@ -2,10 +2,8 @@ import {
   BaseEntity,
   Column,
   Entity,
-  ManyToMany,
   PrimaryColumn,
 } from 'typeorm';
-import { Province } from '../../provinces/entities/province.entity';
 import { BuildingTypes } from "../types/building.types";
 import { Expose } from "class-transformer";
 
@@ -69,6 +67,4 @@ export class Building extends BaseEntity {
   @Expose({ name: 'requirementResourceAmount' })
   public requirement_resource_amount: number | null;
 
-  @ManyToMany(() => Province, (province) => province.buildings)
-  public provinces: Province[];
 }

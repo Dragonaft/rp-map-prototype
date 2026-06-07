@@ -346,7 +346,7 @@ export class ActionSchedulerService {
 
         const province = await this.dataSource.getRepository(Province).findOne({
           where: { id: provinceId },
-          relations: ['buildings'],
+          relations: ['provinceBuildings', 'provinceBuildings.building'],
         });
         if (!province || province.type === 'water') continue;
 
