@@ -22,22 +22,8 @@ import {
   computeBuildModifier,
 } from './combat-calculator';
 
-const NO_BUILD_TYPES = new Set<string>([
-  BuildingTypes.CAPITOL,
-  BuildingTypes.CAPITAL,
-]);
-
-/** Buildings that can only be placed on provinces whose resource_type is in the allowed list. */
-const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> = {
-  [BuildingTypes.MINE]:     ['iron', 'gold', 'stone'],
-  [BuildingTypes.FORESTRY]: ['wood'],
-  [BuildingTypes.FARM]:     ['grain'],
-};
-
-// TODO: Make these values dynamic
 /** Server-side money cost per troop when moving troops from the global pool into a province. Maybe transfer to env or db */
 const DEPLOY_MONEY_PER_TROOP = 1;
-const UNIQUE_PER_PROVINCE: string[] = [BuildingTypes.MINE, BuildingTypes.FORESTRY, BuildingTypes.FORT];
 const REMOVE_COST = 100;
 
 export interface ActionHandler {
@@ -89,8 +75,14 @@ export class BuildActionHandler implements ActionHandler {
         throw new Error('Building not found');
       }
 
-      if (NO_BUILD_TYPES.has(buildingTemplate.type)) {
-        throw new Error('Building is not allowed to build');
+      if (!buildingTemplate.buildable) {
+        throw new Error('This building cannot be constructed');
+      }
+
+      if (buildingTemplate.requirement_building) {
+        throw new Error(
+          `${buildingTemplate.name} requires ${buildingTemplate.requirement_building} and must be obtained through upgrading, not direct construction`,
+        );
       }
 
       const user = await manager.findOne(User, {
@@ -124,7 +116,7 @@ export class BuildActionHandler implements ActionHandler {
         throw new Error(`Building cap reached for this province (max ${buildingCap})`);
       }
 
-      if (UNIQUE_PER_PROVINCE.includes(buildingTemplate.type)) {
+      if (buildingTemplate.unique_per_province) {
         const alreadyHasType = province.buildings?.some(
           (b) => b.type === buildingTemplate.type,
         );
@@ -133,11 +125,47 @@ export class BuildActionHandler implements ActionHandler {
         }
       }
 
-      const allowedResources = RESOURCE_BUILDING_REQUIREMENTS[buildingTemplate.type];
-      if (allowedResources && !allowedResources.includes(province.resource_type)) {
+      const allowedResources = buildingTemplate.allowed_province_resources;
+      if (allowedResources?.length && !allowedResources.includes(province.resource_type)) {
         throw new Error(
           `${buildingTemplate.name} can only be built on provinces with resource type: ${allowedResources.join(', ')} (this province: ${province.resource_type ?? 'none'})`,
         );
+      }
+
+      // Check user resource cost
+      if (buildingTemplate.requirement_resource) {
+        const resourceType = buildingTemplate.requirement_resource;
+        const requiredAmount = buildingTemplate.requirement_resource_amount ?? 1;
+
+        // Count user's available resource (derived from buildings across all provinces)
+        const userProvinces = await manager.find(Province, {
+          where: { user_id: action.userId },
+          relations: ['buildings'],
+        });
+
+        // Maybe refactor in future and move resource types into separate table
+        let resourceCount = 0;
+        let resourceUsed = 0;
+        for (const p of userProvinces) {
+          for (const b of p.buildings ?? []) {
+            // Resource-producing buildings: MINE on matching province, FORESTRY on wood
+            if (b.type === BuildingTypes.MINE && p.resource_type === resourceType) {
+              resourceCount++;
+            } else if (b.type === BuildingTypes.FORESTRY && resourceType === 'wood') {
+              resourceCount++;
+            }
+            // Count how many buildings already consume this resource
+            if (b.requirement_resource === resourceType) {
+              resourceUsed += b.requirement_resource_amount ?? 1;
+            }
+          }
+        }
+
+        if ((resourceCount - resourceUsed) < requiredAmount) {
+          throw new Error(
+            `Not enough ${resourceType} resource: have ${resourceCount}, already using ${resourceUsed}, need ${requiredAmount} more`,
+          );
+        }
       }
 
       user.money = currentMoney - cost;
@@ -361,9 +389,13 @@ export class RemoveActionHandler implements ActionHandler {
         throw new Error('User does not own this province');
       }
 
-      const buildingExists = province.buildings?.some((b) => b.id === buildingId);
-      if (!buildingExists) {
+      const building = province.buildings?.find((b) => b.id === buildingId);
+      if (!building) {
         throw new Error('Building not found in this province');
+      }
+
+      if (!building.destructible) {
+        throw new Error('This building cannot be removed');
       }
 
       const user = await manager.findOne(User, {
@@ -466,8 +498,8 @@ export class UpgradeActionHandler implements ActionHandler {
         throw new Error('User not found');
       }
 
-      const allowedResources = RESOURCE_BUILDING_REQUIREMENTS[upgradeBuilding.type];
-      if (allowedResources && !allowedResources.includes(province.resource_type)) {
+      const allowedResources = upgradeBuilding.allowed_province_resources;
+      if (allowedResources?.length && !allowedResources.includes(province.resource_type)) {
         throw new Error(
           `${upgradeBuilding.name} can only be built on provinces with resource type: ${allowedResources.join(', ')} (this province: ${province.resource_type ?? 'none'})`,
         );

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Tooltip } from '@mui/material';
-import { Building, BUILDING_RESOURCE_COSTS, BuildingTypes, Province, RESOURCE_BUILDING_REQUIREMENTS, Tech, UserResources } from '../../types.ts';
+import { Building, BuildingTypes, Province, Tech, UserResources } from '../../types.ts';
 import { BUILDING_ICONS } from '../../constants/buildingIcons.ts';
 
 interface Props {
@@ -49,9 +49,9 @@ export const BuildMenuModal: React.FC<Props> = ({
       <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 1, overflowY: 'auto', maxHeight: 320 }}>
         {loading && <p>Loading...</p>}
         {!loading && buildings.map((building) => {
-          const resourceRequirement = RESOURCE_BUILDING_REQUIREMENTS[building.type as BuildingTypes];
-          const resourceMismatch = resourceRequirement
-            ? !resourceRequirement.includes(provinceResourceType)
+          const allowedResources = building.allowedProvinceResources;
+          const resourceMismatch = allowedResources?.length
+            ? !allowedResources.includes(provinceResourceType)
             : false;
           const missingTechKey = (building.requirementTech ?? []).find(
             t => !userCompletedResearch.includes(t),
@@ -60,15 +60,16 @@ export const BuildMenuModal: React.FC<Props> = ({
             ? (techs.find(t => t.key === missingTechKey)?.name ?? missingTechKey)
             : null;
 
-          const resourceCost = BUILDING_RESOURCE_COSTS[building.type as BuildingTypes];
+          const resourceCost = building.requirementResource;
+          const resourceAmount = building.requirementResourceAmount ?? 1;
           const resourceInsufficient = resourceCost
-            ? (existingBuildingCounts[building.type as BuildingTypes] ?? 0) >= (userResources[resourceCost] ?? 0)
+            ? (existingBuildingCounts[building.type as BuildingTypes] ?? 0) * resourceAmount > (userResources[resourceCost as keyof UserResources] ?? 0) - resourceAmount
             : false;
 
           const disabledReason = resourceMismatch
-            ? `Requires a province with ${resourceRequirement!.join(' or ')} resource (this province: ${provinceResourceType || 'none'})`
+            ? `Requires a province with ${allowedResources!.join(' or ')} resource (this province: ${provinceResourceType || 'none'})`
             : resourceInsufficient
-              ? `Not enough ${resourceCost}: you have ${userResources[resourceCost!] ?? 0} but already have ${existingBuildingCounts[building.type as BuildingTypes] ?? 0} ${building.name}(s)`
+              ? `Not enough ${resourceCost}: you have ${userResources[resourceCost as keyof UserResources] ?? 0} but already using ${(existingBuildingCounts[building.type as BuildingTypes] ?? 0) * resourceAmount} for ${building.name}(s)`
               : missingTechName
                 ? `Missing required technology: ${missingTechName}`
                 : null;

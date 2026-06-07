@@ -142,6 +142,7 @@ export const UsersTab = () => {
       </Box>
 
       <DataGrid
+        style={{ maxHeight: 'calc(100vh - 220px)' }}
         rows={rows}
         columns={columns}
         editMode="row"
@@ -149,7 +150,6 @@ export const UsersTab = () => {
         onRowModesModelChange={setRowModesModel}
         processRowUpdate={processRowUpdate}
         onProcessRowUpdateError={handleProcessRowUpdateError}
-        autoHeight
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
       />

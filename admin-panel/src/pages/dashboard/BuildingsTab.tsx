@@ -20,9 +20,13 @@ const BUILDING_TYPES = [
   'CATHEDRAL', 'TRADE_HOUSE', 'CASTLE',
 ];
 
+const RESOURCE_TYPES = ['', 'iron', 'gold', 'stone', 'wood', 'grain'];
+
 const EMPTY_NEW_BUILDING = {
   type: '', name: '', description: '', income: 0, upkeep: 0,
   modifier: '', cost: 0, upgrade_to: '', requirement_tech: '', requirement_building: '',
+  buildable: true, destructible: true, unique_per_province: false,
+  allowed_province_resources: '', requirement_resource: '', requirement_resource_amount: 0,
 };
 
 export const BuildingsTab = () => {
@@ -75,6 +79,11 @@ export const BuildingsTab = () => {
           : [],
         upgrade_to: newBuilding.upgrade_to || null,
         requirement_building: newBuilding.requirement_building || null,
+        allowed_province_resources: newBuilding.allowed_province_resources
+          ? newBuilding.allowed_province_resources.split(',').map((s) => s.trim()).filter(Boolean)
+          : null,
+        requirement_resource: newBuilding.requirement_resource || null,
+        requirement_resource_amount: newBuilding.requirement_resource_amount || null,
       };
       const res = await adminApi.createBuilding(payload);
       setRows((prev) => [...prev, res.data]);
@@ -111,6 +120,12 @@ export const BuildingsTab = () => {
     { field: 'upgrade_to', headerName: 'Upgrade To', width: 120, editable: true, type: 'singleSelect', valueOptions: BUILDING_TYPES },
     arrCol('requirement_tech', 'Req. Tech', 180),
     { field: 'requirement_building', headerName: 'Req. Building', width: 130, editable: true, type: 'singleSelect', valueOptions: BUILDING_TYPES },
+    { field: 'buildable', headerName: 'Buildable', width: 90, editable: true, type: 'boolean' },
+    { field: 'destructible', headerName: 'Destructible', width: 100, editable: true, type: 'boolean' },
+    { field: 'unique_per_province', headerName: 'Unique/Prov', width: 100, editable: true, type: 'boolean' },
+    arrCol('allowed_province_resources', 'Allowed Resources', 160),
+    { field: 'requirement_resource', headerName: 'Req. Resource', width: 120, editable: true, type: 'singleSelect', valueOptions: RESOURCE_TYPES },
+    { field: 'requirement_resource_amount', headerName: 'Req. Amount', type: 'number', width: 100, editable: true },
     {
       field: 'actions',
       type: 'actions',
@@ -140,6 +155,7 @@ export const BuildingsTab = () => {
       </Box>
 
       <DataGrid
+        style={{ maxHeight: 'calc(100vh - 220px)' }}
         rows={rows}
         columns={columns}
         editMode="row"
@@ -147,7 +163,6 @@ export const BuildingsTab = () => {
         onRowModesModelChange={setRowModesModel}
         processRowUpdate={processRowUpdate}
         onProcessRowUpdateError={handleProcessRowUpdateError}
-        autoHeight
         pageSizeOptions={[25, 50, 100]}
         initialState={{ pagination: { paginationModel: { pageSize: 25 } } }}
       />
@@ -180,6 +195,35 @@ export const BuildingsTab = () => {
               {BUILDING_TYPES.map((o) => <MenuItem key={o} value={o}>{o || '(none)'}</MenuItem>)}
             </Select>
           </FormControl>
+          <FormControl>
+            <InputLabel>Buildable</InputLabel>
+            <Select label="Buildable" value={newBuilding.buildable ? 'true' : 'false'} onChange={(e) => setNewBuilding((p) => ({ ...p, buildable: e.target.value === 'true' }))}>
+              <MenuItem value="true">Yes</MenuItem>
+              <MenuItem value="false">No</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl>
+            <InputLabel>Destructible</InputLabel>
+            <Select label="Destructible" value={newBuilding.destructible ? 'true' : 'false'} onChange={(e) => setNewBuilding((p) => ({ ...p, destructible: e.target.value === 'true' }))}>
+              <MenuItem value="true">Yes</MenuItem>
+              <MenuItem value="false">No</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl>
+            <InputLabel>Unique per Province</InputLabel>
+            <Select label="Unique per Province" value={newBuilding.unique_per_province ? 'true' : 'false'} onChange={(e) => setNewBuilding((p) => ({ ...p, unique_per_province: e.target.value === 'true' }))}>
+              <MenuItem value="true">Yes</MenuItem>
+              <MenuItem value="false">No</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField label="Allowed Resources (comma-separated)" value={newBuilding.allowed_province_resources} onChange={(e) => setNewBuilding((p) => ({ ...p, allowed_province_resources: e.target.value }))} />
+          <FormControl>
+            <InputLabel>Req. Resource</InputLabel>
+            <Select label="Req. Resource" value={newBuilding.requirement_resource} onChange={(e) => setNewBuilding((p) => ({ ...p, requirement_resource: e.target.value }))}>
+              {RESOURCE_TYPES.map((o) => <MenuItem key={o} value={o}>{o || '(none)'}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField label="Req. Resource Amount" type="number" value={newBuilding.requirement_resource_amount} onChange={(e) => setNewBuilding((p) => ({ ...p, requirement_resource_amount: Number(e.target.value) }))} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>

@@ -48,6 +48,12 @@ export interface Building {
   upgradeTo: string | null;
   requirementTech: string[] | null;
   requirementBuilding: string | null;
+  buildable: boolean;
+  destructible: boolean;
+  uniquePerProvince: boolean;
+  allowedProvinceResources: string[] | null;
+  requirementResource: string | null;
+  requirementResourceAmount: number | null;
 }
 
 /** Static fields — never change after map import. Safe to cache in localStorage. */
@@ -231,15 +237,3 @@ export interface ActionData {
   [key: string]: any; // Flexible for future action types
 }
 
-export const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> = {
-  [BuildingTypes.MINE]: ['iron', 'gold', 'stone'],
-  [BuildingTypes.FORESTRY]: ['wood'],
-  [BuildingTypes.FARM]: ['grain'],
-};
-
-/** Maps building types that consume a resource (1 unit per building) */
-export const BUILDING_RESOURCE_COSTS: Partial<Record<BuildingTypes, keyof UserResources>> = {
-  [BuildingTypes.ARMORY]: 'iron',
-  [BuildingTypes.FORT]: 'stone',
-  [BuildingTypes.CASTLE]: 'stone',
-};

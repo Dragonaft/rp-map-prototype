@@ -47,6 +47,28 @@ export class Building extends BaseEntity {
   @Expose({ name: 'requirementBuilding' })
   public requirement_building: BuildingTypes | null;
 
+  @Column({ default: true })
+  public buildable: boolean;
+
+  @Column({ default: true })
+  public destructible: boolean;
+
+  @Column({ default: false })
+  @Expose({ name: 'uniquePerProvince' })
+  public unique_per_province: boolean;
+
+  @Column({ type: 'simple-array', nullable: true })
+  @Expose({ name: 'allowedProvinceResources' })
+  public allowed_province_resources: string[] | null;
+
+  @Column({ nullable: true })
+  @Expose({ name: 'requirementResource' })
+  public requirement_resource: string | null;
+
+  @Column({ nullable: true })
+  @Expose({ name: 'requirementResourceAmount' })
+  public requirement_resource_amount: number | null;
+
   @ManyToMany(() => Province, (province) => province.buildings)
   public provinces: Province[];
 }

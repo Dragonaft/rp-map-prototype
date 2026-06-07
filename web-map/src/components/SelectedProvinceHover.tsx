@@ -7,7 +7,7 @@ import { useMutation, useQuery } from "../hooks/useApi.ts";
 import { provincesApi } from "../api/provinces.ts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { buildingsApi } from "../api/buildings.ts";
-import { ActionType, Army, Building, BuildingTypes, RESOURCE_BUILDING_REQUIREMENTS } from "../types.ts";
+import { ActionType, Army, Building } from "../types.ts";
 import { actionsApi } from "../api/actions.ts";
 import { addAction, removeActionById } from "../store/slices/actionsSlice.ts";
 import { BUILDING_ICONS } from "../constants/buildingIcons.ts";
@@ -49,7 +49,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
 
   useEffect(() => {
     if (buildings) {
-      setBuildingsState(buildings.filter(b => b.type !== BuildingTypes.CAPITAL));
+      setBuildingsState(buildings.filter(b => b.buildable));
     }
   }, [buildings]);
 
@@ -126,9 +126,9 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     if (!user.money || user.money < cost) {
       return `Not enough money (need ${cost}, have ${user.money ?? 0})`;
     }
-    const resourceRequirement = RESOURCE_BUILDING_REQUIREMENTS[upgradeBuildingForTarget.type as BuildingTypes];
-    if (resourceRequirement && selectedProvince && !resourceRequirement.includes(selectedProvince.resourceType)) {
-      return `Requires a province with ${resourceRequirement.join(' or ')} resource (this province: ${selectedProvince.resourceType || 'none'})`;
+    const allowedResources = upgradeBuildingForTarget.allowedProvinceResources;
+    if (allowedResources?.length && selectedProvince && !allowedResources.includes(selectedProvince.resourceType)) {
+      return `Requires a province with ${allowedResources.join(' or ')} resource (this province: ${selectedProvince.resourceType || 'none'})`;
     }
     const missing = (upgradeBuildingForTarget.requirementTech ?? []).find(
       t => !user.completedResearch.includes(t),
@@ -278,7 +278,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
   };
 
   const handleBuiltBuildingClick = (b: Building) => {
-    if (b.type === BuildingTypes.CAPITAL) return;
+    if (!b.destructible) return;
     const template = buildingById[b.id] ?? b;
 
     if (pendingRemoveBuildingIds.has(b.id)) {
@@ -461,7 +461,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
                     const hasPendingRemove = pendingRemoveBuildingIds.has(b.id);
                     const hasPendingUpgrade = pendingUpgradeBuildingIds.has(b.id);
                     let slotClass = 'border-gray-600 bg-gray-200 hover:bg-red-100 cursor-pointer';
-                    if (b.type === BuildingTypes.CAPITAL) {
+                    if (!b.destructible) {
                       slotClass = 'border-gray-600 bg-gray-200 cursor-default';
                     } else if (hasPendingRemove) {
                       slotClass = 'border-red-500 bg-red-200/50 hover:bg-red-300/50 cursor-pointer';
