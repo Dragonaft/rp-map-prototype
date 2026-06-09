@@ -66,10 +66,14 @@ export class ActionsService {
 
     switch (actionType) {
       case ActionType.BUILD:
+        this.requireString(actionData, 'province_id');
+        this.requireString(actionData, 'building_id');
+        break;
+
       case ActionType.UPGRADE:
       case ActionType.REMOVE:
         this.requireString(actionData, 'province_id');
-        this.requireString(actionData, 'building_id');
+        this.requireString(actionData, 'province_building_id');
         break;
 
       case ActionType.COLONIZE:

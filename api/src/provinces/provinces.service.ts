@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { instanceToPlain } from 'class-transformer';
 import { Repository } from 'typeorm';
 import { Province } from './entities/province.entity';
 import { ProvincesUpdateBodyRequest } from './requests/provinces-update-body.request';
@@ -93,7 +94,12 @@ export class ProvincesService {
           ? Math.max(0, (p.local_troops ?? 0) - (reserved.get(p.id) ?? 0))
           : null,
         enemyHere: !isOwner && (p.local_troops ?? 0) > 0,
-        buildings: p.buildings ?? [],
+        // Each entry carries its ProvinceBuilding instance id so the client can
+        // uniquely key and target a specific building (multiple of the same type
+        // can exist in one province). The template fields are flattened in.
+        buildings: (p.provinceBuildings ?? [])
+          .filter((pb) => pb.building)
+          .map((pb) => ({ ...instanceToPlain(pb.building), instanceId: pb.id })),
         buildingCap: computeBuildingCap(p.landscape, completedResearch),
       };
     });

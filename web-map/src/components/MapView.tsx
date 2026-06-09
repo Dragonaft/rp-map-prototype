@@ -149,19 +149,6 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     return userActions.filter(a => a.actionType === ActionType.ARMY_MOVE);
   }, [userActions]);
 
-  const deployActionByProvinceId = useMemo(() => {
-    if (!userActions?.length) return {} as Record<string, { id: string; troopsNumber: number }>;
-    return userActions
-      .filter(a => a.actionType === ActionType.DEPLOY)
-      .reduce<Record<string, { id: string; troopsNumber: number }>>((acc, a) => {
-        const provinceId: string | undefined = a.actionData?.province_id ?? a.actionData?.provinceId;
-        const troopsNumber: number | undefined = a.actionData?.troops_number ?? a.actionData?.troopCount;
-        if (!provinceId || troopsNumber == null) return acc;
-        acc[provinceId] = { id: a.id, troopsNumber };
-        return acc;
-      }, {});
-  }, [userActions]);
-
   // ── Army troop counts per province ───────────────────────────────────────
   const armyTroopsByProvinceId = useMemo(() => {
     const map: Record<string, number> = {};
@@ -471,8 +458,6 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
                   isSelected={selectedProvinceId === p.id}
                   onSelect={toggleSelect}
                   onRightClick={handleProvinceRightClick}
-                  pendingDeployAction={deployActionByProvinceId[p.id]}
-                  onCancelAction={handleOpenCancelModal}
                   armyTroopCount={armyTroopsByProvinceId[p.id]}
                   onArmyCountClick={handleArmyCountClick}
                   enemyArmyTroopCount={enemyArmyInfoByProvinceId[p.id]}

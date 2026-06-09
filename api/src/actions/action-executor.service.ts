@@ -210,10 +210,10 @@ export class RemoveActionHandler implements ActionHandler {
     );
 
     const provinceId = action.actionData?.province_id as string | undefined;
-    const buildingId = action.actionData?.building_id as string | undefined;
+    const provinceBuildingId = action.actionData?.province_building_id as string | undefined;
 
-    if (!provinceId || !buildingId) {
-      throw new Error('province_id and building_id are required');
+    if (!provinceId || !provinceBuildingId) {
+      throw new Error('province_id and province_building_id are required');
     }
 
     await this.provinceRepo.manager.transaction(async (manager) => {
@@ -231,12 +231,13 @@ export class RemoveActionHandler implements ActionHandler {
         throw new Error('User does not own this province');
       }
 
-      const building = province.buildings?.find((b) => b.id === buildingId);
-      if (!building) {
+      // Target the specific building instance, not just the first of its type.
+      const pb = province.provinceBuildings?.find((pb) => pb.id === provinceBuildingId);
+      if (!pb) {
         throw new Error('Building not found in this province');
       }
 
-      if (!building.destructible) {
+      if (!pb.building?.destructible) {
         throw new Error('This building cannot be removed');
       }
 
@@ -257,10 +258,7 @@ export class RemoveActionHandler implements ActionHandler {
       user.money = currentMoney - REMOVE_COST;
       await manager.save(User, user);
 
-      const pb = province.provinceBuildings?.find((pb) => pb.building_id === buildingId);
-      if (pb) {
-        await manager.remove(ProvinceBuilding, pb);
-      }
+      await manager.remove(ProvinceBuilding, pb);
     });
   }
 }
@@ -280,10 +278,10 @@ export class UpgradeActionHandler implements ActionHandler {
     );
 
     const provinceId = action.actionData?.province_id as string | undefined;
-    const buildingId = action.actionData?.building_id as string | undefined;
+    const provinceBuildingId = action.actionData?.province_building_id as string | undefined;
 
-    if (!provinceId || !buildingId) {
-      throw new Error('province_id and building_id are required');
+    if (!provinceId || !provinceBuildingId) {
+      throw new Error('province_id and province_building_id are required');
     }
 
     await this.provinceRepo.manager.transaction(async (manager) => {
@@ -301,12 +299,14 @@ export class UpgradeActionHandler implements ActionHandler {
         throw new Error('User does not own this province');
       }
 
-      const currentBuilding = province.buildings?.find((b) => b.id === buildingId);
-      if (!currentBuilding) {
+      // Target the specific building instance to upgrade.
+      const provinceBuilding = province.provinceBuildings?.find((pb) => pb.id === provinceBuildingId);
+      if (!provinceBuilding) {
         throw new Error('Building not found in this province');
       }
 
-      if (!currentBuilding.upgrade_to) {
+      const currentBuilding = provinceBuilding.building;
+      if (!currentBuilding?.upgrade_to) {
         throw new Error('This building cannot be upgraded');
       }
 
@@ -362,11 +362,8 @@ export class UpgradeActionHandler implements ActionHandler {
       user.money = currentMoney - cost;
       await manager.save(User, user);
 
-      // Remove old building instance
-      const pb = province.provinceBuildings?.find((pb) => pb.building_id === buildingId);
-      if (pb) {
-        await manager.remove(ProvinceBuilding, pb);
-      }
+      // Remove the specific old building instance
+      await manager.remove(ProvinceBuilding, provinceBuilding);
 
       // Add upgraded building
       await manager.save(ProvinceBuilding, manager.create(ProvinceBuilding, {

@@ -5,12 +5,13 @@ import { authApi } from "../api/auth.ts";
 import { useMemo, useState } from "react";
 import { TechsModal } from "./Modals/TechsModal.tsx";
 import { ProfileModal } from "./Modals/ProfileModal.tsx";
-import { ActionType, UserClasses } from "../types.ts";
+import { ActionType, ProvinceBuilding, UserClasses } from "../types.ts";
 
 export const TopBar = () => {
   const user = useAppSelector(state => state.user);
   const actions = useAppSelector(state => state.actions.actions);
   const buildings = useAppSelector(state => state.buildings.buildings);
+  const provinces = useAppSelector(state => state.provinces.provinces);
   const { mutate } = useMutation(authApi.logout);
   const [openTechModal, setOpenTechModal] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
@@ -20,6 +21,12 @@ export const TopBar = () => {
   const pendingMoneyCost = useMemo(() => {
     if (!actions.length) return 0;
     const buildingById = new Map(buildings.map(b => [String(b.id), b]));
+    // UPGRADE targets a specific building instance (province_building_id), so
+    // resolve it through the province buildings to estimate its cost.
+    const instanceById = new Map<string, ProvinceBuilding>();
+    for (const p of provinces) {
+      for (const b of p.buildings ?? []) instanceById.set(b.instanceId, b);
+    }
     let total = 0;
     for (const action of actions) {
       if (action.actionType === ActionType.BUILD) {
@@ -27,15 +34,14 @@ export const TopBar = () => {
         const b = buildingById.get(String(bid));
         if (b) total += b.cost;
       } else if (action.actionType === ActionType.UPGRADE) {
-        const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
-        const b = buildingById.get(String(bid));
-        if (b) total += b.cost + 100;
+        const inst = instanceById.get(String(action.actionData?.province_building_id));
+        if (inst) total += inst.cost + 100;
       } else if (action.actionType === ActionType.COLONIZE) {
         total += 500;
       }
     }
     return total;
-  }, [actions, buildings]);
+  }, [actions, buildings, provinces]);
 
   const handleLogout = async () => {
     try {

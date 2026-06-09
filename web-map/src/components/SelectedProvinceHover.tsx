@@ -7,7 +7,7 @@ import { useMutation, useQuery } from "../hooks/useApi.ts";
 import { provincesApi } from "../api/provinces.ts";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { buildingsApi } from "../api/buildings.ts";
-import { ActionType, Army, Building } from "../types.ts";
+import { ActionType, Army, Building, ProvinceBuilding } from "../types.ts";
 import { actionsApi } from "../api/actions.ts";
 import { addAction, removeActionById } from "../store/slices/actionsSlice.ts";
 import { BUILDING_ICONS } from "../constants/buildingIcons.ts";
@@ -35,9 +35,9 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
 
   const [isOpenBuildMenu, setIsOpenBuildMenu] = useState(false);
   const [buildingsState, setBuildingsState] = useState<Building[]>([]);
-  const [deleteTarget, setDeleteTarget] = useState<Building | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProvinceBuilding | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [actionSelectTarget, setActionSelectTarget] = useState<Building | null>(null);
+  const [actionSelectTarget, setActionSelectTarget] = useState<ProvinceBuilding | null>(null);
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [cancelPendingTarget, setCancelPendingTarget] = useState<{ id: string; type: string } | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
@@ -81,16 +81,16 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     if (!actions.length || !selectedProvince) return [];
     return actions
       .filter(a => a.actionType === ActionType.REMOVE &&
-        (a.actionData?.province_id ?? a.actionData?.provinceId) === selectedProvince.id)
+        a.actionData?.province_id === selectedProvince.id)
       .map(a => ({
         id: a.id,
-        buildingId: (a.actionData?.building_id ?? a.actionData?.buildingId) as string,
+        provinceBuildingId: a.actionData?.province_building_id as string,
       }))
-      .filter(a => a.buildingId);
+      .filter(a => a.provinceBuildingId);
   }, [actions, selectedProvince]);
 
   const pendingRemoveBuildingIds = useMemo(
-    () => new Set(pendingRemoveActionsInProvince.map(a => a.buildingId)),
+    () => new Set(pendingRemoveActionsInProvince.map(a => a.provinceBuildingId)),
     [pendingRemoveActionsInProvince],
   );
 
@@ -98,16 +98,16 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     if (!actions.length || !selectedProvince) return [];
     return actions
       .filter(a => a.actionType === ActionType.UPGRADE &&
-        (a.actionData?.province_id ?? a.actionData?.provinceId) === selectedProvince.id)
+        a.actionData?.province_id === selectedProvince.id)
       .map(a => ({
         id: a.id,
-        buildingId: (a.actionData?.building_id ?? a.actionData?.buildingId) as string,
+        provinceBuildingId: a.actionData?.province_building_id as string,
       }))
-      .filter(a => a.buildingId);
+      .filter(a => a.provinceBuildingId);
   }, [actions, selectedProvince]);
 
   const pendingUpgradeBuildingIds = useMemo(
-    () => new Set(pendingUpgradeActionsInProvince.map(a => a.buildingId)),
+    () => new Set(pendingUpgradeActionsInProvince.map(a => a.provinceBuildingId)),
     [pendingUpgradeActionsInProvince],
   );
 
@@ -232,7 +232,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     try {
       const response = await actionsApi.createAction({
         type: ActionType.REMOVE,
-        actionData: { province_id: selectedProvince.id, building_id: deleteTarget.id },
+        actionData: { province_id: selectedProvince.id, province_building_id: deleteTarget.instanceId },
       });
       dispatch(addAction(response));
       setDeleteTarget(null);
@@ -249,7 +249,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     try {
       const response = await actionsApi.createAction({
         type: ActionType.UPGRADE,
-        actionData: { province_id: selectedProvince.id, building_id: actionSelectTarget.id },
+        actionData: { province_id: selectedProvince.id, province_building_id: actionSelectTarget.instanceId },
       });
       dispatch(addAction(response));
       setActionSelectTarget(null);
@@ -260,22 +260,21 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     }
   };
 
-  const handleBuiltBuildingClick = (b: Building) => {
+  const handleBuiltBuildingClick = (b: ProvinceBuilding) => {
     if (!b.destructible) return;
-    const template = buildingById[b.id] ?? b;
 
-    if (pendingRemoveBuildingIds.has(b.id)) {
-      const action = pendingRemoveActionsInProvince.find(a => a.buildingId === b.id)!;
+    if (pendingRemoveBuildingIds.has(b.instanceId)) {
+      const action = pendingRemoveActionsInProvince.find(a => a.provinceBuildingId === b.instanceId)!;
       setCancelPendingTarget({ id: action.id, type: b.type });
       return;
     }
-    if (pendingUpgradeBuildingIds.has(b.id)) {
-      const action = pendingUpgradeActionsInProvince.find(a => a.buildingId === b.id)!;
+    if (pendingUpgradeBuildingIds.has(b.instanceId)) {
+      const action = pendingUpgradeActionsInProvince.find(a => a.provinceBuildingId === b.instanceId)!;
       setCancelPendingTarget({ id: action.id, type: b.type });
       return;
     }
-    if (template.upgradeTo) {
-      setActionSelectTarget(template);
+    if (b.upgradeTo) {
+      setActionSelectTarget(b);
     } else {
       setDeleteTarget(b);
     }
@@ -347,7 +346,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
             <div className="flex flex-wrap gap-1 mt-1">
               {builtInProvince.map((b) => (
                 <div
-                  key={b.id}
+                  key={b.instanceId}
                   className="w-10 h-10 text-lg border border-gray-400 rounded bg-gray-200/40 flex items-center justify-center cursor-default"
                   title={b.name}
                 >
@@ -417,8 +416,8 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
               <p>Resource: {selectedProvince.resourceType}</p>
               <div className="flex flex-wrap gap-1 mt-2">
                 {builtInProvince.map((b) => {
-                  const hasPendingRemove = pendingRemoveBuildingIds.has(b.id);
-                  const hasPendingUpgrade = pendingUpgradeBuildingIds.has(b.id);
+                  const hasPendingRemove = pendingRemoveBuildingIds.has(b.instanceId);
+                  const hasPendingUpgrade = pendingUpgradeBuildingIds.has(b.instanceId);
                   let slotClass = 'border-gray-600 bg-gray-200 hover:bg-red-100 cursor-pointer';
                   if (!b.destructible) {
                     slotClass = 'border-gray-600 bg-gray-200 cursor-default';
@@ -434,7 +433,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
                       : b.name;
                   return (
                     <button
-                      key={b.id}
+                      key={b.instanceId}
                       className={`w-10 h-10 text-lg border rounded flex items-center justify-center ${slotClass}`}
                       onClick={() => handleBuiltBuildingClick(b)}
                       title={title}

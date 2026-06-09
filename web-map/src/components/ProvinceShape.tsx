@@ -1,23 +1,16 @@
 import React, { useMemo } from 'react';
-import { ActionType, Building, Province } from '../types';
+import { ActionType, ProvinceBuilding, Province } from '../types';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { setSelectedTroops } from '../store/slices/provincesSlice';
 import type { BBox } from '../store/slices/provincesSlice';
 import { BUILDING_ICONS, LANDSCAPE_ICONS, RESOURCE_ICONS } from '../constants/buildingIcons';
 import type { RootState } from "../store/store.ts";
 
-interface PendingDeployAction {
-  id: string;
-  troopsNumber: number;
-}
-
 interface Props {
   province: Province;
   isSelected: boolean;
   onSelect: (province: Province, multi: boolean) => void;
   onRightClick: (province: Province) => void;
-  pendingDeployAction?: PendingDeployAction;
-  onCancelAction?: (actionId: string) => void;
   bbox: BBox;
   armyTroopCount?: number;
   onArmyCountClick?: (provinceId: string) => void;
@@ -35,8 +28,6 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   isSelected,
   onSelect,
   onRightClick,
-  pendingDeployAction,
-  onCancelAction,
   bbox,
   armyTroopCount,
   onArmyCountClick,
@@ -105,13 +96,13 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     }
   }, [dispatch, province.id, displayTroopCount, isTroopSelected, onArmyCountClick]);
 
-  const renderBuildingIcon = (building: Building, index: number) => {
+  const renderBuildingIcon = (building: ProvinceBuilding, index: number) => {
     const icon = BUILDING_ICONS[building.type] ?? '🏗️';
     const offsetX = (index % 2) * 15 - 7.5;
     const offsetY = Math.floor(index / 2) * 15 - 7.5;
     return (
       <text
-        key={building.id}
+        key={building.instanceId}
         x={cx + offsetX} y={cy + offsetY}
         fontSize="16" textAnchor="middle" dominantBaseline="middle"
         pointerEvents="none" style={{ userSelect: 'none' }}
@@ -124,7 +115,6 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   // Show the badge when the province is owned and has troops, OR when there are
   // army troops present regardless of ownership (e.g. naval armies on water tiles).
   const hasLocalTroops = displayTroopCount > 0 && (isCurrentUserProvince || armyTroopCount != null);
-  const deployLabel = (pendingDeployAction && isCurrentUserProvince) ? `+${pendingDeployAction.troopsNumber}` : null;
 
   const landscapeIcon = LANDSCAPE_ICONS[province.landscape];
   const resourceIcon = RESOURCE_ICONS[province.resourceType];
@@ -212,25 +202,6 @@ const ProvinceShapeComponent: React.FC<Props> = ({
         </g>
       )}
 
-      {/* Pending deploy indicator */}
-      {deployLabel && (
-        <g
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onCancelAction?.(pendingDeployAction!.id); }}
-          style={{ cursor: 'pointer' }}
-        >
-          <rect
-            x={cx - 20} y={hasLocalTroops ? troopY + 12 : troopY - 10}
-            width="40" height="20"
-            fill="white" stroke="rgb(34,197,94)" strokeWidth={1} rx="3" ry="3" />
-          <text
-            x={cx} y={hasLocalTroops ? troopY + 22 : troopY}
-            fontSize="12" fill="rgb(34,197,94)" textAnchor="middle" dominantBaseline="middle"
-            fontWeight="bold" pointerEvents="none" style={{ userSelect: 'none' }}>
-            {deployLabel}
-          </text>
-        </g>
-      )}
     </g>
   );
 };

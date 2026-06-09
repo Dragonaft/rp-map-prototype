@@ -56,6 +56,12 @@ export interface Building {
   requirementResourceAmount: number | null;
 }
 
+/** A building as it exists in a province — template fields plus the unique
+ *  province_building instance id (multiple of the same type can coexist). */
+export interface ProvinceBuilding extends Building {
+  instanceId: string;
+}
+
 /** Static fields — never change after map import. Safe to cache in localStorage. */
 export interface ProvinceLayout {
   id: string;
@@ -73,7 +79,7 @@ export interface ProvinceStateData {
   userId: string | null;
   localTroops: number | null;
   enemyHere?: boolean;
-  buildings?: Building[];
+  buildings?: ProvinceBuilding[];
   buildingCap: number | null;
 }
 
@@ -87,7 +93,7 @@ export interface Province {
   userId: string | null;
   localTroops: number;
   enemyHere?: boolean;
-  buildings?: Building[];
+  buildings?: ProvinceBuilding[];
   neighbors?: string[] | null;
   buildingCap: number;
 }
