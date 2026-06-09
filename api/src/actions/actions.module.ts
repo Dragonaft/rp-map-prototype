@@ -10,8 +10,6 @@ import { ActionSchedulerService } from './action-scheduler.service';
 import {
   ActionExecutorService,
   BuildActionHandler,
-  InvadeActionHandler,
-  DeployActionHandler,
   UpgradeActionHandler,
   TransferTroopsActionHandler,
   ResearchActionHandler,
@@ -57,8 +55,6 @@ import { TechsModule } from '../techs/techs.module';
     UserStateLoaderService,
     ActionExecutorService,
     BuildActionHandler,
-    InvadeActionHandler,
-    DeployActionHandler,
     UpgradeActionHandler,
     TransferTroopsActionHandler,
     ResearchActionHandler,

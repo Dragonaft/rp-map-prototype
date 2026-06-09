@@ -4,7 +4,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { ActionsService } from './actions.service';
 import { ActionExecutionStateService } from './action-execution-state.service';
-import { ActionExecutorService } from './action-executor.service';
+import { ActionExecutorService, ExecutionContext } from './action-executor.service';
 import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
 import { UserStateLoaderService } from './user-state-loader.service';
@@ -127,6 +127,10 @@ export class ActionSchedulerService {
     let successfulActions = 0;
     let failedActions = 0;
 
+    // Per-turn context shared across every action in this turn. Handlers use it
+    // to enforce per-turn invariants (e.g. one ARMY_MOVE per army per turn).
+    const ctx: ExecutionContext = { movedArmyIds: new Set<string>() };
+
     try {
       // Re-fetch the lowest pending `order` after each action so execution always runs 1 → n
       while (true) {
@@ -140,7 +144,7 @@ export class ActionSchedulerService {
           await this.actionsService.updateActionStatus(action.id, ActionStatus.PROCESSING);
 
           // Execute the action
-          const result = await this.actionExecutor.executeAction(action);
+          const result = await this.actionExecutor.executeAction(action, ctx);
 
           if (result.success) {
             // Mark as completed

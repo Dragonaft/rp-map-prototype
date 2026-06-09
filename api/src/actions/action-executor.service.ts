@@ -23,12 +23,20 @@ import {
   computeBuildModifier,
 } from './combat-calculator';
 
-/** Server-side money cost per troop when moving troops from the global pool into a province. Maybe transfer to env or db */
-const DEPLOY_MONEY_PER_TROOP = 1;
 const REMOVE_COST = 100;
 
+/**
+ * Per-turn execution context shared across all action handlers within a single
+ * turn. Created once at the start of the turn and threaded through every
+ * handler so they can enforce per-turn invariants.
+ */
+export interface ExecutionContext {
+  /** Ids of armies that have already executed an ARMY_MOVE this turn. */
+  movedArmyIds: Set<string>;
+}
+
 export interface ActionHandler {
-  handle(action: ActionQueue): Promise<void>;
+  handle(action: ActionQueue, ctx?: ExecutionContext): Promise<void>;
 }
 
 @Injectable()
@@ -729,13 +737,21 @@ export class ArmyMoveHandler implements ActionHandler {
     private readonly provinceRepo: Repository<Province>,
   ) {}
 
-  handle = async (action: ActionQueue): Promise<void> => {
+  handle = async (action: ActionQueue, ctx?: ExecutionContext): Promise<void> => {
     this.logger.log(`Executing ARMY_MOVE for user ${action.userId}`);
 
     const armyId = action.actionData?.army_id as string | undefined;
     const toProvinceId = action.actionData?.to_province_id as string | undefined;
 
     if (!armyId || !toProvinceId) throw new Error('army_id and to_province_id are required');
+
+    // One move per army per turn. Without this, queued moves chain off each
+    // other's results (A→B then B→C then C→D), letting an army cross the map
+    // in a single turn. Reachability is only ever checked one hop/road-range
+    // at a time, so the very first move is the only legitimate one.
+    if (ctx?.movedArmyIds.has(armyId)) {
+      throw new Error('Army has already moved this turn');
+    }
 
     await this.armyRepo.manager.transaction(async (manager) => {
       const army = await manager.findOne(Army, {
@@ -886,7 +902,13 @@ export class ArmyMoveHandler implements ActionHandler {
         }
       }
     });
-  }
+
+    // Transaction committed: the army's move for this turn is now spent. A
+    // combat that ends in retreat still consumes the move; only a failure
+    // (which throws before/within the transaction and never reaches here)
+    // leaves the army free to move.
+    ctx?.movedArmyIds.add(armyId);
+  };
 }
 
 @Injectable()
@@ -1128,7 +1150,7 @@ export class ActionExecutorService {
     this.handlers.set(ActionType.COLONIZE, colonizeHandler);
   }
 
-  async executeAction(action: ActionQueue): Promise<{
+  async executeAction(action: ActionQueue, ctx?: ExecutionContext): Promise<{
     success: boolean;
     error?: string;
   }> {
@@ -1141,7 +1163,7 @@ export class ActionExecutorService {
     }
 
     try {
-      await handler.handle(action);
+      await handler.handle(action, ctx);
       return { success: true };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
