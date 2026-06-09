@@ -155,34 +155,37 @@ export class ProvincesService {
       const pb = new ProvinceBuilding();
       pb.province_id = province.id;
       pb.building_id = building.id;
-      await this.provinceRepository.manager.save(ProvinceBuilding, pb);
+      province.provinceBuildings.push(pb);
     }
 
-    const updatedProvince = {
-      ...province,
-      user_id: user.id,
-      buildingCap: computeBuildingCap(province.landscape, []),
-    };
+    province.user_id = user.id;
 
-    Object.assign(province, updatedProvince);
+    foundUser.is_new = false;
+    foundUser.troops = 3000;
+    foundUser.money = 5000;
+    foundUser.research_points = 10;
 
-    const updatedUser = {
-      ...foundUser,
-      is_new: false,
-      troops: 3000,
-      money: 5000,
-      provinces: [province],
-      research_points: 10,
-    }
-
-    await this.userRepository.save(updatedUser);
+    await this.userRepository.save(foundUser);
     await this.provinceRepository.save(province);
 
     const enrichedUser = await this.usersService.findOne(user.id, user.id);
+    const newProvince = await this.provinceRepository
+      .createQueryBuilder('p')
+      .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.resource_type'])
+      .leftJoinAndSelect('p.provinceBuildings', 'pb')
+      .leftJoinAndSelect('pb.building', 'building')
+      .where('p.id = :id', { id: province.id })
+      .getOne()
+
+    const formatProvince = {
+      id: newProvince.id,
+      userId: newProvince.user_id ?? null,
+      buildings: newProvince.buildings,
+    };
 
     return {
       user: enrichedUser,
-      province: province,
+      province: formatProvince,
     }
   }
 }

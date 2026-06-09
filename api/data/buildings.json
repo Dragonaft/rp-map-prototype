@@ -206,7 +206,7 @@
     "modifier": null,
     "cost": 200,
     "upgrade_to": null,
-    "requirement_tech": ["holy.holy.temple"],
+    "requirement_tech": ["holy.temple"],
     "requirement_building": null,
     "buildable": true,
     "destructible": true,
