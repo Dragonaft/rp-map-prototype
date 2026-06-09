@@ -25,6 +25,13 @@ import {
 
 const REMOVE_COST = 100;
 
+/** Tech branches that are gated behind selecting a matching player class. */
+const CLASS_BRANCHES = new Set<string>([
+  UserClasses.GUILD,
+  UserClasses.HOLY,
+  UserClasses.NOBLE,
+]);
+
 /**
  * Per-turn execution context shared across all action handlers within a single
  * turn. Created once at the start of the turn and threaded through every
@@ -435,7 +442,7 @@ export class ResearchActionHandler implements ActionHandler {
         if (user.class !== null && user.class !== undefined) {
           throw new Error('Class already selected, cannot research another class root tech');
         }
-      } else if (tech.branch.startsWith(UserClasses.GUILD || UserClasses.HOLY || UserClasses.NOBLE)) {
+      } else if (CLASS_BRANCHES.has(tech.branch)) {
         if (!user.class || user.class !== tech.branch) {
           throw new Error(`This tech requires class: ${tech.branch}`);
         }
@@ -1089,6 +1096,9 @@ export class ColonizeActionHandler implements ActionHandler {
       });
 
       if (!province) throw new Error('Province not found');
+      if (province.type?.toLowerCase() === 'water') {
+        throw new Error('Water provinces cannot be colonized');
+      }
       if (province.user_id !== null) throw new Error('Province is already owned');
 
       const user = await manager.findOne(User, {

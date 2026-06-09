@@ -300,25 +300,27 @@ export class ActionSchedulerService {
    */
   private async disbandWeakArmies(): Promise<void> {
     try {
-      const armies = await this.dataSource.getRepository(Army).find({
-        relations: ['units', 'units.troopType'],
-      });
+      await this.dataSource.transaction(async (manager) => {
+        const armies = await manager.find(Army, {
+          relations: ['units', 'units.troopType'],
+        });
 
-      let disbanded = 0;
-      for (const army of armies) {
-        if (armyTotalTroops(army) < ARMY_MIN_SIZE) {
-          await this.dataSource.getRepository(ArmyUnit).delete({ army_id: army.id });
-          await this.dataSource.getRepository(Army).delete(army.id);
-          disbanded++;
-          this.logger.warn(
-            `Army ${army.id} (user ${army.user_id}) disbanded – only ${armyTotalTroops(army)} troops`,
-          );
+        let disbanded = 0;
+        for (const army of armies) {
+          if (armyTotalTroops(army) < ARMY_MIN_SIZE) {
+            await manager.delete(ArmyUnit, { army_id: army.id });
+            await manager.delete(Army, army.id);
+            disbanded++;
+            this.logger.warn(
+              `Army ${army.id} (user ${army.user_id}) disbanded – only ${armyTotalTroops(army)} troops`,
+            );
+          }
         }
-      }
 
-      if (disbanded > 0) {
-        this.logger.log(`disbandWeakArmies: removed ${disbanded} army(ies)`);
-      }
+        if (disbanded > 0) {
+          this.logger.log(`disbandWeakArmies: removed ${disbanded} army(ies)`);
+        }
+      });
     } catch (error) {
       this.logger.error('Error during weak army cleanup:', error);
     }
@@ -331,151 +333,165 @@ export class ActionSchedulerService {
    */
   private async resolveArmyConflicts(): Promise<void> {
     try {
-      const armies = await this.dataSource.getRepository(Army).find({
-        relations: ['units', 'units.troopType'],
-      });
-
-      // Group armies by province
-      const byProvince = new Map<string, Army[]>();
-      for (const army of armies) {
-        const list = byProvince.get(army.province_id) ?? [];
-        list.push(army);
-        byProvince.set(army.province_id, list);
-      }
-
-      for (const [provinceId, armiesInProvince] of byProvince) {
-        // Collect unique user ids
-        const userIds = new Set(armiesInProvince.map((a) => a.user_id));
-        if (userIds.size <= 1) continue; // No conflict
-
-        const province = await this.dataSource.getRepository(Province).findOne({
-          where: { id: provinceId },
-          relations: ['provinceBuildings', 'provinceBuildings.building'],
+      await this.dataSource.transaction(async (manager) => {
+        const armies = await manager.find(Army, {
+          relations: ['units', 'units.troopType'],
         });
-        if (!province || province.type === 'water') continue;
 
-        this.logger.warn(
-          `Province ${provinceId}: ${userIds.size} users' armies detected – resolving combat`,
-        );
+        // Group armies by province
+        const byProvince = new Map<string, Army[]>();
+        for (const army of armies) {
+          const list = byProvince.get(army.province_id) ?? [];
+          list.push(army);
+          byProvince.set(army.province_id, list);
+        }
 
-        // Determine defender: user who owns the province
-        let defenderUserId = province.user_id;
+        for (const [provinceId, armiesInProvince] of byProvince) {
+          // Collect unique user ids
+          const userIds = new Set(armiesInProvince.map((a) => a.user_id));
+          if (userIds.size <= 1) continue; // No conflict
 
-        // If no army belongs to the province owner, assign ownership to a random army's user
-        if (!defenderUserId || !armiesInProvince.some((a) => a.user_id === defenderUserId)) {
-          defenderUserId = armiesInProvince[0].user_id;
-          province.user_id = defenderUserId;
-          await this.dataSource.getRepository(Province).save(province);
+          const province = await manager.findOne(Province, {
+            where: { id: provinceId },
+            relations: ['provinceBuildings', 'provinceBuildings.building'],
+          });
+          if (!province || province.type === 'water') continue;
+
           this.logger.warn(
-            `Province ${provinceId}: no owner army present, assigned to user ${defenderUserId}`,
-          );
-        }
-
-        // Split into defender armies and attacker armies
-        let defenderArmies = armiesInProvince.filter((a) => a.user_id === defenderUserId);
-        const attackerGroups = new Map<string, Army[]>();
-        for (const army of armiesInProvince) {
-          if (army.user_id === defenderUserId) continue;
-          const group = attackerGroups.get(army.user_id) ?? [];
-          group.push(army);
-          attackerGroups.set(army.user_id, group);
-        }
-
-        // Process each attacker group sequentially
-        for (const [attackerUserId, attackerArmies] of attackerGroups) {
-          const attackerPower = attackerArmies.reduce(
-            (sum, a) => sum + armyAttackPower(a), 0,
+            `Province ${provinceId}: ${userIds.size} users' armies detected – resolving combat`,
           );
 
-          const defenderBasePower = defenderArmies.reduce(
-            (sum, a) => sum + armyDefensePower(a), 0,
-          );
-          const buildingModifier = computeBuildModifier(province.buildings);
-          const defenderPower = defenderBasePower * buildingModifier;
+          // Determine defender: user who owns the province
+          let defenderUserId = province.user_id;
 
-          if (attackerPower > defenderPower) {
-            // Attacker wins
-            const attackerCasualtyRate = Math.max(
-              CASUALTY_FLOOR,
-              defenderPower / (attackerPower + defenderPower),
-            );
-            for (const a of attackerArmies) applyCasualties(a, attackerCasualtyRate);
-
-            // Destroy all defender armies
-            for (const da of defenderArmies) {
-              await this.dataSource.getRepository(ArmyUnit).delete({ army_id: da.id });
-              await this.dataSource.getRepository(Army).delete(da.id);
-            }
-
-            // Save surviving attacker armies, disband if too weak
-            const survivingAttackers: Army[] = [];
-            for (const a of attackerArmies) {
-              if (armyTotalTroops(a) < ARMY_MIN_SIZE) {
-                await this.dataSource.getRepository(ArmyUnit).delete({ army_id: a.id });
-                await this.dataSource.getRepository(Army).delete(a.id);
-              } else {
-                await this.dataSource.getRepository(ArmyUnit).save(a.units);
-                await this.dataSource.getRepository(Army).save(a);
-                survivingAttackers.push(a);
-              }
-            }
-
-            // Transfer province ownership
-            province.user_id = attackerUserId;
-            await this.dataSource.getRepository(Province).save(province);
-            defenderArmies = survivingAttackers;
-
-            this.logger.log(
-              `Province ${provinceId}: user ${attackerUserId} defeated defender ${defenderUserId}`,
-            );
-            defenderUserId = attackerUserId;
-          } else {
-            // Defender wins
-            const maxAttackerLoseRate = 0.8;
-            const baseAttackerRateCoeff = 1.4;
-            const attackerRate =
-              (defenderPower / (defenderPower + attackerPower)) * baseAttackerRateCoeff;
-            const attackerCasualtyRate = Math.min(
-              maxAttackerLoseRate, Math.max(CASUALTY_FLOOR, attackerRate),
-            );
-
-            for (const a of attackerArmies) {
-              applyCasualties(a, attackerCasualtyRate);
-              if (armyTotalTroops(a) < ARMY_MIN_SIZE) {
-                await this.dataSource.getRepository(ArmyUnit).delete({ army_id: a.id });
-                await this.dataSource.getRepository(Army).delete(a.id);
-              } else {
-                await this.dataSource.getRepository(ArmyUnit).save(a.units);
-                await this.dataSource.getRepository(Army).save(a);
-              }
-            }
-
-            // Defender takes minor losses
-            const baseDefenderRateCoeff = 0.7;
-            const baseDefenderRate =
-              (attackerPower / (attackerPower + defenderPower)) * baseDefenderRateCoeff;
-            const defenderCasualtyRate = Math.max(CASUALTY_FLOOR, baseDefenderRate);
-
-            const survivingDefenders: Army[] = [];
-            for (const da of defenderArmies) {
-              applyCasualties(da, defenderCasualtyRate);
-              if (armyTotalTroops(da) < ARMY_MIN_SIZE) {
-                await this.dataSource.getRepository(ArmyUnit).delete({ army_id: da.id });
-                await this.dataSource.getRepository(Army).delete(da.id);
-              } else {
-                await this.dataSource.getRepository(ArmyUnit).save(da.units);
-                await this.dataSource.getRepository(Army).save(da);
-                survivingDefenders.push(da);
-              }
-            }
-            defenderArmies = survivingDefenders;
-
-            this.logger.log(
-              `Province ${provinceId}: defender ${defenderUserId} repelled attacker ${attackerUserId}`,
+          // If no army belongs to the province owner, the first user (sorted for
+          // determinism) takes provisional ownership and defends.
+          if (!defenderUserId || !armiesInProvince.some((a) => a.user_id === defenderUserId)) {
+            defenderUserId = [...userIds].sort()[0];
+            province.user_id = defenderUserId;
+            await manager.save(Province, province);
+            this.logger.warn(
+              `Province ${provinceId}: no owner army present, assigned to user ${defenderUserId}`,
             );
           }
+
+          // Split into defender armies and attacker armies
+          let defenderArmies = armiesInProvince.filter((a) => a.user_id === defenderUserId);
+          const attackerGroups = new Map<string, Army[]>();
+          for (const army of armiesInProvince) {
+            if (army.user_id === defenderUserId) continue;
+            const group = attackerGroups.get(army.user_id) ?? [];
+            group.push(army);
+            attackerGroups.set(army.user_id, group);
+          }
+
+          // Deterministic, fair engagement order: strongest attacker strikes
+          // first, ties broken by user id. Without this the order is whatever
+          // the DB happened to return, so contested-province outcomes were
+          // effectively random.
+          const orderedAttackers = [...attackerGroups.entries()].sort((a, b) => {
+            const powerA = a[1].reduce((sum, x) => sum + armyAttackPower(x), 0);
+            const powerB = b[1].reduce((sum, x) => sum + armyAttackPower(x), 0);
+            if (powerB !== powerA) return powerB - powerA;
+            return a[0].localeCompare(b[0]);
+          });
+
+          // Process each attacker group sequentially
+          for (const [attackerUserId, attackerArmies] of orderedAttackers) {
+            const attackerPower = attackerArmies.reduce(
+              (sum, a) => sum + armyAttackPower(a), 0,
+            );
+
+            const defenderBasePower = defenderArmies.reduce(
+              (sum, a) => sum + armyDefensePower(a), 0,
+            );
+            const buildingModifier = computeBuildModifier(province.buildings);
+            const defenderPower = defenderBasePower * buildingModifier;
+
+            if (attackerPower > defenderPower) {
+              // Attacker wins
+              const attackerCasualtyRate = Math.max(
+                CASUALTY_FLOOR,
+                defenderPower / (attackerPower + defenderPower),
+              );
+              for (const a of attackerArmies) applyCasualties(a, attackerCasualtyRate);
+
+              // Destroy all defender armies
+              for (const da of defenderArmies) {
+                await manager.delete(ArmyUnit, { army_id: da.id });
+                await manager.delete(Army, da.id);
+              }
+
+              // Save surviving attacker armies, disband if too weak
+              const survivingAttackers: Army[] = [];
+              for (const a of attackerArmies) {
+                if (armyTotalTroops(a) < ARMY_MIN_SIZE) {
+                  await manager.delete(ArmyUnit, { army_id: a.id });
+                  await manager.delete(Army, a.id);
+                } else {
+                  await manager.save(ArmyUnit, a.units);
+                  await manager.save(Army, a);
+                  survivingAttackers.push(a);
+                }
+              }
+
+              // Transfer province ownership
+              province.user_id = attackerUserId;
+              await manager.save(Province, province);
+              defenderArmies = survivingAttackers;
+
+              this.logger.log(
+                `Province ${provinceId}: user ${attackerUserId} defeated defender ${defenderUserId}`,
+              );
+              defenderUserId = attackerUserId;
+            } else {
+              // Defender wins
+              const maxAttackerLoseRate = 0.8;
+              const baseAttackerRateCoeff = 1.4;
+              const attackerRate =
+                (defenderPower / (defenderPower + attackerPower)) * baseAttackerRateCoeff;
+              const attackerCasualtyRate = Math.min(
+                maxAttackerLoseRate, Math.max(CASUALTY_FLOOR, attackerRate),
+              );
+
+              for (const a of attackerArmies) {
+                applyCasualties(a, attackerCasualtyRate);
+                if (armyTotalTroops(a) < ARMY_MIN_SIZE) {
+                  await manager.delete(ArmyUnit, { army_id: a.id });
+                  await manager.delete(Army, a.id);
+                } else {
+                  await manager.save(ArmyUnit, a.units);
+                  await manager.save(Army, a);
+                }
+              }
+
+              // Defender takes minor losses
+              const baseDefenderRateCoeff = 0.7;
+              const baseDefenderRate =
+                (attackerPower / (attackerPower + defenderPower)) * baseDefenderRateCoeff;
+              const defenderCasualtyRate = Math.max(CASUALTY_FLOOR, baseDefenderRate);
+
+              const survivingDefenders: Army[] = [];
+              for (const da of defenderArmies) {
+                applyCasualties(da, defenderCasualtyRate);
+                if (armyTotalTroops(da) < ARMY_MIN_SIZE) {
+                  await manager.delete(ArmyUnit, { army_id: da.id });
+                  await manager.delete(Army, da.id);
+                } else {
+                  await manager.save(ArmyUnit, da.units);
+                  await manager.save(Army, da);
+                  survivingDefenders.push(da);
+                }
+              }
+              defenderArmies = survivingDefenders;
+
+              this.logger.log(
+                `Province ${provinceId}: defender ${defenderUserId} repelled attacker ${attackerUserId}`,
+              );
+            }
+          }
         }
-      }
+      });
     } catch (error) {
       this.logger.error('Error during army conflict resolution:', error);
     }
@@ -487,37 +503,38 @@ export class ActionSchedulerService {
    */
   private async syncProvinceOwnershipWithArmies(): Promise<void> {
     try {
-      const armies = await this.dataSource.getRepository(Army).find();
+      await this.dataSource.transaction(async (manager) => {
+        const armies = await manager.find(Army);
 
-      if (armies.length === 0) return;
+        if (armies.length === 0) return;
 
-      const provinceIds = [...new Set(armies.map((a) => a.province_id))];
-      const provinces = await this.dataSource
-        .getRepository(Province)
-        .createQueryBuilder('p')
-        .where('p.id IN (:...ids)', { ids: provinceIds })
-        .getMany();
+        const provinceIds = [...new Set(armies.map((a) => a.province_id))];
+        const provinces = await manager
+          .createQueryBuilder(Province, 'p')
+          .where('p.id IN (:...ids)', { ids: provinceIds })
+          .getMany();
 
-      const provinceMap = new Map(provinces.map((p) => [p.id, p]));
-      let updated = 0;
+        const provinceMap = new Map(provinces.map((p) => [p.id, p]));
+        let updated = 0;
 
-      for (const army of armies) {
-        const province = provinceMap.get(army.province_id);
-        if (!province || province.type === 'water') continue;
+        for (const army of armies) {
+          const province = provinceMap.get(army.province_id);
+          if (!province || province.type === 'water') continue;
 
-        if (province.user_id !== army.user_id) {
-          province.user_id = army.user_id;
-          await this.dataSource.getRepository(Province).save(province);
-          updated++;
-          this.logger.warn(
-            `Province ${province.id} ownership corrected to user ${army.user_id} (army ${army.id})`,
-          );
+          if (province.user_id !== army.user_id) {
+            province.user_id = army.user_id;
+            await manager.save(Province, province);
+            updated++;
+            this.logger.warn(
+              `Province ${province.id} ownership corrected to user ${army.user_id} (army ${army.id})`,
+            );
+          }
         }
-      }
 
-      if (updated > 0) {
-        this.logger.log(`syncProvinceOwnershipWithArmies: corrected ${updated} province(s)`);
-      }
+        if (updated > 0) {
+          this.logger.log(`syncProvinceOwnershipWithArmies: corrected ${updated} province(s)`);
+        }
+      });
     } catch (error) {
       this.logger.error('Error during province ownership sync:', error);
     }
