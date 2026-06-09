@@ -181,179 +181,6 @@ export class BuildActionHandler implements ActionHandler {
 }
 
 @Injectable()
-export class InvadeActionHandler implements ActionHandler {
-  private readonly logger = new Logger(InvadeActionHandler.name);
-
-  constructor(
-    @InjectRepository(Province)
-    private readonly provinceRepo: Repository<Province>,
-  ) {}
-
-  async handle(action: ActionQueue): Promise<void> {
-    this.logger.log(
-      `Executing INVADE action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
-    );
-
-    const fromId = action.actionData?.from_province_id as string | undefined;
-    const toId = action.actionData?.to_province_id as string | undefined;
-    const troopsNumber = Number(action.actionData?.troops_number ?? 0);
-
-    if (!fromId || !toId) {
-      throw new Error('from_province_id and to_province_id are required');
-    }
-    if (!Number.isFinite(troopsNumber) || troopsNumber <= 0) {
-      throw new Error('troops_number must be a positive number');
-    }
-
-    await this.provinceRepo.manager.transaction(async (manager) => {
-      const fromProvince = await manager.findOne(Province, {
-        where: { id: fromId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!fromProvince) {
-        throw new Error('Source province not found');
-      }
-
-      if (fromProvince.user_id !== action.userId) {
-        throw new Error('User do not own the source province');
-      }
-
-      const fromTroops = Number(fromProvince.local_troops ?? 0);
-      if (!Number.isFinite(fromTroops) || fromTroops < troopsNumber) {
-        throw new Error('Not enough troops in the source province');
-      }
-
-      const toProvince = await manager.findOne(Province, {
-        where: { id: toId },
-        relations: ['provinceBuildings', 'provinceBuildings.building'],
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!toProvince) {
-        throw new Error('Target province not found');
-      }
-
-      const defenderTroops = Number(toProvince.local_troops ?? 0);
-      if (!Number.isFinite(defenderTroops)) {
-        throw new Error('Invalid defender troop count on target province');
-      }
-
-      if (action.userId != null && action.userId !== action.userId) {
-        throw new Error('actionData.userId does not match action user');
-      }
-      if (
-        toProvince.user_id != null &&
-        action.userId === toProvince.user_id
-      ) {
-        fromProvince.local_troops = fromTroops - troopsNumber;
-        toProvince.local_troops = defenderTroops + troopsNumber;
-        await manager.save(Province, [fromProvince, toProvince]);
-        return;
-      }
-
-      const attacker = await manager.findOne(User, { where: { id: action.userId } });
-      const battleCtx = { attackingTroops: troopsNumber };
-      for (const techKey of (attacker?.completed_research ?? [])) {
-        BATTLE_RESEARCH_EFFECTS[techKey]?.(battleCtx);
-      }
-
-      const buildModifier = computeBuildModifier(toProvince.buildings);
-      const battleResult = battleCtx.attackingTroops / buildModifier - defenderTroops;
-
-      fromProvince.local_troops = fromTroops - troopsNumber;
-
-      if (battleResult > 0) {
-        const isWater = toProvince.type?.toLowerCase() === 'water';
-        if (!isWater) {
-          toProvince.user_id = action.userId;
-        }
-        toProvince.local_troops = Math.round(battleResult);
-      } else if (battleResult < 0) {
-        toProvince.local_troops = Math.round(-battleResult);
-      } else {
-        toProvince.local_troops = 0;
-      }
-
-      await manager.save(Province, [fromProvince, toProvince]);
-    });
-  }
-}
-
-@Injectable()
-export class DeployActionHandler implements ActionHandler {
-  private readonly logger = new Logger(DeployActionHandler.name);
-
-  constructor(
-    @InjectRepository(Province)
-    private readonly provinceRepo: Repository<Province>,
-  ) {}
-
-  async handle(action: ActionQueue): Promise<void> {
-    this.logger.log(
-      `Executing DEPLOY action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
-    );
-
-    const provinceId = action.actionData?.province_id as string | undefined;
-    const troopsNumber = Number(action.actionData?.troops_number ?? 0);
-
-    if (!provinceId) {
-      throw new Error('province_id is required');
-    }
-    if (!Number.isFinite(troopsNumber) || troopsNumber <= 0) {
-      throw new Error('troops_number must be a positive number');
-    }
-
-    await this.provinceRepo.manager.transaction(async (manager) => {
-      const province = await manager.findOne(Province, {
-        where: { id: provinceId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!province) {
-        throw new Error('Province not found');
-      }
-
-      if (province.user_id !== action.userId) {
-        throw new Error('User does not own this province');
-      }
-
-      const user = await manager.findOne(User, {
-        where: { id: action.userId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!user) {
-        throw new Error('User not found');
-      }
-
-      const hasLogistics = (user.completed_research ?? []).includes('economy.logistics');
-      const deployMoneyCost = hasLogistics ? 0 : troopsNumber * DEPLOY_MONEY_PER_TROOP;
-
-      const currentMoney = Number(user.money ?? 0);
-      if (currentMoney < deployMoneyCost) {
-        throw new Error('Not enough money to deploy');
-      }
-
-      const poolTroops = Number(user.troops ?? 0);
-      if (!Number.isFinite(poolTroops) || poolTroops < troopsNumber) {
-        throw new Error('Not enough troops to deploy');
-      }
-
-      const localTroops = Number(province.local_troops ?? 0);
-      const safeLocal = Number.isFinite(localTroops) ? localTroops : 0;
-
-      user.money = currentMoney - deployMoneyCost;
-      user.troops = poolTroops - troopsNumber;
-      province.local_troops = safeLocal + troopsNumber;
-
-      await manager.save(Province, province);
-      await manager.save(User, user);
-    });
-  }
-}
-
-@Injectable()
 export class RemoveActionHandler implements ActionHandler {
   private readonly logger = new Logger(RemoveActionHandler.name);
 
@@ -1275,8 +1102,6 @@ export class ActionExecutorService {
 
   constructor(
     private buildHandler: BuildActionHandler,
-    private invadeHandler: InvadeActionHandler,
-    private deployHandler: DeployActionHandler,
     private upgradeHandler: UpgradeActionHandler,
     private transferTroopsHandler: TransferTroopsActionHandler,
     private researchHandler: ResearchActionHandler,
@@ -1290,8 +1115,6 @@ export class ActionExecutorService {
     private colonizeHandler: ColonizeActionHandler,
   ) {
     this.handlers.set(ActionType.BUILD, buildHandler);
-    this.handlers.set(ActionType.INVADE, invadeHandler);
-    this.handlers.set(ActionType.DEPLOY, deployHandler);
     this.handlers.set(ActionType.UPGRADE, upgradeHandler);
     this.handlers.set(ActionType.TRANSFER_TROOPS, transferTroopsHandler);
     this.handlers.set(ActionType.RESEARCH, researchHandler);

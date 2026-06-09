@@ -212,8 +212,6 @@ export interface SetupUserResponse {
 
 export enum ActionType {
   BUILD = 'BUILD',
-  INVADE = 'INVADE',
-  DEPLOY = 'DEPLOY',
   UPGRADE = 'UPGRADE',
   TRANSFER_TROOPS = 'TRANSFER_TROOPS',
   RESEARCH = 'RESEARCH',
