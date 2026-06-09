@@ -14,6 +14,7 @@ import {
 import { ActionsService } from './actions.service';
 import { ActionQueue } from './entities/action-queue.entity';
 import { ActionsLog } from './entities/actions-log.entity';
+import { CreateActionDto } from './dto/create-action.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -36,7 +37,7 @@ export class ActionsController {
   @Post()
   async createAction(
     @Request() req,
-    @Body() createActionDto: any,
+    @Body() createActionDto: CreateActionDto,
   ): Promise<any> {
     return await this.actionsService.createAction(
       req.user.id,

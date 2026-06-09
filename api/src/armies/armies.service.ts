@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Army } from './entities/army.entity';
 import { TroopType } from './entities/troop-type.entity';
-import { ActionQueue, ActionStatus, ActionType } from '../actions/entities/action-queue.entity';
+import { ActionQueue, ActionType } from '../actions/entities/action-queue.entity';
+import { ActionsService } from '../actions/actions.service';
 import { User } from '../users/entities/user.entity';
 import { UserClasses } from '../users/types/users.types';
 
@@ -20,10 +21,9 @@ export class ArmiesService {
     private readonly armyRepo: Repository<Army>,
     @InjectRepository(TroopType)
     private readonly troopTypeRepo: Repository<TroopType>,
-    @InjectRepository(ActionQueue)
-    private readonly actionQueueRepo: Repository<ActionQueue>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    private readonly actionsService: ActionsService,
   ) {}
 
   getUserArmies = (userId: string): Promise<Army[]> =>
@@ -80,16 +80,12 @@ export class ArmiesService {
     userId: string,
     body: { province_id: string; name?: string; units: { troop_type_key: string; count: number }[] },
   ): Promise<{ action: ActionQueue }> {
-    const allActions = await this.actionQueueRepo.find();
-    const action = this.actionQueueRepo.create({
-      userId,
-      actionType: ActionType.ARMY_CREATE,
-      actionData: { province_id: body.province_id, name: body.name, units: body.units },
-      order: allActions.length + 1,
-      status: ActionStatus.PENDING,
+    const action = await this.actionsService.createAction(userId, ActionType.ARMY_CREATE, {
+      province_id: body.province_id,
+      name: body.name,
+      units: body.units,
     });
-    const saved = await this.actionQueueRepo.save(action);
-    return { action: saved };
+    return { action };
   }
 
   async updateArmyName(id: string, userId: string, name: string): Promise<Army> {
@@ -105,16 +101,10 @@ export class ArmiesService {
     if (!army) throw new NotFoundException('Army not found');
     if (army.user_id !== userId) throw new BadRequestException('User does not own this army');
 
-    const allActions = await this.actionQueueRepo.find();
-    const action = this.actionQueueRepo.create({
-      userId,
-      actionType: ActionType.ARMY_DISBAND,
-      actionData: { army_id: id },
-      order: allActions.length + 1,
-      status: ActionStatus.PENDING,
+    const action = await this.actionsService.createAction(userId, ActionType.ARMY_DISBAND, {
+      army_id: id,
     });
-    const saved = await this.actionQueueRepo.save(action);
-    return { action: saved };
+    return { action };
   }
 
   getTroopTypeByKey = (key: string): Promise<TroopType | null> =>
