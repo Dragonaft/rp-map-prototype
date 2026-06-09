@@ -12,7 +12,7 @@ export const usersApi = {
     return response.data;
   },
 
-  update: async (id: string, data: Partial<UserUpdate>): Promise<User> => {
+  update: async (id: string, data: Partial<UserUpdate>): Promise<{ countryName: string, color: string }> => {
     const response = await apiClient.patch<User>(`/users/${id}`, data);
     return response.data;
   },
