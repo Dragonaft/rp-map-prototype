@@ -127,6 +127,10 @@ export class ProvincesService {
       throw new NotFoundException(`User with id ${user.id} not found`);
     }
 
+    if (!foundUser.is_new) {
+      throw new NotFoundException(`User ${user.id} already did setup`);
+    }
+
     if (!province) {
       throw new NotFoundException(`Province with id ${id} not found`);
     }
