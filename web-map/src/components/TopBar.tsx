@@ -16,6 +16,31 @@ export const TopBar = () => {
   const [openTechModal, setOpenTechModal] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
 
+  // Resources committed by built buildings + pending build actions.
+  // Built buildings come from the provinces slice — the /users endpoint does NOT
+  // serialize the Province.buildings getter, so user.provinces[].buildings is empty.
+  const usedResourcesByType = useMemo(() => {
+    const used: Record<string, number> = {};
+    for (const province of provinces) {
+      if (province.userId !== user.id) continue;
+      for (const b of province.buildings ?? []) {
+        if (b.requirementResource && b.requirementResourceAmount) {
+          used[b.requirementResource] = (used[b.requirementResource] ?? 0) + b.requirementResourceAmount;
+        }
+      }
+    }
+    const buildingById = new Map(buildings.map(b => [String(b.id), b]));
+    for (const action of actions) {
+      if (action.actionType !== ActionType.BUILD) continue;
+      const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
+      const template = buildingById.get(String(bid));
+      if (template?.requirementResource && template?.requirementResourceAmount) {
+        used[template.requirementResource] = (used[template.requirementResource] ?? 0) + template.requirementResourceAmount;
+      }
+    }
+    return used;
+  }, [provinces, user.id, buildings, actions]);
+
   // Sum gold cost of all queued actions that have a known upfront cost.
   // BUILD: building.cost, UPGRADE: building.cost + 100, COLONIZE: 500.
   const pendingMoneyCost = useMemo(() => {
@@ -69,10 +94,20 @@ export const TopBar = () => {
             <Tooltip
               title={
                 <div className="flex flex-col gap-2 p-1" style={{ fontSize: '14px', lineHeight: '1.6' }}>
-                  <div>🪨 Stone: {user.resources?.stone ?? 0}</div>
-                  <div>⚙ Iron: {user.resources?.iron ?? 0}</div>
-                  <div>🪙 Gold: {user.resources?.gold ?? 0}</div>
-                  <div>🪵 Wood: {user.resources?.wood ?? 0}</div>
+                  {(['stone', 'iron', 'gold', 'wood'] as const).map((res) => {
+                    const icons: Record<string, string> = { stone: '🪨', iron: '⚙', gold: '🪙', wood: '🪵' };
+                    const total = user.resources?.[res] ?? 0;
+                    const used = usedResourcesByType[res] ?? 0;
+                    const free = total - used;
+                    return (
+                      <div key={res}>
+                        {icons[res]} {res.charAt(0).toUpperCase() + res.slice(1)}: {total}
+                        {used > 0 && (
+                          <span style={{ color: free <= 0 ? '#ffb3b3' : '#ffd580' }}> ({used} used, {Math.max(0, free)} free)</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               }
               arrow

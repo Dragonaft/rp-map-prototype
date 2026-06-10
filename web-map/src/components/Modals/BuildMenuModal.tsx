@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Tooltip } from '@mui/material';
-import { Building, BuildingTypes, Province, Tech, UserResources } from '../../types.ts';
+import { Building, Province, Tech, UserResources } from '../../types.ts';
 import { BUILDING_ICONS } from '../../constants/buildingIcons.ts';
 
 interface Props {
@@ -15,6 +15,8 @@ interface Props {
   techs: Tech[];
   userResources: UserResources;
   userProvinces: Province[];
+  pendingResourceUsage: Record<string, number>;
+  builtTypesInProvince: Set<string>;
   onBuild: (buildingId: string) => void;
 }
 
@@ -30,17 +32,21 @@ export const BuildMenuModal: React.FC<Props> = ({
   techs,
   userResources,
   userProvinces,
+  pendingResourceUsage,
+  builtTypesInProvince,
   onBuild,
 }) => {
-  const existingBuildingCounts = React.useMemo(() => {
-    const counts: Partial<Record<BuildingTypes, number>> = {};
+  // Resources committed by all currently built buildings across all user provinces
+  const builtResourceUsage = React.useMemo(() => {
+    const used: Record<string, number> = {};
     for (const province of userProvinces) {
       for (const b of province.buildings ?? []) {
-        const t = b.type as BuildingTypes;
-        counts[t] = (counts[t] ?? 0) + 1;
+        if (b.requirementResource && b.requirementResourceAmount) {
+          used[b.requirementResource] = (used[b.requirementResource] ?? 0) + b.requirementResourceAmount;
+        }
       }
     }
-    return counts;
+    return used;
   }, [userProvinces]);
 
   return (
@@ -62,17 +68,25 @@ export const BuildMenuModal: React.FC<Props> = ({
 
           const resourceCost = building.requirementResource;
           const resourceAmount = building.requirementResourceAmount ?? 1;
-          const resourceInsufficient = resourceCost
-            ? (existingBuildingCounts[building.type as BuildingTypes] ?? 0) * resourceAmount > (userResources[resourceCost as keyof UserResources] ?? 0) - resourceAmount
-            : false;
+          const totalResourceUsed = resourceCost
+            ? (builtResourceUsage[resourceCost] ?? 0) + (pendingResourceUsage[resourceCost] ?? 0)
+            : 0;
+          const resourceAvailable = resourceCost
+            ? (userResources[resourceCost as keyof UserResources] ?? 0) - totalResourceUsed
+            : Infinity;
+          const resourceInsufficient = resourceCost ? resourceAvailable < resourceAmount : false;
+
+          const uniqueAlreadyBuilt = building.uniquePerProvince && builtTypesInProvince.has(building.type);
 
           const disabledReason = resourceMismatch
             ? `Requires a province with ${allowedResources!.join(' or ')} resource (this province: ${provinceResourceType || 'none'})`
-            : resourceInsufficient
-              ? `Not enough ${resourceCost}: you have ${userResources[resourceCost as keyof UserResources] ?? 0} but already using ${(existingBuildingCounts[building.type as BuildingTypes] ?? 0) * resourceAmount} for ${building.name}(s)`
-              : missingTechName
-                ? `Missing required technology: ${missingTechName}`
-                : null;
+            : uniqueAlreadyBuilt
+              ? `Only one ${building.name} allowed per province`
+              : resourceInsufficient
+                ? `Not enough ${resourceCost}: ${userResources[resourceCost as keyof UserResources] ?? 0} total, ${totalResourceUsed} already used, ${Math.max(0, resourceAvailable)} free`
+                : missingTechName
+                  ? `Missing required technology: ${missingTechName}`
+                  : null;
 
           return (
             <Tooltip key={building.id} title={
@@ -95,6 +109,7 @@ export const BuildMenuModal: React.FC<Props> = ({
                     pendingBuildTypes.has(building.type) ||
                     resourceMismatch ||
                     resourceInsufficient ||
+                    uniqueAlreadyBuilt ||
                     !!missingTechKey
                   }
                   onClick={() => onBuild(building.id)}

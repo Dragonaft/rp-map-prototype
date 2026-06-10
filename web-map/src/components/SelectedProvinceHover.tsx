@@ -30,7 +30,16 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
   const actions = useAppSelector((state: RootState) => state.actions.actions);
   const techs = useAppSelector((state: RootState) => state.techs.techs);
   const armies = useAppSelector((state: RootState) => state.armies.armies);
+  const provinces = useAppSelector((state: RootState) => state.provinces.provinces);
   const { mutate } = useMutation(provincesApi.setupUser);
+
+  // Owner provinces from the provinces slice. The /users endpoint does not
+  // serialize the Province.buildings getter, so user.provinces[].buildings is
+  // empty — the provinces slice (from /provinces/state) has real buildings.
+  const ownedProvinces = useMemo(
+    () => provinces.filter(p => p.userId === user.id),
+    [provinces, user.id],
+  );
   const isUserOwner = user.id === selectedProvince?.userId;
 
   const [isOpenBuildMenu, setIsOpenBuildMenu] = useState(false);
@@ -295,6 +304,20 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     [selectedProvince?.buildings],
   );
 
+  const pendingResourceUsage = useMemo(() => {
+    const used: Record<string, number> = {};
+    const templateById = new Map((buildings ?? []).map(b => [b.id, b]));
+    for (const action of actions) {
+      if (action.actionType !== ActionType.BUILD) continue;
+      const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
+      const template = templateById.get(String(bid));
+      if (template?.requirementResource && template?.requirementResourceAmount) {
+        used[template.requirementResource] = (used[template.requirementResource] ?? 0) + template.requirementResourceAmount;
+      }
+    }
+    return used;
+  }, [actions, buildings]);
+
   const pendingCreateArmyActions = useMemo(() => {
     if (!selectedProvince) return [];
     return actions.filter(
@@ -533,7 +556,9 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         pendingBuildTypes={pendingBuildTypesInProvince}
         techs={techs}
         userResources={user.resources}
-        userProvinces={user.provinces}
+        userProvinces={ownedProvinces}
+        pendingResourceUsage={pendingResourceUsage}
+        builtTypesInProvince={new Set(builtInProvince.map(b => b.type))}
         onBuild={(id) => { void handleBuildAction(id); setIsOpenBuildMenu(false); }}
       />
 
