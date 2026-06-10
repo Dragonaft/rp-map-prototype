@@ -32,6 +32,8 @@ interface BuildingSeedRow {
   allowed_province_resources?: string[] | null;
   requirement_resource?: string | null;
   requirement_resource_amount?: number | null;
+  visible?: boolean;
+  can_recruit?: boolean;
 }
 
 const BUILDING_TYPE_VALUES = new Set<string>(Object.values(BuildingTypes));
@@ -136,6 +138,8 @@ async function seedBuildings() {
       allowed_province_resources: row.allowed_province_resources ?? null,
       requirement_resource: row.requirement_resource ?? null,
       requirement_resource_amount: row.requirement_resource_amount ?? null,
+      visible: row.visible ?? false,
+      can_recruit: row.can_recruit ?? false,
     };
 
     const existing = await repo.find({

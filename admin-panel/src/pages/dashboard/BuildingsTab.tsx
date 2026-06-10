@@ -27,6 +27,7 @@ const EMPTY_NEW_BUILDING = {
   modifier: '', cost: 0, upgrade_to: '', requirement_tech: '', requirement_building: '',
   buildable: true, destructible: true, unique_per_province: false,
   allowed_province_resources: '', requirement_resource: '', requirement_resource_amount: 0,
+  visible: false, can_recruit: false,
 };
 
 export const BuildingsTab = () => {
@@ -123,6 +124,8 @@ export const BuildingsTab = () => {
     { field: 'buildable', headerName: 'Buildable', width: 90, editable: true, type: 'boolean' },
     { field: 'destructible', headerName: 'Destructible', width: 100, editable: true, type: 'boolean' },
     { field: 'unique_per_province', headerName: 'Unique/Prov', width: 100, editable: true, type: 'boolean' },
+    { field: 'visible', headerName: 'Visible', width: 90, editable: true, type: 'boolean' },
+    { field: 'can_recruit', headerName: 'Can Recruit', width: 100, editable: true, type: 'boolean' },
     arrCol('allowed_province_resources', 'Allowed Resources', 160),
     { field: 'requirement_resource', headerName: 'Req. Resource', width: 120, editable: true, type: 'singleSelect', valueOptions: RESOURCE_TYPES },
     { field: 'requirement_resource_amount', headerName: 'Req. Amount', type: 'number', width: 100, editable: true },
@@ -212,6 +215,20 @@ export const BuildingsTab = () => {
           <FormControl>
             <InputLabel>Unique per Province</InputLabel>
             <Select label="Unique per Province" value={newBuilding.unique_per_province ? 'true' : 'false'} onChange={(e) => setNewBuilding((p) => ({ ...p, unique_per_province: e.target.value === 'true' }))}>
+              <MenuItem value="true">Yes</MenuItem>
+              <MenuItem value="false">No</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl>
+            <InputLabel>Visible</InputLabel>
+            <Select label="Visible" value={newBuilding.visible ? 'true' : 'false'} onChange={(e) => setNewBuilding((p) => ({ ...p, visible: e.target.value === 'true' }))}>
+              <MenuItem value="true">Yes</MenuItem>
+              <MenuItem value="false">No</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl>
+            <InputLabel>Can Recruit</InputLabel>
+            <Select label="Can Recruit" value={newBuilding.can_recruit ? 'true' : 'false'} onChange={(e) => setNewBuilding((p) => ({ ...p, can_recruit: e.target.value === 'true' }))}>
               <MenuItem value="true">Yes</MenuItem>
               <MenuItem value="false">No</MenuItem>
             </Select>
