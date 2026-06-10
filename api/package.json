@@ -16,9 +16,15 @@
     "migration:fresh": "npm run typeorm -- schema:drop -d src/db/data-source.ts && npm run migration:run",
     "migration:fresh:prod": "npm run typeorm -- schema:drop -d dist/db/data-source.prod.js && npm run migration:run",
     "import:provinces": "ts-node src/scripts/import-provinces.ts",
+    "import:provinces:prod": "node dist/scripts/import-provinces.js",
     "seed:buildings": "ts-node src/scripts/seed-buildings.ts",
+    "seed:buildings:prod": "node dist/scripts/seed-buildings.js",
     "seed:techs": "ts-node src/scripts/seed-techs.ts",
+    "seed:techs:prod": "node dist/scripts/seed-techs.js",
     "seed:troop-types": "ts-node src/scripts/seed-troop-types.ts",
+    "seed:troop-types:prod": "node dist/scripts/seed-troop-types.js",
+    "reset:game": "ts-node src/scripts/reset-game-data.ts",
+    "reset:game:prod": "node dist/scripts/reset-game-data.js",
     "balance:report": "ts-node --transpile-only src/scripts/balance-report.ts"
   },
   "dependencies": {

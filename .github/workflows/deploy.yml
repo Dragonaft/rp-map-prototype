@@ -1,0 +1,89 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches: [main]
+  # Manual trigger — lets you force the full map reset even when provinces.json
+  # did not change (e.g. you want to wipe game state and reseed on demand).
+  workflow_dispatch:
+    inputs:
+      full_reset:
+        description: "Force full map reset (import provinces + wipe game data + reseed + reset users)"
+        type: boolean
+        default: false
+
+# Never let two deploys run at once — the reset path is destructive.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # paths-filter needs the previous commit to diff against on push.
+          fetch-depth: 2
+
+      - name: Detect provinces.json change
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            provinces:
+              - 'api/data/provinces.json'
+
+      - name: Decide whether to run the full map reset
+        id: decide
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ inputs.full_reset }}" = "true" ]; then
+            echo "reset=true" >> "$GITHUB_OUTPUT"
+          elif [ "${{ steps.filter.outputs.provinces }}" = "true" ]; then
+            echo "reset=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "reset=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          command_timeout: 30m
+          # `RESET` is interpolated by GitHub before the script is sent to the box.
+          script: |
+            set -e
+            RESET="${{ steps.decide.outputs.reset }}"
+            cd "${{ secrets.EC2_APP_DIR }}"
+
+            echo "==> Pulling latest main"
+            git fetch --all --prune
+            git reset --hard origin/main
+
+            echo "==> Building and (re)starting containers"
+            # --wait blocks until the db healthcheck passes and api/web/admin are up.
+            docker compose up -d --build --wait
+
+            echo "==> Running database migrations"
+            docker compose exec -T api npm run migration:run:prod
+
+            if [ "$RESET" = "true" ]; then
+              echo "==> provinces.json changed (or forced): running FULL MAP RESET"
+              echo "--> import provinces"
+              docker compose exec -T api npm run import:provinces:prod
+              echo "--> wipe game data + reset users"
+              docker compose exec -T api npm run reset:game:prod
+              echo "--> reseed buildings / techs / troop-types"
+              docker compose exec -T api npm run seed:buildings:prod
+              docker compose exec -T api npm run seed:techs:prod
+              docker compose exec -T api npm run seed:troop-types:prod
+            else
+              echo "==> provinces.json unchanged: migrations + container update only"
+            fi
+
+            echo "==> Pruning dangling images"
+            docker image prune -f
+            echo "==> Deploy complete"
