@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { instanceToPlain } from 'class-transformer';
-import { Not, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Province } from './entities/province.entity';
 import { ProvincesUpdateBodyRequest } from './requests/provinces-update-body.request';
 import { User } from "../users/entities/user.entity";
@@ -195,14 +195,17 @@ export class ProvincesService {
       throw new Error(`You cant start on water province!`);
     }
 
-    // Add CAPITAL building to the province
+    // Add CAPITAL building to the province. Fail loudly if the template is
+    // missing (e.g. buildings table not yet seeded after a reset) so we never
+    // hand out a province without a capital.
     const building = await this.buildingRepository.findOne({ where: { type: BuildingTypes.CAPITAL } });
-    if (building) {
-      const pb = new ProvinceBuilding();
-      pb.province_id = province.id;
-      pb.building_id = building.id;
-      province.provinceBuildings.push(pb);
+    if (!building) {
+      throw new Error('CAPITAL building template not found — run the building seed before setup');
     }
+    const pb = new ProvinceBuilding();
+    pb.province_id = province.id;
+    pb.building_id = building.id;
+    province.provinceBuildings.push(pb);
 
     province.user_id = user.id;
 
