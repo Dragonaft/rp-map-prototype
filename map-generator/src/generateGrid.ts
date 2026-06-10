@@ -15,8 +15,26 @@ interface GenerateGridOptions {
   maxRiverLength?: number; // max tiles per river
 }
 
-const resources = ['iron', 'wood', 'grain', 'stone', 'gold'];
+// Land resource spawn weights — gold and stone are deliberately much rarer.
+const resourceWeights: { value: string; weight: number }[] = [
+  { value: 'iron',  weight: 10 },
+  { value: 'wood',  weight: 10 },
+  { value: 'grain', weight: 10 },
+  { value: 'stone', weight: 2 },
+  { value: 'gold',  weight: 1 },
+];
 const resourcesSea = ['fish'];
+
+// Weighted pick using the seeded RNG so maps stay reproducible.
+function pickWeighted(rng: () => number, entries: { value: string; weight: number }[]): string {
+  const total = entries.reduce((sum, e) => sum + e.weight, 0);
+  let roll = rng() * total;
+  for (const e of entries) {
+    roll -= e.weight;
+    if (roll < 0) return e.value;
+  }
+  return entries[entries.length - 1].value;
+}
 
 // ─── Seeded RNG (LCG) ────────────────────────────────────────────────────────
 
@@ -187,7 +205,7 @@ export function generateGridMap(options: GenerateGridOptions) {
         type,
         landscape: isWater ? 'plains' : getLandscape(elevation[r][c], rng),
         local_troops: 0,
-        resource_type: isWater ? randomFrom(resourcesSea) : randomFrom(resources),
+        resource_type: isWater ? randomFrom(resourcesSea) : pickWeighted(rng, resourceWeights),
         user_id: null,
         region_id: `prov-${r}-${c}`,
         neighbor_regions: [],

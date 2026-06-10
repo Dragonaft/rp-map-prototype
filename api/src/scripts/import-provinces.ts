@@ -130,9 +130,9 @@ async function importProvinces() {
   // Step 5: Clear existing provinces and relations
   logger.log('Clearing existing provinces and relations...');
   try {
-    // Clear provinces_buildings junction table first (relation)
-    await AppDataSource.query('DELETE FROM provinces_buildings');
-    logger.log('Cleared provinces_buildings junction table');
+    // Clear province_building relation table first (FK to provinces)
+    await AppDataSource.query('DELETE FROM province_building');
+    logger.log('Cleared province_building relation table');
 
     // Clear provinces table
     await AppDataSource.query('DELETE FROM provinces');

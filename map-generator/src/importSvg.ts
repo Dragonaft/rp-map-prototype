@@ -9,10 +9,27 @@ interface ImportSvgOptions {
 }
 
 const landscapes: Landscape[] = ['plains', 'forest', 'mountain', 'desert', 'hills', 'swamp'];
-const resources = ['iron', 'wood', 'grain', 'stone', 'gold'];
+// Land resource spawn weights — gold and stone are deliberately much rarer.
+const resourceWeights: { value: string; weight: number }[] = [
+  { value: 'iron',  weight: 10 },
+  { value: 'wood',  weight: 10 },
+  { value: 'grain', weight: 10 },
+  { value: 'stone', weight: 2 },
+  { value: 'gold',  weight: 1 },
+];
 const resourcesSea = ['fish'];
 
 const randomFrom = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+
+function pickWeighted(rng: () => number, entries: { value: string; weight: number }[]): string {
+  const total = entries.reduce((sum, e) => sum + e.weight, 0);
+  let roll = rng() * total;
+  for (const e of entries) {
+    roll -= e.weight;
+    if (roll < 0) return e.value;
+  }
+  return entries[entries.length - 1].value;
+}
 
 interface PathPoint {
   x: number;
@@ -169,7 +186,7 @@ export function importSvgAsMap(options: ImportSvgOptions) {
         ? (landscapeAttr as Landscape)
         : randomFrom(landscapes),
       local_troops: 0,
-      resource_type: isWater ? randomFrom(resourcesSea) : randomFrom(resources),
+      resource_type: isWater ? randomFrom(resourcesSea) : pickWeighted(Math.random, resourceWeights),
       user_id: null,
       region_id: id,
       neighbor_regions: [], // Will be populated by calculateNeighbors

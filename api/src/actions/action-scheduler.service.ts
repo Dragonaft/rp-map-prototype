@@ -51,14 +51,14 @@ export class ActionSchedulerService {
   }
 
   // TODO: Create custom cron setup
-  @Cron('0 12 * * *', { timeZone: 'Europe/Kyiv' }) // Every day at 12:00 Kyiv time
+  @Cron('0 13 * * *', { timeZone: 'Europe/Kyiv' }) // Every day at 13:00 Kyiv time
   async executeNoonActions() {
-    await this.executeScheduledActions('12:00');
+    await this.executeScheduledActions('13:00');
   }
 
-  @Cron('0 18 * * *', { timeZone: 'Europe/Kyiv' }) // Every day at 18:00 Kyiv time
+  @Cron('0 20 * * *', { timeZone: 'Europe/Kyiv' }) // Every day at 200:00 Kyiv time
   async executeEveningActions() {
-    await this.executeScheduledActions('18:00');
+    await this.executeScheduledActions('20:00');
   }
 
   /**
