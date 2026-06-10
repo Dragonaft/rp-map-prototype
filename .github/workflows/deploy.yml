@@ -1,10 +1,9 @@
-name: Deploy to EC2
+name: Build & Deploy to EC2
 
 on:
   push:
     branches: [main]
-  # Manual trigger — lets you force the full map reset even when provinces.json
-  # did not change (e.g. you want to wipe game state and reseed on demand).
+  # Manual trigger — force the full map reset even if provinces.json didn't change.
   workflow_dispatch:
     inputs:
       full_reset:
@@ -18,14 +17,82 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  # ── 1. Build all three images on the runner and push to GHCR ────────────────
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image_api: ${{ steps.meta.outputs.image_api }}
+      image_web: ${{ steps.meta.outputs.image_web }}
+      image_admin: ${{ steps.meta.outputs.image_admin }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute image refs (GHCR requires lowercase)
+        id: meta
+        run: |
+          REPO=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          TAG="${{ github.sha }}"
+          echo "image_api=ghcr.io/${REPO}-api:${TAG}"     >> "$GITHUB_OUTPUT"
+          echo "image_web=ghcr.io/${REPO}-web:${TAG}"     >> "$GITHUB_OUTPUT"
+          echo "image_admin=ghcr.io/${REPO}-admin:${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push API
+        uses: docker/build-push-action@v6
+        with:
+          context: ./api
+          push: true
+          tags: ${{ steps.meta.outputs.image_api }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,scope=api,mode=max
+
+      - name: Build & push Web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: web-map/Dockerfile
+          build-args: VITE_API_BASE_URL=/api
+          push: true
+          tags: ${{ steps.meta.outputs.image_web }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,scope=web,mode=max
+
+      - name: Build & push Admin
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: admin-panel/Dockerfile
+          build-args: VITE_API_BASE_URL=/api
+          push: true
+          tags: ${{ steps.meta.outputs.image_admin }}
+          cache-from: type=gha,scope=admin
+          cache-to: type=gha,scope=admin,mode=max
+
+  # ── 2. Pull the freshly-built images on EC2 and run them ────────────────────
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # paths-filter needs the previous commit to diff against on push.
-          fetch-depth: 2
+          fetch-depth: 2 # paths-filter needs the previous commit to diff
 
       - name: Detect provinces.json change
         id: filter
@@ -52,31 +119,38 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          command_timeout: 30m
-          # `RESET` is interpolated by GitHub before the script is sent to the box.
+          command_timeout: 20m
+          # GitHub interpolates these ${{ }} values before sending the script.
           script: |
             set -e
+            export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
+            export IMAGE_API="${{ needs.build.outputs.image_api }}"
+            export IMAGE_WEB="${{ needs.build.outputs.image_web }}"
+            export IMAGE_ADMIN="${{ needs.build.outputs.image_admin }}"
             RESET="${{ steps.decide.outputs.reset }}"
+
             cd "${{ secrets.EC2_APP_DIR }}"
 
-            echo "==> Pulling latest main"
+            echo "==> Syncing compose files"
             git fetch --all --prune
             git reset --hard origin/main
 
-            echo "==> Building and (re)starting containers"
-            # --wait blocks until the db healthcheck passes and api/web/admin are up.
-            docker compose up -d --build --wait
+            echo "==> Logging in to GHCR"
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+            echo "==> Pulling images (no build on this box)"
+            docker compose pull
+
+            echo "==> Starting containers"
+            docker compose up -d --wait
 
             echo "==> Running database migrations"
             docker compose exec -T api npm run migration:run:prod
 
             if [ "$RESET" = "true" ]; then
-              echo "==> provinces.json changed (or forced): running FULL MAP RESET"
-              echo "--> import provinces"
+              echo "==> provinces.json changed (or forced): FULL MAP RESET"
               docker compose exec -T api npm run import:provinces:prod
-              echo "--> wipe game data + reset users"
               docker compose exec -T api npm run reset:game:prod
-              echo "--> reseed buildings / techs / troop-types"
               docker compose exec -T api npm run seed:buildings:prod
               docker compose exec -T api npm run seed:techs:prod
               docker compose exec -T api npm run seed:troop-types:prod
@@ -84,6 +158,7 @@ jobs:
               echo "==> provinces.json unchanged: migrations + container update only"
             fi
 
-            echo "==> Pruning dangling images"
+            echo "==> Cleanup"
+            docker logout ghcr.io
             docker image prune -f
             echo "==> Deploy complete"
