@@ -101,6 +101,11 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
     [provinces],
   );
 
+  const hasRecruitBuilding = useMemo(() => {
+    const province = provinces.find((p) => p.id === army.province_id);
+    return (province?.buildings ?? []).some((b) => b.canRecruit);
+  }, [provinces, army.province_id]);
+
   // Pending actions for this army
   const pendingRecruitByKey = useMemo(() => {
     const map: Record<string, { id: string; count: number }[]> = {};
@@ -409,8 +414,8 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
                 <div className="flex gap-1 mt-1">
                   <button
                     className="text-xs px-2 py-0.5 bg-green-500 text-white rounded disabled:opacity-40"
-                    disabled={maxAdd < 100}
-                    title={maxAdd < 100 ? 'Not enough resources' : 'Add troops'}
+                    disabled={maxAdd < 100 || !hasRecruitBuilding}
+                    title={!hasRecruitBuilding ? 'No recruitment building in this province' : maxAdd < 100 ? 'Not enough resources' : 'Add troops'}
                     onClick={() => { setAddCount(Math.min(100, maxAdd)); setAddSliderOpen(tt.key); setRemoveSliderOpen(null); }}
                   >+</button>
                   <button
@@ -509,7 +514,13 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
       {/* Bottom buttons */}
       <div className="flex flex-col gap-2 mt-auto pt-2 border-t border-gray-500">
         {isOwnerArmy && !showAddType && addableTypes.length > 0 && (
-          <Button disabled={!isOwnerArmy} variant="outlined" size="small" onClick={() => { setShowAddType(true); setAddSliderOpen(null); }}>
+          <Button
+            variant="outlined"
+            size="small"
+            disabled={!hasRecruitBuilding}
+            title={!hasRecruitBuilding ? 'No recruitment building in this province' : undefined}
+            onClick={() => { setShowAddType(true); setAddSliderOpen(null); }}
+          >
             + Add troop type
           </Button>
         )}

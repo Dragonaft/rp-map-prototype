@@ -290,6 +290,11 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     return armies.filter((a) => a.province_id === selectedProvince.id);
   }, [armies, selectedProvince]);
 
+  const hasRecruitBuilding = useMemo(
+    () => (selectedProvince?.buildings ?? []).some(b => b.canRecruit),
+    [selectedProvince?.buildings],
+  );
+
   const pendingCreateArmyActions = useMemo(() => {
     if (!selectedProvince) return [];
     return actions.filter(
@@ -506,11 +511,13 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
               </div>
             )}
 
-            <div className="flex flex-col gap-2 mt-2">
-              <Button variant="contained" color="primary" size="small" onClick={() => onCreateArmy?.()}>
-                Create Army
-              </Button>
-            </div>
+            {hasRecruitBuilding && (
+              <div className="flex flex-col gap-2 mt-2">
+                <Button variant="contained" color="primary" size="small" onClick={() => onCreateArmy?.()}>
+                  Create Army
+                </Button>
+              </div>
+            )}
           </>
         </div>
       )}

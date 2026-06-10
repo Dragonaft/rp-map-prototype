@@ -54,6 +54,8 @@ export interface Building {
   allowedProvinceResources: string[] | null;
   requirementResource: string | null;
   requirementResourceAmount: number | null;
+  visible: boolean;
+  canRecruit: boolean;
 }
 
 /** A building as it exists in a province — template fields plus the unique

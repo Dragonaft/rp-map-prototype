@@ -661,10 +661,14 @@ export class ArmyCreateHandler implements ActionHandler {
     await this.armyRepo.manager.transaction(async (manager) => {
       const province = await manager.findOne(Province, {
         where: { id: provinceId },
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!province) throw new Error('Province not found');
       if (province.user_id !== action.userId) throw new Error('User does not own this province');
+
+      const hasRecruitBuilding = (province.provinceBuildings ?? []).some(pb => pb.building?.can_recruit);
+      if (!hasRecruitBuilding) throw new Error('Province must have a recruitment building to create an army here');
 
       const army = manager.create(Army, {
         name: name ?? null,
@@ -718,11 +722,16 @@ export class ArmyRecruitHandler implements ActionHandler {
       if (!army) throw new Error('Army not found');
       if (army.user_id !== action.userId) throw new Error('User does not own this army');
 
-      // Army must be in an owned province to recruit
-      const province = await manager.findOne(Province, { where: { id: army.province_id } });
+      // Army must be in an owned province with a recruitment building to recruit
+      const province = await manager.findOne(Province, {
+        where: { id: army.province_id },
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
+      });
       if (!province || province.user_id !== action.userId) {
         throw new Error('Army must be stationed in an owned province to recruit');
       }
+      const hasRecruitBuilding = (province.provinceBuildings ?? []).some(pb => pb.building?.can_recruit);
+      if (!hasRecruitBuilding) throw new Error('Province must have a recruitment building to recruit troops here');
 
       await executeRecruitment(manager, action.userId, army, recruits);
       await manager.save(ArmyUnit, army.units);
