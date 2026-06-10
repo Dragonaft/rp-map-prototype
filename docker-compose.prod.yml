@@ -1,0 +1,16 @@
+# Production override — run pre-built images from GHCR instead of building on the host.
+# The CI pipeline builds & pushes the images, then the EC2 box only pulls and runs.
+#
+# Used on the server as:
+#   export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
+#   export IMAGE_API=... IMAGE_WEB=... IMAGE_ADMIN=...
+#   docker compose pull && docker compose up -d --wait
+#
+# The image refs are injected by the deploy workflow (tagged with the commit SHA).
+services:
+  api:
+    image: ${IMAGE_API}
+  web:
+    image: ${IMAGE_WEB}
+  admin:
+    image: ${IMAGE_ADMIN}
