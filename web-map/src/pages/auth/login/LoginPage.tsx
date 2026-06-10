@@ -73,7 +73,7 @@ export const LoginPage: React.FC = () => {
             PR_PROTOTYPE
           </h1>
           <p className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant">
-            v0.6_WAR
+            v0.6.5_WAR
           </p>
         </div>
         <form
