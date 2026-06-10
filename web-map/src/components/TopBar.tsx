@@ -5,21 +5,53 @@ import { authApi } from "../api/auth.ts";
 import { useMemo, useState } from "react";
 import { TechsModal } from "./Modals/TechsModal.tsx";
 import { ProfileModal } from "./Modals/ProfileModal.tsx";
-import { ActionType, UserClasses } from "../types.ts";
+import { ActionType, ProvinceBuilding, UserClasses } from "../types.ts";
 
 export const TopBar = () => {
   const user = useAppSelector(state => state.user);
   const actions = useAppSelector(state => state.actions.actions);
   const buildings = useAppSelector(state => state.buildings.buildings);
+  const provinces = useAppSelector(state => state.provinces.provinces);
   const { mutate } = useMutation(authApi.logout);
   const [openTechModal, setOpenTechModal] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
+
+  // Resources committed by built buildings + pending build actions.
+  // Built buildings come from the provinces slice — the /users endpoint does NOT
+  // serialize the Province.buildings getter, so user.provinces[].buildings is empty.
+  const usedResourcesByType = useMemo(() => {
+    const used: Record<string, number> = {};
+    for (const province of provinces) {
+      if (province.userId !== user.id) continue;
+      for (const b of province.buildings ?? []) {
+        if (b.requirementResource && b.requirementResourceAmount) {
+          used[b.requirementResource] = (used[b.requirementResource] ?? 0) + b.requirementResourceAmount;
+        }
+      }
+    }
+    const buildingById = new Map(buildings.map(b => [String(b.id), b]));
+    for (const action of actions) {
+      if (action.actionType !== ActionType.BUILD) continue;
+      const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
+      const template = buildingById.get(String(bid));
+      if (template?.requirementResource && template?.requirementResourceAmount) {
+        used[template.requirementResource] = (used[template.requirementResource] ?? 0) + template.requirementResourceAmount;
+      }
+    }
+    return used;
+  }, [provinces, user.id, buildings, actions]);
 
   // Sum gold cost of all queued actions that have a known upfront cost.
   // BUILD: building.cost, UPGRADE: building.cost + 100, COLONIZE: 500.
   const pendingMoneyCost = useMemo(() => {
     if (!actions.length) return 0;
     const buildingById = new Map(buildings.map(b => [String(b.id), b]));
+    // UPGRADE targets a specific building instance (province_building_id), so
+    // resolve it through the province buildings to estimate its cost.
+    const instanceById = new Map<string, ProvinceBuilding>();
+    for (const p of provinces) {
+      for (const b of p.buildings ?? []) instanceById.set(b.instanceId, b);
+    }
     let total = 0;
     for (const action of actions) {
       if (action.actionType === ActionType.BUILD) {
@@ -27,15 +59,14 @@ export const TopBar = () => {
         const b = buildingById.get(String(bid));
         if (b) total += b.cost;
       } else if (action.actionType === ActionType.UPGRADE) {
-        const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
-        const b = buildingById.get(String(bid));
-        if (b) total += b.cost + 100;
+        const inst = instanceById.get(String(action.actionData?.province_building_id));
+        if (inst) total += inst.cost + 100;
       } else if (action.actionType === ActionType.COLONIZE) {
         total += 500;
       }
     }
     return total;
-  }, [actions, buildings]);
+  }, [actions, buildings, provinces]);
 
   const handleLogout = async () => {
     try {
@@ -63,10 +94,20 @@ export const TopBar = () => {
             <Tooltip
               title={
                 <div className="flex flex-col gap-2 p-1" style={{ fontSize: '14px', lineHeight: '1.6' }}>
-                  <div>🪨 Stone: {user.resources?.stone ?? 0}</div>
-                  <div>⚙ Iron: {user.resources?.iron ?? 0}</div>
-                  <div>🪙 Gold: {user.resources?.gold ?? 0}</div>
-                  <div>🪵 Wood: {user.resources?.wood ?? 0}</div>
+                  {(['stone', 'iron', 'gold', 'wood'] as const).map((res) => {
+                    const icons: Record<string, string> = { stone: '🪨', iron: '⚙', gold: '🪙', wood: '🪵' };
+                    const total = user.resources?.[res] ?? 0;
+                    const used = usedResourcesByType[res] ?? 0;
+                    const free = total - used;
+                    return (
+                      <div key={res}>
+                        {icons[res]} {res.charAt(0).toUpperCase() + res.slice(1)}: {total}
+                        {used > 0 && (
+                          <span style={{ color: free <= 0 ? '#ffb3b3' : '#ffd580' }}> ({used} used, {Math.max(0, free)} free)</span>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               }
               arrow

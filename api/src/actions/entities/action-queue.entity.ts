@@ -11,8 +11,6 @@ import { User } from '../../users/entities/user.entity';
 
 export enum ActionType {
   BUILD = 'BUILD',
-  INVADE = 'INVADE',
-  DEPLOY = 'DEPLOY',
   UPGRADE = 'UPGRADE',
   TRANSFER_TROOPS = 'TRANSFER_TROOPS',
   RESEARCH = 'RESEARCH',

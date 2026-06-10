@@ -61,7 +61,7 @@ export class UsersService {
   private async findOneEntity(id: string): Promise<User> {
     const user = await this.usersRepository.findOne({
       where: { id },
-      relations: ['provinces', 'provinces.buildings'],
+      relations: ['provinces', 'provinces.provinceBuildings', 'provinces.provinceBuildings.building'],
     });
 
     if (!user) {
@@ -209,12 +209,22 @@ export class UsersService {
     };
   }
 
-  async update(id: string, updateUserDto: UsersUpdateBodyRequest): Promise<User> {
+  async update(id: string, updateUserDto: UsersUpdateBodyRequest, callerId: string): Promise<{ countryName: string, color: string }> {
     const user = await this.findOneEntity(id);
+
+    // TODO: Maybe move this logic to guards or something
+    if (callerId !== id) {
+      throw new Error('User id dont match caller id');
+    }
 
     Object.assign(user, updateUserDto);
 
-    return await this.usersRepository.save(user);
+    await this.usersRepository.save(user)
+
+    return {
+      countryName: updateUserDto.country_name,
+      color: updateUserDto.color
+    };
   }
 
   async remove(id: string): Promise<void> {

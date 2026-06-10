@@ -3,7 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { ActionQueue, ActionStatus, ActionType } from './entities/action-queue.entity';
 import { ActionsLog } from './entities/actions-log.entity';
-import { Province } from '../provinces/entities/province.entity';
+
+/** Hard ceiling on a user's queued (PENDING) actions, to bound queue size and turn length. */
+const MAX_PENDING_ACTIONS_PER_USER = 200;
+
+/** Upper bound on any single troop count in a payload — guards against absurd/overflow values. */
+const MAX_TROOP_COUNT = 1_000_000;
 
 @Injectable()
 export class ActionsService {
@@ -12,8 +17,6 @@ export class ActionsService {
     private readonly actionQueueRepo: Repository<ActionQueue>,
     @InjectRepository(ActionsLog)
     private readonly actionsLogRepo: Repository<ActionsLog>,
-    @InjectRepository(Province)
-    private readonly provinceRepo: Repository<Province>,
   ) {}
 
   async createAction(
@@ -21,103 +24,168 @@ export class ActionsService {
     actionType: ActionType,
     actionData: any,
   ): Promise<any> {
+    // 1) Reject malformed payloads up front (cheap, clear 400s instead of
+    //    obscure failures deep in the turn executor).
+    this.validateActionPayload(actionType, actionData);
 
-    // Validate neighbor provinces for INVADE and TRANSFER_TROOPS actions
-    if (actionType === ActionType.INVADE) {
-      const { from_province_id, to_province_id } = actionData;
-
-      if (!from_province_id || !to_province_id) {
-        throw new BadRequestException('from_province_id and to_province_id are required');
-      }
-
-      // Fetch the source province
-      const fromProvince = await this.provinceRepo.findOne({
-        where: { id: from_province_id },
-      });
-
-      if (!fromProvince) {
-        throw new NotFoundException('Source province not found');
-      }
-
-      // Validate that the user owns the source province
-      if (fromProvince.user_id !== userId) {
-        throw new BadRequestException('You do not own the source province');
-      }
-
-      // Validate that the target province is a neighbor
-      if (!fromProvince.neighbor_ids || !fromProvince.neighbor_ids.includes(to_province_id)) {
-        throw new BadRequestException('Target province is not a neighbor of the source province');
-      }
-
-      const requestedTroops = Number(actionData.troops_number);
-
-      // Validate troop count
-      if (!Number.isFinite(requestedTroops) || requestedTroops <= 0) {
-        throw new BadRequestException('troops_number must be greater than 0');
-      }
-
-      // 1) Check other invade actions of user from this source province
-      const otherInvadeActions = await this.actionQueueRepo.find({
-        where: {
-          userId,
-          actionType: ActionType.INVADE,
-          status: ActionStatus.PENDING,
-        },
-      });
-
-      // 2) Calculate used troops by invade actions from this province
-      const usedTroopsByInvades = otherInvadeActions.reduce((sum, action) => {
-        if (action.actionData?.from_province_id !== from_province_id) return sum;
-        const n = Number(action.actionData?.troops_number ?? 0);
-        if (!Number.isFinite(n) || n <= 0) return sum;
-        return sum + n;
-      }, 0);
-
-      const totalUsedTroops = usedTroopsByInvades + requestedTroops;
-
-      // 3) Ensure total reserved troops do not exceed original province troops
-      if (totalUsedTroops > fromProvince.local_troops) {
-        throw new BadRequestException('Not enough troops in the source province');
-      }
-
-      // 4) Calculate remaining troops after current invade reservations
-      const remainingTroops = fromProvince.local_troops - totalUsedTroops;
-
-      // Keep normalized numeric troops in saved action
-      actionData.troops_number = requestedTroops;
-
-      const allActions = await this.actionQueueRepo.find();
-      const action = this.actionQueueRepo.create({
-        userId,
-        actionType,
-        actionData,
-        order: allActions.length + 1,
-        status: ActionStatus.PENDING,
-      });
-
-      const createdAction = await this.actionQueueRepo.save(action);
-
-      // 5) Return created action + recalculated source province troops for FE
-      return {
-        action: createdAction,
-        province: {
-          id: from_province_id,
-          localTroops: remainingTroops,
-        },
-      };
+    // 2) Cap the per-user queue so a client (or a Postman script) can't flood it.
+    const pendingCount = await this.actionQueueRepo.count({
+      where: { userId, status: ActionStatus.PENDING },
+    });
+    if (pendingCount >= MAX_PENDING_ACTIONS_PER_USER) {
+      throw new BadRequestException(
+        `Too many pending actions (max ${MAX_PENDING_ACTIONS_PER_USER}). Retract some or wait for the next turn.`,
+      );
     }
 
-    const allActions = await this.actionQueueRepo.find();
+    // 3) Reject duplicates that are one-per-turn or idempotent by nature.
+    await this.assertNotDuplicate(userId, actionType, actionData);
+
+    // TODO: Move count on db level
+    const total = await this.actionQueueRepo.count();
 
     const action = this.actionQueueRepo.create({
       userId,
       actionType,
       actionData,
-      order: allActions.length + 1,
+      order: total + 1,
       status: ActionStatus.PENDING,
     });
 
     return await this.actionQueueRepo.save(action);
+  }
+
+  /**
+   * Validates that `actionData` carries the fields the matching executor handler
+   * will read. Field names mirror the handlers and the web-map client payloads.
+   */
+  private validateActionPayload(actionType: ActionType, actionData: any): void {
+    if (actionData === null || typeof actionData !== 'object' || Array.isArray(actionData)) {
+      throw new BadRequestException('actionData must be an object');
+    }
+
+    switch (actionType) {
+      case ActionType.BUILD:
+        this.requireString(actionData, 'province_id');
+        this.requireString(actionData, 'building_id');
+        break;
+
+      case ActionType.UPGRADE:
+      case ActionType.REMOVE:
+        this.requireString(actionData, 'province_id');
+        this.requireString(actionData, 'province_building_id');
+        break;
+
+      case ActionType.COLONIZE:
+        this.requireString(actionData, 'province_id');
+        break;
+
+      case ActionType.RESEARCH:
+        this.requireString(actionData, 'tech_key');
+        break;
+
+      case ActionType.ARMY_MOVE:
+        this.requireString(actionData, 'army_id');
+        this.requireString(actionData, 'to_province_id');
+        break;
+
+      case ActionType.ARMY_DISBAND:
+        this.requireString(actionData, 'army_id');
+        break;
+
+      case ActionType.ARMY_EDIT:
+        this.requireString(actionData, 'army_id');
+        this.requireString(actionData, 'troop_type_key');
+        this.requireCount(actionData.count, 'count');
+        break;
+
+      case ActionType.ARMY_MERGE:
+        this.requireString(actionData, 'source_army_id');
+        this.requireString(actionData, 'target_army_id');
+        if (actionData.source_army_id === actionData.target_army_id) {
+          throw new BadRequestException('source_army_id and target_army_id must be different');
+        }
+        break;
+
+      case ActionType.ARMY_CREATE:
+        this.requireString(actionData, 'province_id');
+        if (actionData.name != null && typeof actionData.name !== 'string') {
+          throw new BadRequestException('name must be a string');
+        }
+        this.validateUnits(actionData.units);
+        break;
+
+      case ActionType.ARMY_RECRUIT:
+        this.requireString(actionData, 'army_id');
+        this.validateUnits(actionData.units);
+        break;
+
+      // TRANSFER_TROOPS / DISBAND are legacy/unimplemented stubs with no payload
+      // contract and nothing queues them, so no shape is enforced here.
+      default:
+        break;
+    }
+  }
+
+  private requireString(data: any, field: string): void {
+    const value = data?.[field];
+    if (typeof value !== 'string' || value.trim() === '') {
+      throw new BadRequestException(`${field} is required and must be a non-empty string`);
+    }
+  }
+
+  private requireCount(value: any, field: string): void {
+    if (
+      typeof value !== 'number' ||
+      !Number.isInteger(value) ||
+      value <= 0 ||
+      value > MAX_TROOP_COUNT
+    ) {
+      throw new BadRequestException(
+        `${field} must be an integer between 1 and ${MAX_TROOP_COUNT}`,
+      );
+    }
+  }
+
+  private validateUnits(units: any): void {
+    if (!Array.isArray(units) || units.length === 0) {
+      throw new BadRequestException('units must be a non-empty array');
+    }
+    for (const unit of units) {
+      if (unit === null || typeof unit !== 'object') {
+        throw new BadRequestException('each unit must be an object');
+      }
+      this.requireString(unit, 'troop_type_key');
+      this.requireCount(unit.count, 'count');
+    }
+  }
+
+  /**
+   * Rejects duplicate pending actions that are one-per-turn or idempotent. The
+   * executor still enforces these at runtime; this just gives immediate feedback.
+   */
+  private async assertNotDuplicate(
+    userId: string,
+    actionType: ActionType,
+    actionData: any,
+  ): Promise<void> {
+    if (actionType === ActionType.ARMY_MOVE) {
+      const pending = await this.actionQueueRepo.find({
+        where: { userId, actionType: ActionType.ARMY_MOVE, status: ActionStatus.PENDING },
+      });
+      if (pending.some((a) => a.actionData?.army_id === actionData.army_id)) {
+        throw new BadRequestException('This army already has a pending move this turn');
+      }
+    }
+
+    if (actionType === ActionType.RESEARCH) {
+      const pending = await this.actionQueueRepo.find({
+        where: { userId, actionType: ActionType.RESEARCH, status: ActionStatus.PENDING },
+      });
+      if (pending.some((a) => a.actionData?.tech_key === actionData.tech_key)) {
+        throw new BadRequestException('This technology is already queued for research');
+      }
+    }
   }
 
   async getUserActions(userId: string): Promise<ActionQueue[]> {
@@ -135,7 +203,7 @@ export class ActionsService {
   }
 
   /**
-   * Total troops committed in pending/processing INVADE or TRANSFER_TROOPS actions,
+   * Total troops committed in pending/processing TRANSFER_TROOPS actions,
    * grouped by source province id (for adjusting displayed local_troops).
    */
   async getReservedTroopMovesByFromProvince(userId: string): Promise<Map<string, number>> {
@@ -143,7 +211,7 @@ export class ActionsService {
       where: {
         userId,
         status: In([ActionStatus.PENDING, ActionStatus.PROCESSING]),
-        actionType: In([ActionType.INVADE, ActionType.TRANSFER_TROOPS]),
+        actionType: ActionType.TRANSFER_TROOPS,
       },
     });
 
@@ -175,49 +243,6 @@ export class ActionsService {
       }
 
       const deletedOrder = action.order;
-      let provincePayload: { id: string; localTroops: number } | null = null;
-
-      if (action.actionType === ActionType.INVADE) {
-        // 1) Get source province id from actionData
-        const fromProvinceId = action.actionData?.from_province_id as string | undefined;
-        if (fromProvinceId) {
-          // 2) Get province by from_province_id
-          const fromProvince = await manager.findOne(Province, {
-            where: { id: fromProvinceId },
-          });
-
-          if (fromProvince && typeof fromProvince.local_troops === 'number') {
-            const invadeActions = await manager.find(ActionQueue, {
-              where: {
-                userId,
-                actionType: ActionType.INVADE,
-                status: ActionStatus.PENDING,
-              },
-            });
-
-            // 3) Calculate used troops by invade actions from this province
-            const usedTroopsFromProvince = invadeActions.reduce((sum, queuedAction) => {
-              if (queuedAction.actionData?.from_province_id !== fromProvinceId) return sum;
-              const n = Number(queuedAction.actionData?.troops_number ?? 0);
-              if (!Number.isFinite(n) || n <= 0) return sum;
-              return sum + n;
-            }, 0);
-
-            // 4) Subtract used troops from original province troops
-            const troopsAfterAllQueuedInvades = fromProvince.local_troops - usedTroopsFromProvince;
-
-            // 5) Add troops amount from deleting action (to get post-delete remaining)
-            const deletingActionTroops = Number(action.actionData?.troops_number ?? 0);
-            const remainingTroops =
-              troopsAfterAllQueuedInvades + (Number.isFinite(deletingActionTroops) ? deletingActionTroops : 0);
-
-            provincePayload = {
-              id: fromProvinceId,
-              localTroops: Math.max(0, remainingTroops),
-            };
-          }
-        }
-      }
 
       await manager.remove(ActionQueue, action);
 
@@ -228,10 +253,9 @@ export class ActionsService {
         .where('`order` > :deletedOrder', { deletedOrder })
         .execute();
 
-      // 6) Return deleted action and recalculated province payload for FE
       return {
         action,
-        province: provincePayload,
+        province: null,
       };
     });
   }

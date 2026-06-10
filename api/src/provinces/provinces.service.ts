@@ -1,15 +1,18 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { instanceToPlain } from 'class-transformer';
+import { Not, Repository } from 'typeorm';
 import { Province } from './entities/province.entity';
 import { ProvincesUpdateBodyRequest } from './requests/provinces-update-body.request';
 import { User } from "../users/entities/user.entity";
 import { Building } from '../buildings/entities/building.entity';
+import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { AuthTokenType } from "../auth/types/auth.types";
 import { ActionsService } from '../actions/actions.service';
 import { UsersService } from '../users/users.service';
 import { computeBuildingCap } from '../techs/research-effects';
 import { BuildingTypes } from "../buildings/types/building.types";
+import { Army } from '../armies/entities/army.entity';
 
 @Injectable()
 export class ProvincesService {
@@ -20,24 +23,47 @@ export class ProvincesService {
     private readonly buildingRepository: Repository<Building>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Army)
+    private readonly armyRepository: Repository<Army>,
     private readonly actionsService: ActionsService,
     private readonly usersService: UsersService,
   ) {}
 
   async getAll(userId: string) {
-    const provinces = await this.provinceRepository.find({
-      relations: ['buildings']
-    });
+    const [provinces, enemyArmies, reservedByFromProvince] = await Promise.all([
+      this.provinceRepository.find({
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
+      }),
+      this.armyRepository
+        .createQueryBuilder('a')
+        .select(['a.province_id'])
+        .where('a.user_id != :userId', { userId })
+        .getMany(),
+      this.actionsService.getReservedTroopMovesByFromProvince(userId),
+    ]);
 
-    const reservedByFromProvince =
-      await this.actionsService.getReservedTroopMovesByFromProvince(userId);
+    const visibleProvinceIds = new Set<string>();
+    for (const p of provinces) {
+      if (p.user_id === userId) {
+        visibleProvinceIds.add(p.id);
+        for (const nId of p.neighbor_ids ?? []) {
+          visibleProvinceIds.add(nId);
+        }
+      }
+    }
+
+    const provincesWithEnemyArmies = new Set(
+      enemyArmies
+        .filter(a => visibleProvinceIds.has(a.province_id))
+        .map(a => a.province_id),
+    );
 
     return provinces.map(province => {
       if (province.user_id !== userId) {
-        if (province.local_troops > 0) {
-          province.enemyHere = true;
-        }
+        province.enemyHere = provincesWithEnemyArmies.has(province.id) || false;
         province.local_troops = null;
+        province.provinceBuildings = (province.provinceBuildings ?? [])
+          .filter((pb) => pb.building?.visible);
         return province;
       }
 
@@ -70,15 +96,37 @@ export class ProvincesService {
 
   /** Dynamic province state: ownership, troops, buildings — changes only at turn end. */
   async getState(userId: string) {
-    const [provinces, user, reserved] = await Promise.all([
+    const [provinces, user, reserved, enemyArmies] = await Promise.all([
       this.provinceRepository
         .createQueryBuilder('p')
-        .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.resource_type'])
-        .leftJoinAndSelect('p.buildings', 'building')
+        .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.resource_type', 'p.neighbor_ids'])
+        .leftJoinAndSelect('p.provinceBuildings', 'pb')
+        .leftJoinAndSelect('pb.building', 'building')
         .getMany(),
       this.userRepository.findOne({ where: { id: userId } }),
       this.actionsService.getReservedTroopMovesByFromProvince(userId),
+      this.armyRepository
+        .createQueryBuilder('a')
+        .select(['a.province_id'])
+        .where('a.user_id != :userId', { userId })
+        .getMany(),
     ]);
+
+    const visibleProvinceIds = new Set<string>();
+    for (const p of provinces) {
+      if (p.user_id === userId) {
+        visibleProvinceIds.add(p.id);
+        for (const nId of p.neighbor_ids ?? []) {
+          visibleProvinceIds.add(nId);
+        }
+      }
+    }
+
+    const provincesWithEnemyArmies = new Set(
+      enemyArmies
+        .filter(a => visibleProvinceIds.has(a.province_id))
+        .map(a => a.province_id),
+    );
 
     const completedResearch = user?.completed_research ?? [];
 
@@ -90,8 +138,14 @@ export class ProvincesService {
         localTroops: isOwner
           ? Math.max(0, (p.local_troops ?? 0) - (reserved.get(p.id) ?? 0))
           : null,
-        enemyHere: !isOwner && (p.local_troops ?? 0) > 0,
-        buildings: p.buildings ?? [],
+        enemyHere: !isOwner && provincesWithEnemyArmies.has(p.id),
+        // Each entry carries its ProvinceBuilding instance id so the client can
+        // uniquely key and target a specific building (multiple of the same type
+        // can exist in one province). The template fields are flattened in.
+        // Non-owners only see buildings marked as visible.
+        buildings: (p.provinceBuildings ?? [])
+          .filter((pb) => pb.building && (isOwner || pb.building.visible))
+          .map((pb) => ({ ...instanceToPlain(pb.building), instanceId: pb.id })),
         buildingCap: computeBuildingCap(p.landscape, completedResearch),
       };
     });
@@ -116,13 +170,17 @@ export class ProvincesService {
   async setupStart(id: string, user: AuthTokenType) {
     const province = await this.provinceRepository.findOne({
       where: { id },
-      relations: ['buildings']
+      relations: ['provinceBuildings', 'provinceBuildings.building']
     });
 
     const foundUser = await this.userRepository.findOne({ where: { id: user.id } });
 
     if (!foundUser) {
       throw new NotFoundException(`User with id ${user.id} not found`);
+    }
+
+    if (!foundUser.is_new) {
+      throw new NotFoundException(`User ${user.id} already did setup`);
     }
 
     if (!province) {
@@ -137,40 +195,43 @@ export class ProvincesService {
       throw new Error(`You cant start on water province!`);
     }
 
-    // Example: Add a building by id to the province
+    // Add CAPITAL building to the province
     const building = await this.buildingRepository.findOne({ where: { type: BuildingTypes.CAPITAL } });
     if (building) {
-      if (!province.buildings) {
-        province.buildings = [];
-      }
-      province.buildings.push(building);
+      const pb = new ProvinceBuilding();
+      pb.province_id = province.id;
+      pb.building_id = building.id;
+      province.provinceBuildings.push(pb);
     }
 
-    const updatedProvince = {
-      ...province,
-      user_id: user.id,
-      buildingCap: computeBuildingCap(province.landscape, []),
-    };
+    province.user_id = user.id;
 
-    Object.assign(province, updatedProvince);
+    foundUser.is_new = false;
+    foundUser.troops = 3000;
+    foundUser.money = 5000;
+    foundUser.research_points = 10;
 
-    const updatedUser = {
-      ...foundUser,
-      is_new: false,
-      troops: 3000,
-      money: 5000,
-      provinces: [province],
-      research_points: 10,
-    }
-
-    await this.userRepository.save(updatedUser);
+    await this.userRepository.save(foundUser);
     await this.provinceRepository.save(province);
 
     const enrichedUser = await this.usersService.findOne(user.id, user.id);
+    const newProvince = await this.provinceRepository
+      .createQueryBuilder('p')
+      .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.resource_type'])
+      .leftJoinAndSelect('p.provinceBuildings', 'pb')
+      .leftJoinAndSelect('pb.building', 'building')
+      .where('p.id = :id', { id: province.id })
+      .getOne()
+
+    const formatProvince = {
+      id: newProvince.id,
+      userId: newProvince.user_id ?? null,
+      buildings: newProvince.buildings,
+    };
 
     return {
       user: enrichedUser,
-      province: province,
+      province: formatProvince,
     }
   }
 }

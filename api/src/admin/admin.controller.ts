@@ -105,4 +105,27 @@ export class AdminController {
   deleteTech(@Param('id') id: string) {
     return this.adminService.deleteTech(id);
   }
+
+  // --- Troop Types ---
+
+  @Get('troop-types')
+  getTroopTypes() {
+    return this.adminService.findAllTroopTypes();
+  }
+
+  @Post('troop-types')
+  createTroopType(@Body() body: Record<string, any>) {
+    return this.adminService.createTroopType(body);
+  }
+
+  @Patch('troop-types/:id')
+  updateTroopType(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateTroopType(id, body);
+  }
+
+  @Delete('troop-types/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteTroopType(@Param('id') id: string) {
+    return this.adminService.deleteTroopType(id);
+  }
 }

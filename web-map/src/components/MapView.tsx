@@ -100,6 +100,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     if (!reachableFromSelectedArmy.has(targetProvince.id)) return;
     const army = armies.find(a => a.id === selectedArmyId);
     if (!army) return;
+    if (army.user_id !== currentUserId) return;
     setModalState({
       open: true,
       armyId: selectedArmyId,
@@ -149,19 +150,6 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     return userActions.filter(a => a.actionType === ActionType.ARMY_MOVE);
   }, [userActions]);
 
-  const deployActionByProvinceId = useMemo(() => {
-    if (!userActions?.length) return {} as Record<string, { id: string; troopsNumber: number }>;
-    return userActions
-      .filter(a => a.actionType === ActionType.DEPLOY)
-      .reduce<Record<string, { id: string; troopsNumber: number }>>((acc, a) => {
-        const provinceId: string | undefined = a.actionData?.province_id ?? a.actionData?.provinceId;
-        const troopsNumber: number | undefined = a.actionData?.troops_number ?? a.actionData?.troopCount;
-        if (!provinceId || troopsNumber == null) return acc;
-        acc[provinceId] = { id: a.id, troopsNumber };
-        return acc;
-      }, {});
-  }, [userActions]);
-
   // ── Army troop counts per province ───────────────────────────────────────
   const armyTroopsByProvinceId = useMemo(() => {
     const map: Record<string, number> = {};
@@ -192,6 +180,16 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
       } else {
         map[army.province_id] = null; // present but count unknown
       }
+    }
+    return map;
+  }, [armies, currentUserId]);
+
+  // First enemy army owner per province (used for color indicator)
+  const enemyArmyOwnerByProvinceId = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const army of armies) {
+      if (army.user_id === currentUserId) continue;
+      if (!map[army.province_id]) map[army.province_id] = army.user_id;
     }
     return map;
   }, [armies, currentUserId]);
@@ -471,11 +469,10 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
                   isSelected={selectedProvinceId === p.id}
                   onSelect={toggleSelect}
                   onRightClick={handleProvinceRightClick}
-                  pendingDeployAction={deployActionByProvinceId[p.id]}
-                  onCancelAction={handleOpenCancelModal}
                   armyTroopCount={armyTroopsByProvinceId[p.id]}
                   onArmyCountClick={handleArmyCountClick}
                   enemyArmyTroopCount={enemyArmyInfoByProvinceId[p.id]}
+                  enemyArmyOwnerId={enemyArmyOwnerByProvinceId[p.id]}
                 />
               ))}
               <g pointerEvents="none">

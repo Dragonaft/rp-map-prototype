@@ -14,6 +14,7 @@ import { AdminModule } from './admin/admin.module';
 import { Province } from './provinces/entities/province.entity';
 import { User } from './users/entities/user.entity';
 import { Building } from './buildings/entities/building.entity';
+import { ProvinceBuilding } from './buildings/entities/province-building.entity';
 import { ActionQueue } from './actions/entities/action-queue.entity';
 import { ActionsLog } from './actions/entities/actions-log.entity';
 import { ExecutionLock } from './actions/entities/execution-lock.entity';
@@ -35,7 +36,7 @@ import { TroopType } from './armies/entities/troop-type.entity';
       password: process.env.DB_USER_PASSWORD,
       database: process.env.DB_NAME,
       entities: [
-        Province, User, Building, ActionQueue, ActionsLog, ExecutionLock, Tech,
+        Province, User, Building, ProvinceBuilding, ActionQueue, ActionsLog, ExecutionLock, Tech,
         Army, ArmyUnit, TroopType,
       ],
       synchronize: false,

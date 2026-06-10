@@ -26,6 +26,12 @@ interface BuildingSeedRow {
   upgrade_to: BuildingTypes | null;
   requirement_tech: string[] | null;
   requirement_building: BuildingTypes | null;
+  buildable?: boolean;
+  destructible?: boolean;
+  unique_per_province?: boolean;
+  allowed_province_resources?: string[] | null;
+  requirement_resource?: string | null;
+  requirement_resource_amount?: number | null;
 }
 
 const BUILDING_TYPE_VALUES = new Set<string>(Object.values(BuildingTypes));
@@ -124,6 +130,12 @@ async function seedBuildings() {
       upgrade_to: row.upgrade_to,
       requirement_tech: row.requirement_tech,
       requirement_building: row.requirement_building,
+      buildable: row.buildable ?? true,
+      destructible: row.destructible ?? true,
+      unique_per_province: row.unique_per_province ?? false,
+      allowed_province_resources: row.allowed_province_resources ?? null,
+      requirement_resource: row.requirement_resource ?? null,
+      requirement_resource_amount: row.requirement_resource_amount ?? null,
     };
 
     const existing = await repo.find({

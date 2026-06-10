@@ -3,9 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Army } from './entities/army.entity';
 import { TroopType } from './entities/troop-type.entity';
-import { ActionQueue, ActionStatus, ActionType } from '../actions/entities/action-queue.entity';
+import { ActionQueue, ActionType } from '../actions/entities/action-queue.entity';
+import { ActionsService } from '../actions/actions.service';
 import { User } from '../users/entities/user.entity';
 import { UserClasses } from '../users/types/users.types';
+import { Province } from '../provinces/entities/province.entity';
 
 const CLASS_RESTRICTED_TROOPS: Partial<Record<string, UserClasses>> = {
   noble_knights: UserClasses.NOBLE,
@@ -20,10 +22,11 @@ export class ArmiesService {
     private readonly armyRepo: Repository<Army>,
     @InjectRepository(TroopType)
     private readonly troopTypeRepo: Repository<TroopType>,
-    @InjectRepository(ActionQueue)
-    private readonly actionQueueRepo: Repository<ActionQueue>,
     @InjectRepository(User)
     private readonly userRepo: Repository<User>,
+    @InjectRepository(Province)
+    private readonly provinceRepo: Repository<Province>,
+    private readonly actionsService: ActionsService,
   ) {}
 
   getUserArmies = (userId: string): Promise<Army[]> =>
@@ -33,33 +36,43 @@ export class ArmiesService {
     });
 
   async getAllArmies(requestingUserId: string): Promise<any[]> {
-    const user = await this.userRepo.findOne({ where: { id: requestingUserId } });
-    const hasSpyNetwork =
-      user?.class === UserClasses.GUILD &&
-      (user?.completed_research ?? []).includes('guild.spy_network');
+    const [ownedProvinces, allArmies] = await Promise.all([
+      this.provinceRepo.find({
+        where: { user_id: requestingUserId },
+        select: { id: true, neighbor_ids: true },
+      }),
+      this.armyRepo.find({ relations: ['units', 'units.troopType'] }),
+    ]);
 
-    const allArmies = await this.armyRepo.find({
-      relations: ['units', 'units.troopType'],
-    });
+    const visibleProvinceIds = new Set<string>();
+    for (const province of ownedProvinces) {
+      visibleProvinceIds.add(province.id);
+      for (const neighborId of province.neighbor_ids ?? []) {
+        visibleProvinceIds.add(neighborId);
+      }
+    }
 
-    return allArmies.map((army) => {
-      if (army.user_id === requestingUserId) return army;
+    const result: any[] = [];
+    for (const army of allArmies) {
+      if (army.user_id === requestingUserId) {
+        result.push(army);
+        continue;
+      }
 
-      // Enemy army — strip unit composition; reveal total only with spy network
-      const totalTroops = hasSpyNetwork
-        ? (army.units ?? []).reduce((s, u) => s + u.count, 0)
-        : null;
+      if (!visibleProvinceIds.has(army.province_id)) continue;
 
-      return {
+      const totalTroops = (army.units ?? []).reduce((s, u) => s + u.count, 0);
+      result.push({
         id: army.id,
         name: army.name,
         user_id: army.user_id,
         province_id: army.province_id,
         flat_upkeep: 0,
-        units: [],
+        units: army.units,
         totalTroops,
-      };
-    });
+      });
+    }
+    return result;
   }
 
   async getTroopTypes(userId: string): Promise<TroopType[]> {
@@ -80,16 +93,12 @@ export class ArmiesService {
     userId: string,
     body: { province_id: string; name?: string; units: { troop_type_key: string; count: number }[] },
   ): Promise<{ action: ActionQueue }> {
-    const allActions = await this.actionQueueRepo.find();
-    const action = this.actionQueueRepo.create({
-      userId,
-      actionType: ActionType.ARMY_CREATE,
-      actionData: { province_id: body.province_id, name: body.name, units: body.units },
-      order: allActions.length + 1,
-      status: ActionStatus.PENDING,
+    const action = await this.actionsService.createAction(userId, ActionType.ARMY_CREATE, {
+      province_id: body.province_id,
+      name: body.name,
+      units: body.units,
     });
-    const saved = await this.actionQueueRepo.save(action);
-    return { action: saved };
+    return { action };
   }
 
   async updateArmyName(id: string, userId: string, name: string): Promise<Army> {
@@ -105,16 +114,10 @@ export class ArmiesService {
     if (!army) throw new NotFoundException('Army not found');
     if (army.user_id !== userId) throw new BadRequestException('User does not own this army');
 
-    const allActions = await this.actionQueueRepo.find();
-    const action = this.actionQueueRepo.create({
-      userId,
-      actionType: ActionType.ARMY_DISBAND,
-      actionData: { army_id: id },
-      order: allActions.length + 1,
-      status: ActionStatus.PENDING,
+    const action = await this.actionsService.createAction(userId, ActionType.ARMY_DISBAND, {
+      army_id: id,
     });
-    const saved = await this.actionQueueRepo.save(action);
-    return { action: saved };
+    return { action };
   }
 
   getTroopTypeByKey = (key: string): Promise<TroopType | null> =>

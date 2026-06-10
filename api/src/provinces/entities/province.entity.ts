@@ -3,14 +3,14 @@ import {
   Column,
   Entity,
   JoinColumn,
-  JoinTable,
-  ManyToMany,
   ManyToOne,
+  OneToMany,
   PrimaryColumn,
 } from 'typeorm';
 import { Exclude, Expose } from 'class-transformer';
 import { User } from '../../users/entities/user.entity';
 import { Building } from '../../buildings/entities/building.entity';
+import { ProvinceBuilding } from '../../buildings/entities/province-building.entity';
 
 @Entity({ name: 'provinces' })
 export class Province extends BaseEntity {
@@ -79,11 +79,11 @@ export class Province extends BaseEntity {
   @JoinColumn({ name: 'user_id' })
   public user?: User;
 
-  @ManyToMany(() => Building, (building) => building.provinces)
-  @JoinTable({
-    name: 'provinces_buildings',
-    joinColumn: { name: 'province_id', referencedColumnName: 'id' },
-    inverseJoinColumn: { name: 'building_id', referencedColumnName: 'id' },
-  })
-  public buildings: Building[];
+  @OneToMany(() => ProvinceBuilding, (pb) => pb.province, { cascade: true })
+  public provinceBuildings: ProvinceBuilding[];
+
+  /** Computed getter — maps provinceBuildings to Building[] for backward compatibility. */
+  get buildings(): Building[] {
+    return this.provinceBuildings?.map((pb) => pb.building).filter(Boolean) ?? [];
+  }
 }

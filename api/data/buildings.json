@@ -9,7 +9,15 @@
     "cost": 0,
     "requirement_tech": [],
     "upgrade_to": null,
-    "requirement_building": null
+    "requirement_building": null,
+    "buildable": false,
+    "destructible": false,
+    "unique_per_province": true,
+    "allowed_province_resources": null,
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": true,
+    "can_recruit": true
   },
   {
     "type": "GARDEN",
@@ -21,7 +29,15 @@
     "cost": 50,
     "requirement_tech": [],
     "upgrade_to": "FARM",
-    "requirement_building": null
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": false,
+    "allowed_province_resources": null,
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": false,
+    "can_recruit": false
   },
   {
     "type": "MINE",
@@ -33,7 +49,15 @@
     "cost": 200,
     "upgrade_to": null,
     "requirement_tech": ["economy.surface_mining"],
-    "requirement_building": null
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": true,
+    "allowed_province_resources": ["iron", "gold", "stone"],
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": false,
+    "can_recruit": false
   },
   {
     "type": "FORESTRY",
@@ -45,7 +69,15 @@
     "cost": 150,
     "upgrade_to": null,
     "requirement_tech": ["economy.foresting"],
-    "requirement_building": null
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": true,
+    "allowed_province_resources": ["wood"],
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": false,
+    "can_recruit": false
   },
   {
     "type": "FARM",
@@ -57,7 +89,15 @@
     "cost": 75,
     "upgrade_to": null,
     "requirement_tech": ["economy.crop_rotation"],
-    "requirement_building": "GARDEN"
+    "requirement_building": "GARDEN",
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": false,
+    "allowed_province_resources": ["grain"],
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": false,
+    "can_recruit": false
   },
   {
     "type": "BARRACKS",
@@ -69,7 +109,15 @@
     "cost": 100,
     "upgrade_to": null,
     "requirement_tech": [],
-    "requirement_building": null
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": false,
+    "allowed_province_resources": null,
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": false,
+    "can_recruit": false
   },
   {
     "type": "FORT",
@@ -81,7 +129,15 @@
     "cost": 500,
     "upgrade_to": "CASTLE",
     "requirement_tech": [],
-    "requirement_building": null
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": true,
+    "allowed_province_resources": null,
+    "requirement_resource": "stone",
+    "requirement_resource_amount": 1,
+    "visible": true,
+    "can_recruit": true
   },
   {
     "type": "MARKET",
@@ -93,7 +149,15 @@
     "cost": 150,
     "upgrade_to": null,
     "requirement_tech": [],
-    "requirement_building": "BAZAAR"
+    "requirement_building": "BAZAAR",
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": false,
+    "allowed_province_resources": null,
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": false,
+    "can_recruit": false
   },
   {
     "type": "BAZAAR",
@@ -105,7 +169,15 @@
     "cost": 100,
     "upgrade_to": "MARKET",
     "requirement_tech": [],
-    "requirement_building": null
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": false,
+    "allowed_province_resources": null,
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": false,
+    "can_recruit": false
   },
   {
     "type": "ARMORY",
@@ -117,7 +189,15 @@
     "cost": 400,
     "upgrade_to": null,
     "requirement_tech": ["military.heavy_cavalry"],
-    "requirement_building": null
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": false,
+    "allowed_province_resources": null,
+    "requirement_resource": "iron",
+    "requirement_resource_amount": 1,
+    "visible": false,
+    "can_recruit": false
   },
   {
     "type": "ROAD",
@@ -129,7 +209,15 @@
     "cost": 200,
     "upgrade_to": null,
     "requirement_tech": ["military.improved_logistics"],
-    "requirement_building": null
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": false,
+    "allowed_province_resources": null,
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": true,
+    "can_recruit": false
   },
   {
     "type": "TEMPLE",
@@ -140,8 +228,16 @@
     "modifier": null,
     "cost": 200,
     "upgrade_to": null,
-    "requirement_tech": ["holy.holy.temple"],
-    "requirement_building": null
+    "requirement_tech": ["holy.temple"],
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": false,
+    "allowed_province_resources": null,
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": false,
+    "can_recruit": false
   },
   {
     "type": "CATHEDRAL",
@@ -153,7 +249,15 @@
     "cost": 400,
     "upgrade_to": null,
     "requirement_tech": ["holy.cathedral"],
-    "requirement_building": null
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": false,
+    "allowed_province_resources": null,
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": true,
+    "can_recruit": false
   },
   {
     "type": "TRADE_HOUSE",
@@ -165,7 +269,15 @@
     "cost": 300,
     "upgrade_to": null,
     "requirement_tech": ["guild.trade_house"],
-    "requirement_building": null
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": false,
+    "allowed_province_resources": null,
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": false,
+    "can_recruit": false
   },
   {
     "type": "CASTLE",
@@ -177,7 +289,15 @@
     "cost": 400,
     "upgrade_to": null,
     "requirement_tech": ["noble.better_fortifications"],
-    "requirement_building": "FORT"
+    "requirement_building": "FORT",
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": true,
+    "allowed_province_resources": null,
+    "requirement_resource": "stone",
+    "requirement_resource_amount": 1,
+    "visible": true,
+    "can_recruit": true
   },
   {
     "type": "LIBRARY",
@@ -189,6 +309,14 @@
     "cost": 175,
     "upgrade_to": null,
     "requirement_tech": ["economy.library_studies"],
-    "requirement_building": null
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": false,
+    "allowed_province_resources": null,
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": false,
+    "can_recruit": false
   }
 ]

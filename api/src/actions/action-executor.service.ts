@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { BuildingTypes } from '../buildings/types/building.types';
 import { Building } from '../buildings/entities/building.entity';
+import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { Province } from '../provinces/entities/province.entity';
 import { User } from '../users/entities/user.entity';
 import { ActionQueue, ActionType } from './entities/action-queue.entity';
@@ -22,26 +23,27 @@ import {
   computeBuildModifier,
 } from './combat-calculator';
 
-const NO_BUILD_TYPES = new Set<string>([
-  BuildingTypes.CAPITOL,
-  BuildingTypes.CAPITAL,
-]);
-
-/** Buildings that can only be placed on provinces whose resource_type is in the allowed list. */
-const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> = {
-  [BuildingTypes.MINE]:     ['iron', 'gold', 'stone'],
-  [BuildingTypes.FORESTRY]: ['wood'],
-  [BuildingTypes.FARM]:     ['grain'],
-};
-
-// TODO: Make these values dynamic
-/** Server-side money cost per troop when moving troops from the global pool into a province. Maybe transfer to env or db */
-const DEPLOY_MONEY_PER_TROOP = 1;
-const UNIQUE_PER_PROVINCE: string[] = [BuildingTypes.MINE, BuildingTypes.FORESTRY, BuildingTypes.FORT];
 const REMOVE_COST = 100;
 
+/** Tech branches that are gated behind selecting a matching player class. */
+const CLASS_BRANCHES = new Set<string>([
+  UserClasses.GUILD,
+  UserClasses.HOLY,
+  UserClasses.NOBLE,
+]);
+
+/**
+ * Per-turn execution context shared across all action handlers within a single
+ * turn. Created once at the start of the turn and threaded through every
+ * handler so they can enforce per-turn invariants.
+ */
+export interface ExecutionContext {
+  /** Ids of armies that have already executed an ARMY_MOVE this turn. */
+  movedArmyIds: Set<string>;
+}
+
 export interface ActionHandler {
-  handle(action: ActionQueue): Promise<void>;
+  handle(action: ActionQueue, ctx?: ExecutionContext): Promise<void>;
 }
 
 @Injectable()
@@ -68,7 +70,7 @@ export class BuildActionHandler implements ActionHandler {
     await this.provinceRepo.manager.transaction(async (manager) => {
       const province = await manager.findOne(Province, {
         where: { id: provinceId },
-        relations: ['buildings'],
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -89,8 +91,14 @@ export class BuildActionHandler implements ActionHandler {
         throw new Error('Building not found');
       }
 
-      if (NO_BUILD_TYPES.has(buildingTemplate.type)) {
-        throw new Error('Building is not allowed to build');
+      if (!buildingTemplate.buildable) {
+        throw new Error('This building cannot be constructed');
+      }
+
+      if (buildingTemplate.requirement_building) {
+        throw new Error(
+          `${buildingTemplate.name} requires ${buildingTemplate.requirement_building} and must be obtained through upgrading, not direct construction`,
+        );
       }
 
       const user = await manager.findOne(User, {
@@ -124,7 +132,7 @@ export class BuildActionHandler implements ActionHandler {
         throw new Error(`Building cap reached for this province (max ${buildingCap})`);
       }
 
-      if (UNIQUE_PER_PROVINCE.includes(buildingTemplate.type)) {
+      if (buildingTemplate.unique_per_province) {
         const alreadyHasType = province.buildings?.some(
           (b) => b.type === buildingTemplate.type,
         );
@@ -133,194 +141,56 @@ export class BuildActionHandler implements ActionHandler {
         }
       }
 
-      const allowedResources = RESOURCE_BUILDING_REQUIREMENTS[buildingTemplate.type];
-      if (allowedResources && !allowedResources.includes(province.resource_type)) {
+      const allowedResources = buildingTemplate.allowed_province_resources;
+      if (allowedResources?.length && !allowedResources.includes(province.resource_type)) {
         throw new Error(
           `${buildingTemplate.name} can only be built on provinces with resource type: ${allowedResources.join(', ')} (this province: ${province.resource_type ?? 'none'})`,
         );
       }
 
+      // Check user resource cost
+      if (buildingTemplate.requirement_resource) {
+        const resourceType = buildingTemplate.requirement_resource;
+        const requiredAmount = buildingTemplate.requirement_resource_amount ?? 1;
+
+        // Count user's available resource (derived from buildings across all provinces)
+        const userProvinces = await manager.find(Province, {
+          where: { user_id: action.userId },
+          relations: ['provinceBuildings', 'provinceBuildings.building'],
+        });
+
+        // Maybe refactor in future and move resource types into separate table
+        let resourceCount = 0;
+        let resourceUsed = 0;
+        for (const p of userProvinces) {
+          for (const b of p.buildings ?? []) {
+            // Resource-producing buildings: MINE on matching province, FORESTRY on wood
+            if (b.type === BuildingTypes.MINE && p.resource_type === resourceType) {
+              resourceCount++;
+            } else if (b.type === BuildingTypes.FORESTRY && resourceType === 'wood') {
+              resourceCount++;
+            }
+            // Count how many buildings already consume this resource
+            if (b.requirement_resource === resourceType) {
+              resourceUsed += b.requirement_resource_amount ?? 1;
+            }
+          }
+        }
+
+        if ((resourceCount - resourceUsed) < requiredAmount) {
+          throw new Error(
+            `Not enough ${resourceType} resource: have ${resourceCount}, already using ${resourceUsed}, need ${requiredAmount} more`,
+          );
+        }
+      }
+
       user.money = currentMoney - cost;
       await manager.save(User, user);
 
-      await manager
-        .createQueryBuilder()
-        .relation(Province, 'buildings')
-        .of(provinceId)
-        .add(buildingId);
-    });
-  }
-}
-
-@Injectable()
-export class InvadeActionHandler implements ActionHandler {
-  private readonly logger = new Logger(InvadeActionHandler.name);
-
-  constructor(
-    @InjectRepository(Province)
-    private readonly provinceRepo: Repository<Province>,
-  ) {}
-
-  async handle(action: ActionQueue): Promise<void> {
-    this.logger.log(
-      `Executing INVADE action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
-    );
-
-    const fromId = action.actionData?.from_province_id as string | undefined;
-    const toId = action.actionData?.to_province_id as string | undefined;
-    const troopsNumber = Number(action.actionData?.troops_number ?? 0);
-
-    if (!fromId || !toId) {
-      throw new Error('from_province_id and to_province_id are required');
-    }
-    if (!Number.isFinite(troopsNumber) || troopsNumber <= 0) {
-      throw new Error('troops_number must be a positive number');
-    }
-
-    await this.provinceRepo.manager.transaction(async (manager) => {
-      const fromProvince = await manager.findOne(Province, {
-        where: { id: fromId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!fromProvince) {
-        throw new Error('Source province not found');
-      }
-
-      if (fromProvince.user_id !== action.userId) {
-        throw new Error('User do not own the source province');
-      }
-
-      const fromTroops = Number(fromProvince.local_troops ?? 0);
-      if (!Number.isFinite(fromTroops) || fromTroops < troopsNumber) {
-        throw new Error('Not enough troops in the source province');
-      }
-
-      const toProvince = await manager.findOne(Province, {
-        where: { id: toId },
-        relations: ['buildings'],
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!toProvince) {
-        throw new Error('Target province not found');
-      }
-
-      const defenderTroops = Number(toProvince.local_troops ?? 0);
-      if (!Number.isFinite(defenderTroops)) {
-        throw new Error('Invalid defender troop count on target province');
-      }
-
-      if (action.userId != null && action.userId !== action.userId) {
-        throw new Error('actionData.userId does not match action user');
-      }
-      if (
-        toProvince.user_id != null &&
-        action.userId === toProvince.user_id
-      ) {
-        fromProvince.local_troops = fromTroops - troopsNumber;
-        toProvince.local_troops = defenderTroops + troopsNumber;
-        await manager.save(Province, [fromProvince, toProvince]);
-        return;
-      }
-
-      const attacker = await manager.findOne(User, { where: { id: action.userId } });
-      const battleCtx = { attackingTroops: troopsNumber };
-      for (const techKey of (attacker?.completed_research ?? [])) {
-        BATTLE_RESEARCH_EFFECTS[techKey]?.(battleCtx);
-      }
-
-      const buildModifier = computeBuildModifier(toProvince.buildings);
-      const battleResult = battleCtx.attackingTroops / buildModifier - defenderTroops;
-
-      fromProvince.local_troops = fromTroops - troopsNumber;
-
-      if (battleResult > 0) {
-        const isWater = toProvince.type?.toLowerCase() === 'water';
-        if (!isWater) {
-          toProvince.user_id = action.userId;
-        }
-        toProvince.local_troops = Math.round(battleResult);
-      } else if (battleResult < 0) {
-        toProvince.local_troops = Math.round(-battleResult);
-      } else {
-        toProvince.local_troops = 0;
-      }
-
-      await manager.save(Province, [fromProvince, toProvince]);
-    });
-  }
-}
-
-@Injectable()
-export class DeployActionHandler implements ActionHandler {
-  private readonly logger = new Logger(DeployActionHandler.name);
-
-  constructor(
-    @InjectRepository(Province)
-    private readonly provinceRepo: Repository<Province>,
-  ) {}
-
-  async handle(action: ActionQueue): Promise<void> {
-    this.logger.log(
-      `Executing DEPLOY action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
-    );
-
-    const provinceId = action.actionData?.province_id as string | undefined;
-    const troopsNumber = Number(action.actionData?.troops_number ?? 0);
-
-    if (!provinceId) {
-      throw new Error('province_id is required');
-    }
-    if (!Number.isFinite(troopsNumber) || troopsNumber <= 0) {
-      throw new Error('troops_number must be a positive number');
-    }
-
-    await this.provinceRepo.manager.transaction(async (manager) => {
-      const province = await manager.findOne(Province, {
-        where: { id: provinceId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!province) {
-        throw new Error('Province not found');
-      }
-
-      if (province.user_id !== action.userId) {
-        throw new Error('User does not own this province');
-      }
-
-      const user = await manager.findOne(User, {
-        where: { id: action.userId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!user) {
-        throw new Error('User not found');
-      }
-
-      const hasLogistics = (user.completed_research ?? []).includes('economy.logistics');
-      const deployMoneyCost = hasLogistics ? 0 : troopsNumber * DEPLOY_MONEY_PER_TROOP;
-
-      const currentMoney = Number(user.money ?? 0);
-      if (currentMoney < deployMoneyCost) {
-        throw new Error('Not enough money to deploy');
-      }
-
-      const poolTroops = Number(user.troops ?? 0);
-      if (!Number.isFinite(poolTroops) || poolTroops < troopsNumber) {
-        throw new Error('Not enough troops to deploy');
-      }
-
-      const localTroops = Number(province.local_troops ?? 0);
-      const safeLocal = Number.isFinite(localTroops) ? localTroops : 0;
-
-      user.money = currentMoney - deployMoneyCost;
-      user.troops = poolTroops - troopsNumber;
-      province.local_troops = safeLocal + troopsNumber;
-
-      await manager.save(Province, province);
-      await manager.save(User, user);
+      await manager.save(ProvinceBuilding, manager.create(ProvinceBuilding, {
+        province_id: provinceId,
+        building_id: buildingId,
+      }));
     });
   }
 }
@@ -340,16 +210,16 @@ export class RemoveActionHandler implements ActionHandler {
     );
 
     const provinceId = action.actionData?.province_id as string | undefined;
-    const buildingId = action.actionData?.building_id as string | undefined;
+    const provinceBuildingId = action.actionData?.province_building_id as string | undefined;
 
-    if (!provinceId || !buildingId) {
-      throw new Error('province_id and building_id are required');
+    if (!provinceId || !provinceBuildingId) {
+      throw new Error('province_id and province_building_id are required');
     }
 
     await this.provinceRepo.manager.transaction(async (manager) => {
       const province = await manager.findOne(Province, {
         where: { id: provinceId },
-        relations: ['buildings'],
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -361,9 +231,14 @@ export class RemoveActionHandler implements ActionHandler {
         throw new Error('User does not own this province');
       }
 
-      const buildingExists = province.buildings?.some((b) => b.id === buildingId);
-      if (!buildingExists) {
+      // Target the specific building instance, not just the first of its type.
+      const pb = province.provinceBuildings?.find((pb) => pb.id === provinceBuildingId);
+      if (!pb) {
         throw new Error('Building not found in this province');
+      }
+
+      if (!pb.building?.destructible) {
+        throw new Error('This building cannot be removed');
       }
 
       const user = await manager.findOne(User, {
@@ -383,11 +258,7 @@ export class RemoveActionHandler implements ActionHandler {
       user.money = currentMoney - REMOVE_COST;
       await manager.save(User, user);
 
-      await manager
-        .createQueryBuilder()
-        .relation(Province, 'buildings')
-        .of(provinceId)
-        .remove(buildingId);
+      await manager.remove(ProvinceBuilding, pb);
     });
   }
 }
@@ -407,16 +278,16 @@ export class UpgradeActionHandler implements ActionHandler {
     );
 
     const provinceId = action.actionData?.province_id as string | undefined;
-    const buildingId = action.actionData?.building_id as string | undefined;
+    const provinceBuildingId = action.actionData?.province_building_id as string | undefined;
 
-    if (!provinceId || !buildingId) {
-      throw new Error('province_id and building_id are required');
+    if (!provinceId || !provinceBuildingId) {
+      throw new Error('province_id and province_building_id are required');
     }
 
     await this.provinceRepo.manager.transaction(async (manager) => {
       const province = await manager.findOne(Province, {
         where: { id: provinceId },
-        relations: ['buildings'],
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -428,12 +299,14 @@ export class UpgradeActionHandler implements ActionHandler {
         throw new Error('User does not own this province');
       }
 
-      const currentBuilding = province.buildings?.find((b) => b.id === buildingId);
-      if (!currentBuilding) {
+      // Target the specific building instance to upgrade.
+      const provinceBuilding = province.provinceBuildings?.find((pb) => pb.id === provinceBuildingId);
+      if (!provinceBuilding) {
         throw new Error('Building not found in this province');
       }
 
-      if (!currentBuilding.upgrade_to) {
+      const currentBuilding = provinceBuilding.building;
+      if (!currentBuilding?.upgrade_to) {
         throw new Error('This building cannot be upgraded');
       }
 
@@ -466,8 +339,8 @@ export class UpgradeActionHandler implements ActionHandler {
         throw new Error('User not found');
       }
 
-      const allowedResources = RESOURCE_BUILDING_REQUIREMENTS[upgradeBuilding.type];
-      if (allowedResources && !allowedResources.includes(province.resource_type)) {
+      const allowedResources = upgradeBuilding.allowed_province_resources;
+      if (allowedResources?.length && !allowedResources.includes(province.resource_type)) {
         throw new Error(
           `${upgradeBuilding.name} can only be built on provinces with resource type: ${allowedResources.join(', ')} (this province: ${province.resource_type ?? 'none'})`,
         );
@@ -489,17 +362,14 @@ export class UpgradeActionHandler implements ActionHandler {
       user.money = currentMoney - cost;
       await manager.save(User, user);
 
-      await manager
-        .createQueryBuilder()
-        .relation(Province, 'buildings')
-        .of(provinceId)
-        .remove(buildingId);
+      // Remove the specific old building instance
+      await manager.remove(ProvinceBuilding, provinceBuilding);
 
-      await manager
-        .createQueryBuilder()
-        .relation(Province, 'buildings')
-        .of(provinceId)
-        .add(upgradeBuilding.id);
+      // Add upgraded building
+      await manager.save(ProvinceBuilding, manager.create(ProvinceBuilding, {
+        province_id: provinceId,
+        building_id: upgradeBuilding.id,
+      }));
     });
   }
 }
@@ -569,7 +439,7 @@ export class ResearchActionHandler implements ActionHandler {
         if (user.class !== null && user.class !== undefined) {
           throw new Error('Class already selected, cannot research another class root tech');
         }
-      } else if (tech.branch.startsWith(UserClasses.GUILD || UserClasses.HOLY || UserClasses.NOBLE)) {
+      } else if (CLASS_BRANCHES.has(tech.branch)) {
         if (!user.class || user.class !== tech.branch) {
           throw new Error(`This tech requires class: ${tech.branch}`);
         }
@@ -654,7 +524,8 @@ const executeRecruitment = async (
     if (troopType.building_requirement) {
       const buildingInProvince = await manager
         .createQueryBuilder(Province, 'p')
-        .innerJoin('p.buildings', 'b', 'b.type = :btype', { btype: troopType.building_requirement })
+        .innerJoin('p.provinceBuildings', 'pb')
+        .innerJoin('pb.building', 'b', 'b.type = :btype', { btype: troopType.building_requirement })
         .where('p.user_id = :uid', { uid: userId })
         .getOne();
       if (!buildingInProvince) {
@@ -746,7 +617,7 @@ const isReachableByRoad = async (
 
         const neighbor = await manager.findOne(Province, {
           where: { id: neighborId },
-          relations: ['buildings'],
+          relations: ['provinceBuildings', 'provinceBuildings.building'],
         });
         if (!neighbor || !hasRoadBuilding(neighbor) || neighbor.user_id !== userId) continue;
 
@@ -790,10 +661,14 @@ export class ArmyCreateHandler implements ActionHandler {
     await this.armyRepo.manager.transaction(async (manager) => {
       const province = await manager.findOne(Province, {
         where: { id: provinceId },
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!province) throw new Error('Province not found');
       if (province.user_id !== action.userId) throw new Error('User does not own this province');
+
+      const hasRecruitBuilding = (province.provinceBuildings ?? []).some(pb => pb.building?.can_recruit);
+      if (!hasRecruitBuilding) throw new Error('Province must have a recruitment building to create an army here');
 
       const army = manager.create(Army, {
         name: name ?? null,
@@ -847,11 +722,16 @@ export class ArmyRecruitHandler implements ActionHandler {
       if (!army) throw new Error('Army not found');
       if (army.user_id !== action.userId) throw new Error('User does not own this army');
 
-      // Army must be in an owned province to recruit
-      const province = await manager.findOne(Province, { where: { id: army.province_id } });
+      // Army must be in an owned province with a recruitment building to recruit
+      const province = await manager.findOne(Province, {
+        where: { id: army.province_id },
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
+      });
       if (!province || province.user_id !== action.userId) {
         throw new Error('Army must be stationed in an owned province to recruit');
       }
+      const hasRecruitBuilding = (province.provinceBuildings ?? []).some(pb => pb.building?.can_recruit);
+      if (!hasRecruitBuilding) throw new Error('Province must have a recruitment building to recruit troops here');
 
       await executeRecruitment(manager, action.userId, army, recruits);
       await manager.save(ArmyUnit, army.units);
@@ -870,13 +750,21 @@ export class ArmyMoveHandler implements ActionHandler {
     private readonly provinceRepo: Repository<Province>,
   ) {}
 
-  handle = async (action: ActionQueue): Promise<void> => {
+  handle = async (action: ActionQueue, ctx?: ExecutionContext): Promise<void> => {
     this.logger.log(`Executing ARMY_MOVE for user ${action.userId}`);
 
     const armyId = action.actionData?.army_id as string | undefined;
     const toProvinceId = action.actionData?.to_province_id as string | undefined;
 
     if (!armyId || !toProvinceId) throw new Error('army_id and to_province_id are required');
+
+    // One move per army per turn. Without this, queued moves chain off each
+    // other's results (A→B then B→C then C→D), letting an army cross the map
+    // in a single turn. Reachability is only ever checked one hop/road-range
+    // at a time, so the very first move is the only legitimate one.
+    if (ctx?.movedArmyIds.has(armyId)) {
+      throw new Error('Army has already moved this turn');
+    }
 
     await this.armyRepo.manager.transaction(async (manager) => {
       const army = await manager.findOne(Army, {
@@ -889,7 +777,7 @@ export class ArmyMoveHandler implements ActionHandler {
 
       const fromProvince = await manager.findOne(Province, {
         where: { id: army.province_id },
-        relations: ['buildings'],
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
       });
       if (!fromProvince) throw new Error('Source province not found');
 
@@ -913,7 +801,7 @@ export class ArmyMoveHandler implements ActionHandler {
 
       const toProvince = await manager.findOne(Province, {
         where: { id: toProvinceId },
-        relations: ['buildings'],
+        relations: ['provinceBuildings', 'provinceBuildings.building'],
         lock: { mode: 'pessimistic_write' },
       });
       if (!toProvince) throw new Error('Target province not found');
@@ -1027,7 +915,13 @@ export class ArmyMoveHandler implements ActionHandler {
         }
       }
     });
-  }
+
+    // Transaction committed: the army's move for this turn is now spent. A
+    // combat that ends in retreat still consumes the move; only a failure
+    // (which throws before/within the transaction and never reaches here)
+    // leaves the army free to move.
+    ctx?.movedArmyIds.add(armyId);
+  };
 }
 
 @Injectable()
@@ -1208,6 +1102,9 @@ export class ColonizeActionHandler implements ActionHandler {
       });
 
       if (!province) throw new Error('Province not found');
+      if (province.type?.toLowerCase() === 'water') {
+        throw new Error('Water provinces cannot be colonized');
+      }
       if (province.user_id !== null) throw new Error('Province is already owned');
 
       const user = await manager.findOne(User, {
@@ -1243,8 +1140,6 @@ export class ActionExecutorService {
 
   constructor(
     private buildHandler: BuildActionHandler,
-    private invadeHandler: InvadeActionHandler,
-    private deployHandler: DeployActionHandler,
     private upgradeHandler: UpgradeActionHandler,
     private transferTroopsHandler: TransferTroopsActionHandler,
     private researchHandler: ResearchActionHandler,
@@ -1258,8 +1153,6 @@ export class ActionExecutorService {
     private colonizeHandler: ColonizeActionHandler,
   ) {
     this.handlers.set(ActionType.BUILD, buildHandler);
-    this.handlers.set(ActionType.INVADE, invadeHandler);
-    this.handlers.set(ActionType.DEPLOY, deployHandler);
     this.handlers.set(ActionType.UPGRADE, upgradeHandler);
     this.handlers.set(ActionType.TRANSFER_TROOPS, transferTroopsHandler);
     this.handlers.set(ActionType.RESEARCH, researchHandler);
@@ -1273,7 +1166,7 @@ export class ActionExecutorService {
     this.handlers.set(ActionType.COLONIZE, colonizeHandler);
   }
 
-  async executeAction(action: ActionQueue): Promise<{
+  async executeAction(action: ActionQueue, ctx?: ExecutionContext): Promise<{
     success: boolean;
     error?: string;
   }> {
@@ -1286,7 +1179,7 @@ export class ActionExecutorService {
     }
 
     try {
-      await handler.handle(action);
+      await handler.handle(action, ctx);
       return { success: true };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

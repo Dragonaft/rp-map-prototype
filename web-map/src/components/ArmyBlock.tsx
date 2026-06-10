@@ -79,6 +79,7 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
   const troopTypes = useAppSelector((state: RootState) => state.armies.troopTypes);
   const actions = useAppSelector((state: RootState) => state.actions.actions);
   const provinces = useAppSelector((state: RootState) => state.provinces.provinces);
+  const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
 
   const [editingName, setEditingName] = useState(false);
   const [nameValue, setNameValue] = useState(army.name ?? '');
@@ -92,11 +93,18 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
 
   const upkeep = useMemo(() => calcArmyUpkeep(army), [army]);  // { money, piety }
   const totalArmy = useMemo(() => army.units.reduce((s, u) => s + u.count, 0), [army.units]);
+  const isOwnerArmy = user.id === army.user_id;
+  const armyOwner = useMemo(() => otherUsers.find((u) => u.id === army.user_id), [otherUsers, army.user_id]);
 
   const userBuildingTypes = useMemo(
     () => new Set(provinces.flatMap((p) => p.buildings?.map((b) => b.type) ?? [])),
     [provinces],
   );
+
+  const hasRecruitBuilding = useMemo(() => {
+    const province = provinces.find((p) => p.id === army.province_id);
+    return (province?.buildings ?? []).some((b) => b.canRecruit);
+  }, [provinces, army.province_id]);
 
   // Pending actions for this army
   const pendingRecruitByKey = useMemo(() => {
@@ -259,21 +267,24 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
         ) : (
           <button
             className="flex-1 text-left font-bold text-sm truncate hover:underline"
+            disabled={!isOwnerArmy}
             onClick={() => { setNameValue(army.name ?? ''); setEditingName(true); }}
             title="Click to edit name"
           >
             {army.name ?? 'Unnamed Army'}
           </button>
         )}
-        <div className="flex flex-col items-end text-xs text-gray-700 whitespace-nowrap">
-          <span>⚔ {upkeep.money}g/turn</span>
-          {upkeep.piety > 0 && <span>✝ {upkeep.piety}p/turn</span>}
-        </div>
+        {isOwnerArmy && (
+          <div className="flex flex-col items-end text-xs text-gray-700 whitespace-nowrap">
+            <span>⚔ {upkeep.money}g/turn</span>
+            {upkeep.piety > 0 && <span>✝ {upkeep.piety}p/turn</span>}
+          </div>
+        )}
         <button className="text-gray-600 hover:text-gray-900 text-lg leading-none ml-1" onClick={onClose}>✕</button>
       </div>
 
       {/* Disband indicator */}
-      {pendingDisbandAction && (
+      {isOwnerArmy && pendingDisbandAction && (
         <div className="text-xs bg-red-100 border border-red-400 rounded px-2 py-1 flex justify-between items-center">
           <span className="text-red-700 font-semibold">⏳ Disbanding queued</span>
           <button className="text-red-600 underline text-xs" onClick={() => void handleCancelAction(pendingDisbandAction.id)}>Cancel</button>
@@ -301,13 +312,13 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
               </TroopTooltipWrapper>
 
               {/* Pending actions */}
-              {recruits.map((r) => (
+              {isOwnerArmy && recruits.map((r) => (
                 <div key={r.id} className="flex items-center gap-1 mt-1 text-xs bg-green-100 border border-green-400 rounded px-1 py-0.5">
                   <span className="text-green-700 flex-1">+{r.count} queued</span>
                   <button className="text-green-700 underline" onClick={() => void handleCancelAction(r.id)}>Cancel</button>
                 </div>
               ))}
-              {removals.map((r) => (
+              {isOwnerArmy && removals.map((r) => (
                 <div key={r.id} className="flex items-center gap-1 mt-1 text-xs bg-red-100 border border-red-400 rounded px-1 py-0.5">
                   <span className="text-red-700 flex-1">-{r.count} queued</span>
                   <button className="text-red-700 underline" onClick={() => void handleCancelAction(r.id)}>Cancel</button>
@@ -315,7 +326,7 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
               ))}
 
               {/* Add inline slider */}
-              {isAddOpen && (
+              {isOwnerArmy && isAddOpen && (
                 <div className="mt-2 flex flex-col gap-1">
                   <div className="flex items-center gap-1">
                     <span className="text-xs w-8">Add:</span>
@@ -357,7 +368,7 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
               )}
 
               {/* Remove inline slider */}
-              {isRemoveOpen && (
+              {isOwnerArmy && isRemoveOpen && (
                 <div className="mt-2 flex flex-col gap-1">
                   <div className="flex items-center gap-1">
                     <span className="text-xs w-8">Rem:</span>
@@ -399,12 +410,12 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
               )}
 
               {/* Add / Remove buttons */}
-              {!isAddOpen && !isRemoveOpen && (
+              {isOwnerArmy && !isAddOpen && !isRemoveOpen && (
                 <div className="flex gap-1 mt-1">
                   <button
                     className="text-xs px-2 py-0.5 bg-green-500 text-white rounded disabled:opacity-40"
-                    disabled={maxAdd < 100}
-                    title={maxAdd < 100 ? 'Not enough resources' : 'Add troops'}
+                    disabled={maxAdd < 100 || !hasRecruitBuilding}
+                    title={!hasRecruitBuilding ? 'No recruitment building in this province' : maxAdd < 100 ? 'Not enough resources' : 'Add troops'}
                     onClick={() => { setAddCount(Math.min(100, maxAdd)); setAddSliderOpen(tt.key); setRemoveSliderOpen(null); }}
                   >+</button>
                   <button
@@ -502,20 +513,32 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
 
       {/* Bottom buttons */}
       <div className="flex flex-col gap-2 mt-auto pt-2 border-t border-gray-500">
-        {!showAddType && addableTypes.length > 0 && (
-          <Button variant="outlined" size="small" onClick={() => { setShowAddType(true); setAddSliderOpen(null); }}>
+        {isOwnerArmy && !showAddType && addableTypes.length > 0 && (
+          <Button
+            variant="outlined"
+            size="small"
+            disabled={!hasRecruitBuilding}
+            title={!hasRecruitBuilding ? 'No recruitment building in this province' : undefined}
+            onClick={() => { setShowAddType(true); setAddSliderOpen(null); }}
+          >
             + Add troop type
           </Button>
         )}
-        <Button
-          variant="contained"
-          size="small"
-          color={pendingDisbandAction ? 'inherit' : 'error'}
-          disabled={submitting}
-          onClick={() => void handleDisband()}
-        >
-          {pendingDisbandAction ? '⏳ Cancel Disband' : 'Disband Army'}
-        </Button>
+        {isOwnerArmy && (
+          <Button
+            variant="contained"
+            size="small"
+            color={pendingDisbandAction ? 'inherit' : 'error'}
+            disabled={submitting}
+            onClick={() => void handleDisband()}
+          >
+            {pendingDisbandAction ? '⏳ Cancel Disband' : 'Disband Army'}
+          </Button>
+        )}
+
+        {!isOwnerArmy && (
+          <span>Owner: {armyOwner?.countryName}</span>
+        )}
       </div>
 
       {error && (

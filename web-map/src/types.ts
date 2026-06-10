@@ -1,6 +1,6 @@
 // TODO: sort types
 
-export type ProvinceType = 'land' | 'coastal' | 'water';
+export type ProvinceType = 'land' | 'water';
 
 export type Landscape = 'plains' | 'forest' | 'mountain' | 'desert' | 'hills' | 'swamp';
 
@@ -48,6 +48,20 @@ export interface Building {
   upgradeTo: string | null;
   requirementTech: string[] | null;
   requirementBuilding: string | null;
+  buildable: boolean;
+  destructible: boolean;
+  uniquePerProvince: boolean;
+  allowedProvinceResources: string[] | null;
+  requirementResource: string | null;
+  requirementResourceAmount: number | null;
+  visible: boolean;
+  canRecruit: boolean;
+}
+
+/** A building as it exists in a province — template fields plus the unique
+ *  province_building instance id (multiple of the same type can coexist). */
+export interface ProvinceBuilding extends Building {
+  instanceId: string;
 }
 
 /** Static fields — never change after map import. Safe to cache in localStorage. */
@@ -67,7 +81,7 @@ export interface ProvinceStateData {
   userId: string | null;
   localTroops: number | null;
   enemyHere?: boolean;
-  buildings?: Building[];
+  buildings?: ProvinceBuilding[];
   buildingCap: number | null;
 }
 
@@ -81,7 +95,7 @@ export interface Province {
   userId: string | null;
   localTroops: number;
   enemyHere?: boolean;
-  buildings?: Building[];
+  buildings?: ProvinceBuilding[];
   neighbors?: string[] | null;
   buildingCap: number;
 }
@@ -206,8 +220,6 @@ export interface SetupUserResponse {
 
 export enum ActionType {
   BUILD = 'BUILD',
-  INVADE = 'INVADE',
-  DEPLOY = 'DEPLOY',
   UPGRADE = 'UPGRADE',
   TRANSFER_TROOPS = 'TRANSFER_TROOPS',
   RESEARCH = 'RESEARCH',
@@ -231,15 +243,3 @@ export interface ActionData {
   [key: string]: any; // Flexible for future action types
 }
 
-export const RESOURCE_BUILDING_REQUIREMENTS: Partial<Record<BuildingTypes, string[]>> = {
-  [BuildingTypes.MINE]: ['iron', 'gold', 'stone'],
-  [BuildingTypes.FORESTRY]: ['wood'],
-  [BuildingTypes.FARM]: ['grain'],
-};
-
-/** Maps building types that consume a resource (1 unit per building) */
-export const BUILDING_RESOURCE_COSTS: Partial<Record<BuildingTypes, keyof UserResources>> = {
-  [BuildingTypes.ARMORY]: 'iron',
-  [BuildingTypes.FORT]: 'stone',
-  [BuildingTypes.CASTLE]: 'stone',
-};

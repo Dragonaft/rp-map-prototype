@@ -1,28 +1,22 @@
 import React, { useMemo } from 'react';
-import { ActionType, Building, Province } from '../types';
+import { ActionType, ProvinceBuilding, Province } from '../types';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { setSelectedTroops } from '../store/slices/provincesSlice';
 import type { BBox } from '../store/slices/provincesSlice';
 import { BUILDING_ICONS, LANDSCAPE_ICONS, RESOURCE_ICONS } from '../constants/buildingIcons';
 import type { RootState } from "../store/store.ts";
 
-interface PendingDeployAction {
-  id: string;
-  troopsNumber: number;
-}
-
 interface Props {
   province: Province;
   isSelected: boolean;
   onSelect: (province: Province, multi: boolean) => void;
   onRightClick: (province: Province) => void;
-  pendingDeployAction?: PendingDeployAction;
-  onCancelAction?: (actionId: string) => void;
   bbox: BBox;
   armyTroopCount?: number;
   onArmyCountClick?: (provinceId: string) => void;
   /** undefined = no enemy armies; null = present but count unknown; number = spy-revealed total */
   enemyArmyTroopCount?: number | null;
+  enemyArmyOwnerId?: string;
 }
 
 const MAP_VISIBLE_BUILDINGS = new Set(['CAPITAL', 'CAPITOL', 'FORT', 'FORESTRY', 'MINE']);
@@ -35,12 +29,11 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   isSelected,
   onSelect,
   onRightClick,
-  pendingDeployAction,
-  onCancelAction,
   bbox,
   armyTroopCount,
   onArmyCountClick,
   enemyArmyTroopCount,
+  enemyArmyOwnerId,
 }) => {
   const dispatch = useAppDispatch();
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
@@ -65,6 +58,14 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     if (province.userId === currentUserId) return currentUserColor;
     return otherUsers.find(u => u.id === province.userId)?.color ?? null;
   }, [province.userId, currentUserId, currentUserColor, otherUsers]);
+
+  // Color of the player whose army is stationed here (falls back to province owner).
+  const enemyArmyOwnerColor = useMemo(() => {
+    if (enemyArmyOwnerId) {
+      return otherUsers.find(u => u.id === enemyArmyOwnerId)?.color ?? provinceOwnerColor;
+    }
+    return provinceOwnerColor;
+  }, [enemyArmyOwnerId, otherUsers, provinceOwnerColor]);
 
   const fillColor = isWater ? WATER_COLOR : (provinceOwnerColor || DEFAULT_LAND_COLOR);
   const strokeColor = isSelected ? 'rgb(255, 255, 0)' : 'rgb(0, 0, 0)';
@@ -105,13 +106,13 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     }
   }, [dispatch, province.id, displayTroopCount, isTroopSelected, onArmyCountClick]);
 
-  const renderBuildingIcon = (building: Building, index: number) => {
+  const renderBuildingIcon = (building: ProvinceBuilding, index: number) => {
     const icon = BUILDING_ICONS[building.type] ?? '🏗️';
     const offsetX = (index % 2) * 15 - 7.5;
     const offsetY = Math.floor(index / 2) * 15 - 7.5;
     return (
       <text
-        key={building.id}
+        key={building.instanceId}
         x={cx + offsetX} y={cy + offsetY}
         fontSize="16" textAnchor="middle" dominantBaseline="middle"
         pointerEvents="none" style={{ userSelect: 'none' }}
@@ -124,7 +125,6 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   // Show the badge when the province is owned and has troops, OR when there are
   // army troops present regardless of ownership (e.g. naval armies on water tiles).
   const hasLocalTroops = displayTroopCount > 0 && (isCurrentUserProvince || armyTroopCount != null);
-  const deployLabel = (pendingDeployAction && isCurrentUserProvince) ? `+${pendingDeployAction.troopsNumber}` : null;
 
   const landscapeIcon = LANDSCAPE_ICONS[province.landscape];
   const resourceIcon = RESOURCE_ICONS[province.resourceType];
@@ -167,37 +167,40 @@ const ProvinceShapeComponent: React.FC<Props> = ({
       {/* Building icons (map-visible only) */}
       {visibleBuildings.map((b, i) => renderBuildingIcon(b, i))}
 
-      {/* Enemy local troops indicator */}
-      {!isCurrentUserProvince && province.enemyHere && (
-        <g>
-          <rect x={cx - 20} y={troopY - 10} width="40" height="20"
-            fill="white" stroke="rgb(0,0,0)" strokeWidth={1} rx="3" ry="3" />
-          <text x={cx} y={troopY} fontSize="12" textAnchor="middle" dominantBaseline="middle"
-            pointerEvents="none" style={{ userSelect: 'none' }}>
-            🪖
-          </text>
-        </g>
-      )}
-
       {/* Enemy army indicator */}
       {!isCurrentUserProvince && enemyArmyTroopCount !== undefined && (() => {
-        const armyY = troopY + (province.enemyHere ? 24 : 0);
+        const armyY = troopY + (province.enemyHere ? 1 : 0);
         const hasCount = typeof enemyArmyTroopCount === 'number';
         const boxW = hasCount ? Math.max(36, 8 + String(enemyArmyTroopCount).length * 8) : 36;
+        const boxX = cx - boxW / 2;
+        const boxY = armyY - 10;
+        const clipId = `army-badge-${province.id}`;
         return (
-          <g>
-            <rect x={cx - boxW / 2} y={armyY - 10} width={boxW} height={20}
-              fill="rgb(254,202,202)" stroke="rgb(153,27,27)" strokeWidth={1} rx="3" ry="3" />
+          <g onClick={handleTroopClick} style={{ cursor: 'pointer' }}>
+            <clipPath id={clipId}>
+              <rect x={boxX} y={boxY} width={boxW} height={20} rx="3" ry="3" />
+            </clipPath>
+            {/* Base fill */}
+            <rect x={boxX} y={boxY} width={boxW} height={20}
+              fill="rgb(254,202,202)" rx="3" ry="3" />
+            {/* Owner color occupies the left 10% of the fill, clipped to the badge shape */}
+            {enemyArmyOwnerColor && (
+              <rect x={boxX} y={boxY} width={boxW * 0.1} height={20}
+                fill={enemyArmyOwnerColor} clipPath={`url(#${clipId})`} pointerEvents="none" />
+            )}
+            {/* Border drawn last so it frames both fills */}
+            <rect x={boxX} y={boxY} width={boxW} height={20}
+              fill="none" stroke="rgb(153,27,27)" strokeWidth={1} rx="3" ry="3" />
             <text x={cx} y={armyY} fontSize="12" textAnchor="middle" dominantBaseline="middle"
               pointerEvents="none" style={{ userSelect: 'none' }}>
-              {hasCount ? `⚔${enemyArmyTroopCount}` : '⚔'}
+              {hasCount ? `${enemyArmyTroopCount}` : ''}
             </text>
           </g>
         );
       })()}
 
       {/* Own troops count */}
-      {hasLocalTroops && (
+      {isCurrentUserProvince && hasLocalTroops && (
         <g onClick={handleTroopClick} style={{ cursor: 'pointer' }}>
           <rect x={cx - 20} y={troopY - 10} width="40" height="20"
             fill="white"
@@ -212,25 +215,6 @@ const ProvinceShapeComponent: React.FC<Props> = ({
         </g>
       )}
 
-      {/* Pending deploy indicator */}
-      {deployLabel && (
-        <g
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onCancelAction?.(pendingDeployAction!.id); }}
-          style={{ cursor: 'pointer' }}
-        >
-          <rect
-            x={cx - 20} y={hasLocalTroops ? troopY + 12 : troopY - 10}
-            width="40" height="20"
-            fill="white" stroke="rgb(34,197,94)" strokeWidth={1} rx="3" ry="3" />
-          <text
-            x={cx} y={hasLocalTroops ? troopY + 22 : troopY}
-            fontSize="12" fill="rgb(34,197,94)" textAnchor="middle" dominantBaseline="middle"
-            fontWeight="bold" pointerEvents="none" style={{ userSelect: 'none' }}>
-            {deployLabel}
-          </text>
-        </g>
-      )}
     </g>
   );
 };

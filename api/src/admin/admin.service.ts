@@ -6,6 +6,7 @@ import { User } from '../users/entities/user.entity';
 import { Building } from '../buildings/entities/building.entity';
 import { Army } from '../armies/entities/army.entity';
 import { Tech } from '../techs/entities/tech.entity';
+import { TroopType } from '../armies/entities/troop-type.entity';
 
 @Injectable()
 export class AdminService {
@@ -14,6 +15,7 @@ export class AdminService {
     @InjectRepository(Building) private readonly buildingRepo: Repository<Building>,
     @InjectRepository(Army) private readonly armyRepo: Repository<Army>,
     @InjectRepository(Tech) private readonly techRepo: Repository<Tech>,
+    @InjectRepository(TroopType) private readonly troopTypeRepo: Repository<TroopType>,
   ) {}
 
   // --- Users ---
@@ -122,5 +124,31 @@ export class AdminService {
     const tech = await this.techRepo.findOne({ where: { id } });
     if (!tech) throw new NotFoundException(`Tech ${id} not found`);
     await this.techRepo.remove(tech);
+  }
+
+  // --- Troop Types ---
+
+  findAllTroopTypes() {
+    return this.troopTypeRepo.find();
+  }
+
+  async createTroopType(dto: Record<string, any>) {
+    const { units: _, ...rest } = dto;
+    const troopType = this.troopTypeRepo.create(rest);
+    return this.troopTypeRepo.save(troopType);
+  }
+
+  async updateTroopType(id: string, dto: Record<string, any>) {
+    const { units: _, ...safeDto } = dto;
+    const troopType = await this.troopTypeRepo.findOne({ where: { id } });
+    if (!troopType) throw new NotFoundException(`TroopType ${id} not found`);
+    Object.assign(troopType, safeDto);
+    return this.troopTypeRepo.save(troopType);
+  }
+
+  async deleteTroopType(id: string) {
+    const troopType = await this.troopTypeRepo.findOne({ where: { id } });
+    if (!troopType) throw new NotFoundException(`TroopType ${id} not found`);
+    await this.troopTypeRepo.remove(troopType);
   }
 }

@@ -289,8 +289,26 @@ function findSeaForPoint(lon: number, lat: number, seaFeatures: SeaFeature[]): s
 
 // ─── Main export ──────────────────────────────────────────────────────────────
 
-const resources    = ['iron', 'wood', 'grain', 'stone', 'gold'];
+// Land resource spawn weights — gold and stone are deliberately much rarer.
+const resourceWeights: { value: string; weight: number }[] = [
+  { value: 'iron',  weight: 10 },
+  { value: 'wood',  weight: 10 },
+  { value: 'grain', weight: 10 },
+  { value: 'stone', weight: 2 },
+  { value: 'gold',  weight: 1 },
+];
 const resourcesSea = ['fish'];
+
+// Weighted pick using the seeded RNG so maps stay reproducible.
+function pickWeighted(rng: () => number, entries: { value: string; weight: number }[]): string {
+  const total = entries.reduce((sum, e) => sum + e.weight, 0);
+  let roll = rng() * total;
+  for (const e of entries) {
+    roll -= e.weight;
+    if (roll < 0) return e.value;
+  }
+  return entries[entries.length - 1].value;
+}
 
 export function generateRegionMap(options: GenerateRegionOptions): void {
   const {
@@ -429,20 +447,7 @@ export function generateRegionMap(options: GenerateRegionOptions): void {
     console.log(`Rivers: ${riversPlaced}/${rivers} placed`);
   }
 
-  // ── 6. Coastal pass ────────────────────────────────────────────────────────
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (typeMap[r][c] !== 'land') continue;
-      for (const { r: nr, c: nc } of getNeighborCells(r, c)) {
-        if (typeMap[nr][nc] === 'water') {
-          typeMap[r][c] = 'coastal';
-          break;
-        }
-      }
-    }
-  }
-
-  // ── 7. Tag water cells with their sea feature ─────────────────────────────
+  // ── 6. Tag water cells with their sea feature ──────────────────────────────
   console.log('Tagging water cells with sea features...');
   const cellSeaId: (string | null)[][] = Array.from({ length: rows }, () =>
     new Array<string | null>(cols).fill(null)
@@ -456,7 +461,7 @@ export function generateRegionMap(options: GenerateRegionOptions): void {
     }
   }
 
-  // ── 8. Flood-fill: convert enclosed artifact water to land ────────────────
+  // ── 7. Flood-fill: convert enclosed artifact water to land ────────────────
   // Natural Earth polygons have tiny gaps between features. At low resolutions
   // some cell centers fall in these gaps and get classified as water.
   // Fix: BFS from border water cells marks all ocean-connected water.
@@ -505,21 +510,10 @@ export function generateRegionMap(options: GenerateRegionOptions): void {
     }
     if (filled > 0) {
       console.log(`  Filled ${filled} enclosed artifact water cells`);
-      // Re-run coastal pass: filled cells may have changed land/coastal status
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (typeMap[r][c] !== 'land' && typeMap[r][c] !== 'coastal') continue;
-          let adjWater = false;
-          for (const { r: nr, c: nc } of getNeighborCells(r, c)) {
-            if (typeMap[nr][nc] === 'water') { adjWater = true; break; }
-          }
-          typeMap[r][c] = adjWater ? 'coastal' : 'land';
-        }
-      }
     }
   }
 
-  // ── 9. Build grid provinces (land, coastal, and untagged ocean cells) ────────
+  // ── 8. Build grid provinces (land and untagged ocean cells) ─────────────────
   // Water cells covered by a named sea province are skipped (the sea polygon
   // already represents them). Untagged ocean cells (North Sea, English Channel,
   // open Pacific, etc.) get regular grid-cell provinces so the map has no holes.
@@ -545,7 +539,7 @@ export function generateRegionMap(options: GenerateRegionOptions): void {
         type,
         landscape: isOcean ? 'plains' : getLandscape(elevMap[r][c], rng),
         local_troops: 0,
-        resource_type: isOcean ? randomFrom(resourcesSea) : randomFrom(resources),
+        resource_type: isOcean ? randomFrom(resourcesSea) : pickWeighted(rng, resourceWeights),
         user_id: null,
         region_id: `prov-${r}-${c}`,
         neighbor_regions: [],
@@ -553,7 +547,7 @@ export function generateRegionMap(options: GenerateRegionOptions): void {
     }
   }
 
-  // ── 10. Grid neighbor linking ─────────────────────────────────────────────
+  // ── 9. Grid neighbor linking ──────────────────────────────────────────────
   // Connect any two adjacent cells that both have grid provinces
   // (land ↔ land, land ↔ ocean, ocean ↔ ocean — but skip named-sea cells)
   for (let r = 0; r < rows; r++) {
@@ -569,7 +563,7 @@ export function generateRegionMap(options: GenerateRegionOptions): void {
     }
   }
 
-  // ── 10. Build sea provinces ────────────────────────────────────────────────
+  // ── 10. Build sea provinces ───────────────────────────────────────────────
   console.log('Building sea provinces...');
   const seaProvinceMap = new Map<string, Province>();
 
@@ -594,8 +588,8 @@ export function generateRegionMap(options: GenerateRegionOptions): void {
     seaProvinceMap.set(sea.id, seaProv);
   }
 
-  // ── 11. Link coastal cells ↔ sea provinces ─────────────────────────────────
-  console.log('Linking coastal ↔ sea neighbors...');
+  // ── 11. Link land cells ↔ sea provinces ─────────────────────────────────────
+  console.log('Linking land ↔ sea neighbors...');
   const seaNeighbors = new Map<string, Set<string>>();
   for (const [id] of seaProvinceMap) seaNeighbors.set(id, new Set());
 
@@ -640,10 +634,9 @@ export function generateRegionMap(options: GenerateRegionOptions): void {
   const outPath = path.join(outputDir, 'provinces.json');
   fs.writeFileSync(outPath, JSON.stringify(provinces, null, 2), 'utf-8');
 
-  const landCount    = provinces.filter(p => p.type === 'land').length;
-  const coastalCount = provinces.filter(p => p.type === 'coastal').length;
-  const waterCount   = provinces.filter(p => p.type === 'water').length;
+  const landCount  = provinces.filter(p => p.type === 'land').length;
+  const waterCount = provinces.filter(p => p.type === 'water').length;
   console.log(`Done: ${provinces.length} provinces`);
-  console.log(`  Land: ${landCount}, Coastal: ${coastalCount}, Sea: ${waterCount}`);
+  console.log(`  Land: ${landCount}, Sea: ${waterCount}`);
   console.log(`Saved: ${outPath}`);
 }

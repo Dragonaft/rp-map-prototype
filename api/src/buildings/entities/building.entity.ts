@@ -2,10 +2,8 @@ import {
   BaseEntity,
   Column,
   Entity,
-  ManyToMany,
   PrimaryColumn,
 } from 'typeorm';
-import { Province } from '../../provinces/entities/province.entity';
 import { BuildingTypes } from "../types/building.types";
 import { Expose } from "class-transformer";
 
@@ -47,6 +45,33 @@ export class Building extends BaseEntity {
   @Expose({ name: 'requirementBuilding' })
   public requirement_building: BuildingTypes | null;
 
-  @ManyToMany(() => Province, (province) => province.buildings)
-  public provinces: Province[];
+  @Column({ default: true })
+  public buildable: boolean;
+
+  @Column({ default: true })
+  public destructible: boolean;
+
+  @Column({ default: false })
+  @Expose({ name: 'uniquePerProvince' })
+  public unique_per_province: boolean;
+
+  @Column({ type: 'simple-array', nullable: true })
+  @Expose({ name: 'allowedProvinceResources' })
+  public allowed_province_resources: string[] | null;
+
+  @Column({ nullable: true })
+  @Expose({ name: 'requirementResource' })
+  public requirement_resource: string | null;
+
+  @Column({ nullable: true })
+  @Expose({ name: 'requirementResourceAmount' })
+  public requirement_resource_amount: number | null;
+
+  @Column({ default: false })
+  public visible: boolean;
+
+  @Column({ default: false })
+  @Expose({ name: 'canRecruit' })
+  public can_recruit: boolean;
+
 }
