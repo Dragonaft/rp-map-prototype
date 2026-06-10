@@ -24,4 +24,10 @@ export const adminApi = {
   createTech: (data: Record<string, any>) => apiClient.post('/admin/techs', data),
   updateTech: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/techs/${id}`, data),
   deleteTech: (id: string) => apiClient.delete(`/admin/techs/${id}`),
+
+  // Troop Types
+  getTroopTypes: () => apiClient.get('/admin/troop-types'),
+  createTroopType: (data: Record<string, any>) => apiClient.post('/admin/troop-types', data),
+  updateTroopType: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/troop-types/${id}`, data),
+  deleteTroopType: (id: string) => apiClient.delete(`/admin/troop-types/${id}`),
 };

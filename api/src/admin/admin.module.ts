@@ -6,9 +6,10 @@ import { User } from '../users/entities/user.entity';
 import { Building } from '../buildings/entities/building.entity';
 import { Army } from '../armies/entities/army.entity';
 import { Tech } from '../techs/entities/tech.entity';
+import { TroopType } from '../armies/entities/troop-type.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Building, Army, Tech])],
+  imports: [TypeOrmModule.forFeature([User, Building, Army, Tech, TroopType])],
   controllers: [AdminController],
   providers: [AdminService],
 })
