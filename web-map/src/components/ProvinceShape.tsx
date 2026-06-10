@@ -16,6 +16,7 @@ interface Props {
   onArmyCountClick?: (provinceId: string) => void;
   /** undefined = no enemy armies; null = present but count unknown; number = spy-revealed total */
   enemyArmyTroopCount?: number | null;
+  enemyArmyOwnerId?: string;
 }
 
 const MAP_VISIBLE_BUILDINGS = new Set(['CAPITAL', 'CAPITOL', 'FORT', 'FORESTRY', 'MINE']);
@@ -32,6 +33,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   armyTroopCount,
   onArmyCountClick,
   enemyArmyTroopCount,
+  enemyArmyOwnerId,
 }) => {
   const dispatch = useAppDispatch();
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
@@ -56,6 +58,14 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     if (province.userId === currentUserId) return currentUserColor;
     return otherUsers.find(u => u.id === province.userId)?.color ?? null;
   }, [province.userId, currentUserId, currentUserColor, otherUsers]);
+
+  // Color of the player whose army is stationed here (falls back to province owner).
+  const enemyArmyOwnerColor = useMemo(() => {
+    if (enemyArmyOwnerId) {
+      return otherUsers.find(u => u.id === enemyArmyOwnerId)?.color ?? provinceOwnerColor;
+    }
+    return provinceOwnerColor;
+  }, [enemyArmyOwnerId, otherUsers, provinceOwnerColor]);
 
   const fillColor = isWater ? WATER_COLOR : (provinceOwnerColor || DEFAULT_LAND_COLOR);
   const strokeColor = isSelected ? 'rgb(255, 255, 0)' : 'rgb(0, 0, 0)';
@@ -157,37 +167,40 @@ const ProvinceShapeComponent: React.FC<Props> = ({
       {/* Building icons (map-visible only) */}
       {visibleBuildings.map((b, i) => renderBuildingIcon(b, i))}
 
-      {/* Enemy local troops indicator */}
-      {!isCurrentUserProvince && province.enemyHere && (
-        <g>
-          <rect x={cx - 20} y={troopY - 10} width="40" height="20"
-            fill="white" stroke="rgb(0,0,0)" strokeWidth={1} rx="3" ry="3" />
-          <text x={cx} y={troopY} fontSize="12" textAnchor="middle" dominantBaseline="middle"
-            pointerEvents="none" style={{ userSelect: 'none' }}>
-            🪖
-          </text>
-        </g>
-      )}
-
       {/* Enemy army indicator */}
       {!isCurrentUserProvince && enemyArmyTroopCount !== undefined && (() => {
-        const armyY = troopY + (province.enemyHere ? 24 : 0);
+        const armyY = troopY + (province.enemyHere ? 1 : 0);
         const hasCount = typeof enemyArmyTroopCount === 'number';
         const boxW = hasCount ? Math.max(36, 8 + String(enemyArmyTroopCount).length * 8) : 36;
+        const boxX = cx - boxW / 2;
+        const boxY = armyY - 10;
+        const clipId = `army-badge-${province.id}`;
         return (
-          <g>
-            <rect x={cx - boxW / 2} y={armyY - 10} width={boxW} height={20}
-              fill="rgb(254,202,202)" stroke="rgb(153,27,27)" strokeWidth={1} rx="3" ry="3" />
+          <g onClick={handleTroopClick} style={{ cursor: 'pointer' }}>
+            <clipPath id={clipId}>
+              <rect x={boxX} y={boxY} width={boxW} height={20} rx="3" ry="3" />
+            </clipPath>
+            {/* Base fill */}
+            <rect x={boxX} y={boxY} width={boxW} height={20}
+              fill="rgb(254,202,202)" rx="3" ry="3" />
+            {/* Owner color occupies the left 10% of the fill, clipped to the badge shape */}
+            {enemyArmyOwnerColor && (
+              <rect x={boxX} y={boxY} width={boxW * 0.1} height={20}
+                fill={enemyArmyOwnerColor} clipPath={`url(#${clipId})`} pointerEvents="none" />
+            )}
+            {/* Border drawn last so it frames both fills */}
+            <rect x={boxX} y={boxY} width={boxW} height={20}
+              fill="none" stroke="rgb(153,27,27)" strokeWidth={1} rx="3" ry="3" />
             <text x={cx} y={armyY} fontSize="12" textAnchor="middle" dominantBaseline="middle"
               pointerEvents="none" style={{ userSelect: 'none' }}>
-              {hasCount ? `⚔${enemyArmyTroopCount}` : '⚔'}
+              {hasCount ? `${enemyArmyTroopCount}` : ''}
             </text>
           </g>
         );
       })()}
 
       {/* Own troops count */}
-      {hasLocalTroops && (
+      {isCurrentUserProvince && hasLocalTroops && (
         <g onClick={handleTroopClick} style={{ cursor: 'pointer' }}>
           <rect x={cx - 20} y={troopY - 10} width="40" height="20"
             fill="white"

@@ -100,6 +100,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     if (!reachableFromSelectedArmy.has(targetProvince.id)) return;
     const army = armies.find(a => a.id === selectedArmyId);
     if (!army) return;
+    if (army.user_id !== currentUserId) return;
     setModalState({
       open: true,
       armyId: selectedArmyId,
@@ -179,6 +180,16 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
       } else {
         map[army.province_id] = null; // present but count unknown
       }
+    }
+    return map;
+  }, [armies, currentUserId]);
+
+  // First enemy army owner per province (used for color indicator)
+  const enemyArmyOwnerByProvinceId = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const army of armies) {
+      if (army.user_id === currentUserId) continue;
+      if (!map[army.province_id]) map[army.province_id] = army.user_id;
     }
     return map;
   }, [armies, currentUserId]);
@@ -461,6 +472,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
                   armyTroopCount={armyTroopsByProvinceId[p.id]}
                   onArmyCountClick={handleArmyCountClick}
                   enemyArmyTroopCount={enemyArmyInfoByProvinceId[p.id]}
+                  enemyArmyOwnerId={enemyArmyOwnerByProvinceId[p.id]}
                 />
               ))}
               <g pointerEvents="none">

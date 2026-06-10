@@ -67,4 +67,11 @@ export class Building extends BaseEntity {
   @Expose({ name: 'requirementResourceAmount' })
   public requirement_resource_amount: number | null;
 
+  @Column({ default: false })
+  public visible: boolean;
+
+  @Column({ default: false })
+  @Expose({ name: 'canRecruit' })
+  public can_recruit: boolean;
+
 }
