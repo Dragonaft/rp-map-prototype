@@ -1,20 +1,26 @@
-import { AppBar, Button, Toolbar, Tooltip } from "@mui/material";
-import { useAppSelector } from "../store/hooks.ts";
+import { AppBar, Button, Menu, MenuItem, Toolbar, Tooltip } from "@mui/material";
+import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { useMutation } from "../hooks/useApi.ts";
 import { authApi } from "../api/auth.ts";
 import { useMemo, useState } from "react";
 import { TechsModal } from "./Modals/TechsModal.tsx";
 import { ProfileModal } from "./Modals/ProfileModal.tsx";
 import { ActionType, ProvinceBuilding, UserClasses } from "../types.ts";
+import { MAP_MODE_OPTIONS } from "../utils/mapModes.ts";
+import { setMapMode } from "../store/slices/provincesSlice.ts";
 
 export const TopBar = () => {
+  const dispatch = useAppDispatch();
   const user = useAppSelector(state => state.user);
   const actions = useAppSelector(state => state.actions.actions);
   const buildings = useAppSelector(state => state.buildings.buildings);
   const provinces = useAppSelector(state => state.provinces.provinces);
+  const mapMode = useAppSelector(state => state.provinces.mapMode);
   const { mutate } = useMutation(authApi.logout);
   const [openTechModal, setOpenTechModal] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
+  const [mapModeAnchorEl, setMapModeAnchorEl] = useState<HTMLElement | null>(null);
+  const activeMapModeLabel = MAP_MODE_OPTIONS.find(option => option.value === mapMode)?.label ?? 'Normal';
 
   // Resources committed by built buildings + pending build actions.
   // Built buildings come from the provinces slice — the /users endpoint does NOT
@@ -84,11 +90,42 @@ export const TopBar = () => {
         <div className="flex w-full items-center justify-between">
           <div className="flex items-center gap-3">
             <Button
-              className="flex items-center mr-12 gap-2 px-4 py-2 bg-inverse-primary border rounded hover:bg-on-primary-fixed-variant transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+              className="flex items-center gap-2 px-4 py-2 bg-inverse-primary border rounded hover:bg-on-primary-fixed-variant transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
               onClick={() => setOpenTechModal(true)}
             >
               Research
             </Button>
+            <Button
+              id="map-mode-button"
+              className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+              onClick={(event) => setMapModeAnchorEl(event.currentTarget)}
+              aria-controls={mapModeAnchorEl ? 'map-mode-menu' : undefined}
+              aria-haspopup="menu"
+              aria-expanded={mapModeAnchorEl ? 'true' : undefined}
+            >
+              <span className="material-symbols-outlined text-sm" data-icon="map">map</span>
+              Map: {activeMapModeLabel}
+            </Button>
+            <Menu
+              id="map-mode-menu"
+              anchorEl={mapModeAnchorEl}
+              open={Boolean(mapModeAnchorEl)}
+              onClose={() => setMapModeAnchorEl(null)}
+              MenuListProps={{ 'aria-labelledby': 'map-mode-button' }}
+            >
+              {MAP_MODE_OPTIONS.map((option) => (
+                <MenuItem
+                  key={option.value}
+                  selected={option.value === mapMode}
+                  onClick={() => {
+                    dispatch(setMapMode(option.value));
+                    setMapModeAnchorEl(null);
+                  }}
+                >
+                  {option.label}
+                </MenuItem>
+              ))}
+            </Menu>
           </div>
           <div className="flex items-center gap-6">
             <Tooltip

@@ -7,11 +7,18 @@ import { SelectedProvinceHover } from "./SelectedProvinceHover.tsx";
 import { TroopMovementModal } from './TroopMovementModal';
 import { ArmyBlock } from './ArmyBlock.tsx';
 import { CreateArmyModal } from './CreateArmyModal.tsx';
-import { setSelectedProvinceId, setSelectedTroops, updateProvinceById } from '../store/slices/provincesSlice';
+import { setMapModeFilterValue, setSelectedProvinceId, setSelectedTroops, updateProvinceById } from '../store/slices/provincesSlice';
 import type { RootState } from '../store/store';
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { actionsApi } from '../api/actions.ts';
 import { removeActionById } from '../store/slices/actionsSlice.ts';
+import {
+  getPendingBuildCountsByProvinceId,
+  getProvinceBuildingSlots,
+  getProvinceEconomy,
+  getProvinceRecruits,
+} from '../utils/mapModes.ts';
+import type { MapModeRenderData } from '../utils/mapModes.ts';
 
 
 export const MapView = ({ loading, error }: { loading: boolean, error: string | null }) => {
@@ -25,6 +32,8 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const armies = useAppSelector((state: RootState) => state.armies.armies);
   const currentUserId = useAppSelector((state: RootState) => state.user.id);
   const completedResearch = useAppSelector((state: RootState) => state.user.completedResearch);
+  const mapMode = useAppSelector((state: RootState) => state.provinces.mapMode);
+  const mapModeFilterValue = useAppSelector((state: RootState) => state.provinces.mapModeFilterValue);
 
   // Camera state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
@@ -49,9 +58,17 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
 
   const toggleSelect = useCallback((prov: Province) => {
     if (hasDraggedRef.current) return;
+    if (mapMode === 'landscape' || mapMode === 'resource') {
+      const nextFilter = prov.type === 'water'
+        ? null
+        : mapMode === 'landscape'
+          ? prov.landscape
+          : prov.resourceType;
+      dispatch(setMapModeFilterValue(nextFilter));
+    }
     dispatch(setSelectedProvinceId(selectedProvinceId === prov.id ? null : prov.id));
     setSelectedArmyId(null);
-  }, [dispatch, selectedProvinceId]);
+  }, [dispatch, selectedProvinceId, mapMode]);
 
   // ── Reachable provinces from selected army (BFS matching BE logic) ────────
   const reachableFromSelectedArmy = useMemo((): Set<string> | null => {
@@ -168,6 +185,44 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     }
     return map;
   }, [armies]);
+
+  const mapModeRenderData = useMemo<MapModeRenderData>(() => {
+    const pendingBuildCountsByProvinceId = getPendingBuildCountsByProvinceId(userActions);
+    const economyByProvinceId: MapModeRenderData['economyByProvinceId'] = {};
+    const recruitsByProvinceId: MapModeRenderData['recruitsByProvinceId'] = {};
+    const buildingSlotsByProvinceId: MapModeRenderData['buildingSlotsByProvinceId'] = {};
+    let economyMaxAbs = 0;
+    let recruitsMax = 0;
+
+    for (const province of provinces) {
+      if (province.type === 'water') continue;
+
+      buildingSlotsByProvinceId[province.id] = getProvinceBuildingSlots(
+        province,
+        pendingBuildCountsByProvinceId[province.id] ?? 0,
+      );
+
+      if (province.userId !== currentUserId) continue;
+
+      const economy = getProvinceEconomy(province, completedResearch);
+      economyByProvinceId[province.id] = economy;
+      economyMaxAbs = Math.max(economyMaxAbs, Math.abs(economy.net));
+
+      const recruits = getProvinceRecruits(province);
+      recruitsByProvinceId[province.id] = recruits;
+      recruitsMax = Math.max(recruitsMax, recruits);
+    }
+
+    return {
+      mode: mapMode,
+      filterValue: mapModeFilterValue,
+      economyByProvinceId,
+      economyMaxAbs,
+      recruitsByProvinceId,
+      recruitsMax,
+      buildingSlotsByProvinceId,
+    };
+  }, [userActions, provinces, currentUserId, completedResearch, mapMode, mapModeFilterValue]);
 
   // Enemy army presence per province: null = present/unknown count, number = spy-revealed total
   const enemyArmyInfoByProvinceId = useMemo(() => {
@@ -441,6 +496,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
           if (e.target instanceof SVGSVGElement) {
             dispatch(setSelectedProvinceId(null));
             dispatch(setSelectedTroops(null));
+            dispatch(setMapModeFilterValue(null));
             setSelectedArmyId(null);
           }
         }}
@@ -473,6 +529,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
                   onArmyCountClick={handleArmyCountClick}
                   enemyArmyTroopCount={enemyArmyInfoByProvinceId[p.id]}
                   enemyArmyOwnerId={enemyArmyOwnerByProvinceId[p.id]}
+                  mapModeRenderData={mapModeRenderData}
                 />
               ))}
               <g pointerEvents="none">

@@ -4,6 +4,8 @@ export type ProvinceType = 'land' | 'water';
 
 export type Landscape = 'plains' | 'forest' | 'mountain' | 'desert' | 'hills' | 'swamp';
 
+export type MapMode = 'normal' | 'landscape' | 'resource' | 'economic' | 'army' | 'buildings';
+
 export enum BuildingTypes {
   CAPITOL = 'CAPITOL',
   CAPITAL = 'CAPITAL',
