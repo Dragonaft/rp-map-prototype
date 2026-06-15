@@ -6,7 +6,8 @@
     "db:local": "node scripts/local-mysql.js up",
     "db:local:env": "node scripts/local-mysql.js env",
     "db:local:logs": "docker compose -f docker-compose.yml -f docker-compose.local-db.yml logs -f db",
-    "db:local:stop": "docker compose -f docker-compose.yml -f docker-compose.local-db.yml stop db"
+    "db:local:stop": "docker compose -f docker-compose.yml -f docker-compose.local-db.yml stop db",
+    "seed:test-countries": "npm --prefix api run seed:test-countries"
   },
   "workspaces": [
     "web-map",
