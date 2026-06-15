@@ -2,6 +2,12 @@
   "name": "map-project",
   "private": true,
   "version": "1.0.0",
+  "scripts": {
+    "db:local": "node scripts/local-mysql.js up",
+    "db:local:env": "node scripts/local-mysql.js env",
+    "db:local:logs": "docker compose -f docker-compose.yml -f docker-compose.local-db.yml logs -f db",
+    "db:local:stop": "docker compose -f docker-compose.yml -f docker-compose.local-db.yml stop db"
+  },
   "workspaces": [
     "web-map",
     "map-generator",
