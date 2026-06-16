@@ -1,8 +1,9 @@
 import { generateGridMap } from './generateGrid';
 import { generateRegionMap } from './generateRegion';
-import { importSvgAsMap } from './importSvg';
-import { importPngAsMap } from './importPng';
 import { parseMap } from './parseMap';
+import { rewrapNeighbors } from './rewrapNeighbors';
+// importSvg / importPng are lazy-required inside their command branches so the
+// rest of the CLI works without their heavy parser deps (fast-xml-parser, pngjs).
 
 const [,, command, ...restArgs] = process.argv;
 
@@ -23,7 +24,7 @@ async function main() {
     console.log('Usage:');
     console.log('  generate --rows 10 --cols 15 --width 4800 --height 3600 --out ./out');
     console.log('           [--seed 42] [--continent-scale 0.1] [--land-threshold 0.48]');
-    console.log('           [--rivers 3] [--max-river-length 25]');
+    console.log('           [--rivers 3] [--max-river-length 25] [--wrap-x true]');
     console.log('');
     console.log('  generate-region --land ./ne_50m_land.geojson --seas ./ne_110m_geography_marine_polys.geojson');
     console.log('           --rows 30 --cols 50 --width 4800 --height 3200 --out ./out');
@@ -33,6 +34,10 @@ async function main() {
     console.log('  import-svg --svg ./map.svg --out ./out');
     console.log('  import-png --png ./map.png --out ./out [--min-size 10] [--simplify 2.0]');
     console.log('  parse --file ./out/provinces.json');
+    console.log('');
+    console.log('  rewrap --file ./out/provinces.json [--out ./out/provinces.json] [--wrap-x true]');
+    console.log('           Recompute neighbor_regions of an existing grid map with east-west wrap');
+    console.log('           (cylinder/globe). Only neighbors change; terrain is preserved.');
     process.exit(0);
   }
 
@@ -49,8 +54,9 @@ async function main() {
     const landThreshold = args['land-threshold'] ? Number(args['land-threshold']) : undefined;
     const riverCount = args['rivers'] ? Number(args['rivers']) : undefined;
     const maxRiverLength = args['max-river-length'] ? Number(args['max-river-length']) : undefined;
+    const wrapX = args['wrap-x'] === 'true';
 
-    generateGridMap({ rows, cols, width, height, outputDir, seed, continentScale, landThreshold, riverCount, maxRiverLength });
+    generateGridMap({ rows, cols, width, height, outputDir, seed, continentScale, landThreshold, riverCount, maxRiverLength, wrapX });
   } else if (command === 'generate-region') {
     const land = args.land;
     const seas = args.seas;
@@ -95,6 +101,7 @@ async function main() {
       console.error('Missing --svg argument');
       process.exit(1);
     }
+    const { importSvgAsMap } = require('./importSvg');
     importSvgAsMap({ svgFile: svg, outputDir: out });
   } else if (command === 'import-png') {
     const png = args.png;
@@ -105,6 +112,7 @@ async function main() {
       console.error('Missing --png argument');
       process.exit(1);
     }
+    const { importPngAsMap } = require('./importPng');
     importPngAsMap({ pngFile: png, outputDir: out, minProvinceSize: minSize, simplifyTolerance: simplify });
   } else if (command === 'parse') {
     const file = args.file;
@@ -113,6 +121,15 @@ async function main() {
       process.exit(1);
     }
     parseMap({ inputFile: file });
+  } else if (command === 'rewrap') {
+    const file = args.file;
+    if (!file) {
+      console.error('Missing --file argument');
+      process.exit(1);
+    }
+    // wrap-x defaults to true here; pass --wrap-x false to unwrap.
+    const wrapX = args['wrap-x'] !== 'false';
+    rewrapNeighbors({ inputFile: file, outputFile: args.out, wrapX });
   } else {
     console.error(`Unknown command: ${command}`);
     process.exit(1);

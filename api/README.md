@@ -4,9 +4,17 @@ NestJS REST API for the turn-based strategy map game. Handles authentication, pr
 
 ## Setup
 
+Start local MySQL from the repository root:
+
+```bash
+npm run db:local
+```
+
+The command writes the API connection settings into `api/.env` automatically.
+
 ```bash
 npm install
-cp .env.example .env   # fill in DB credentials and JWT secrets
+npm run migration:run
 npm run start:dev
 ```
 
@@ -183,8 +191,9 @@ User money is clamped to a minimum of `0`.
 
 | Variable | Description |
 |---|---|
-| `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASS`, `DB_NAME` | MySQL connection |
+| `DB_HOST`, `DB_PORT`, `DB_USER_NAME`, `DB_USER_PASSWORD`, `DB_NAME` | MySQL connection |
 | `JWT_SECRET` | Secret for access tokens |
 | `JWT_REFRESH_SECRET` | Secret for refresh tokens |
+| `COOKIE_SECURE` | Set to `false` for local HTTP cookie auth |
 | `NODE_ENV` | `production` disables fast dev crons |
 | `DISABLE_FAST_ACTION_CRON` | Set to `true` to disable 2/5-min crons in non-prod |

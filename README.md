@@ -125,16 +125,34 @@ npx ts-node src/index.ts generate-region \
 
 Copy `out/provinces.json` to `api/data/` and run the API seed.
 
-### 2. Start the API
+### 2. Start local MySQL
+
+From the repository root:
+
+```bash
+npm run db:local
+```
+
+This creates or updates `.env` and `api/.env`, then starts the `db` service with MySQL exposed on `127.0.0.1:3306`.
+If port `3306` is already taken, set `DB_PORT` in `.env` and run the command again.
+
+Useful helpers:
+```bash
+npm run db:local:env   # only write .env + api/.env
+npm run db:local:logs  # follow MySQL logs
+npm run db:local:stop  # stop local MySQL
+```
+
+### 3. Start the API
 
 ```bash
 cd api
 npm install
-cp .env.example .env   # fill in DB + JWT config
+npm run migration:run
 npm run start:dev
 ```
 
-### 3. Start the frontend
+### 4. Start the frontend
 
 ```bash
 cd web-map

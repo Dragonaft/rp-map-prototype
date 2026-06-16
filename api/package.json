@@ -23,8 +23,12 @@
     "seed:techs:prod": "node dist/scripts/seed-techs.js",
     "seed:troop-types": "ts-node src/scripts/seed-troop-types.ts",
     "seed:troop-types:prod": "node dist/scripts/seed-troop-types.js",
+    "seed:test-countries": "ts-node src/scripts/seed-test-countries.ts",
+    "seed:test-countries:prod": "node dist/scripts/seed-test-countries.js",
     "reset:game": "ts-node src/scripts/reset-game-data.ts",
     "reset:game:prod": "node dist/scripts/reset-game-data.js",
+    "fix:neighbors": "ts-node src/scripts/fix-province-neighbors.ts",
+    "fix:neighbors:prod": "node dist/scripts/fix-province-neighbors.js",
     "balance:report": "ts-node --transpile-only src/scripts/balance-report.ts"
   },
   "dependencies": {

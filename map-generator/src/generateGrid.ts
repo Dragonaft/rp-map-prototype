@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Province, ProvinceType, Landscape } from './types';
+import { gridNeighborRegions } from './gridNeighbors';
 
 interface GenerateGridOptions {
   rows: number;
@@ -13,6 +14,7 @@ interface GenerateGridOptions {
   landThreshold?: number;  // elevation cutoff for land (0–1), default 0.48
   riverCount?: number;     // number of rivers to attempt
   maxRiverLength?: number; // max tiles per river
+  wrapX?: boolean;         // east-west wrapping (cylinder/globe maps)
 }
 
 // Land resource spawn weights — gold and stone are deliberately much rarer.
@@ -103,6 +105,7 @@ export function generateGridMap(options: GenerateGridOptions) {
     landThreshold   = 0.33,
     riverCount      = 3,
     maxRiverLength  = 25,
+    wrapX           = false,
   } = options;
 
   const rng = makeRng(seed);
@@ -214,15 +217,10 @@ export function generateGridMap(options: GenerateGridOptions) {
   }
 
   // ── Step 5: 4-directional neighbors ─────────────────────────────────────
-  console.log('Calculating neighbors...');
+  console.log(`Calculating neighbors${wrapX ? ' (east-west wrap)' : ''}...`);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
-      const neighbors: string[] = [];
-      if (r > 0)        neighbors.push(`prov-${r-1}-${c}`);
-      if (r < rows - 1) neighbors.push(`prov-${r+1}-${c}`);
-      if (c > 0)        neighbors.push(`prov-${r}-${c-1}`);
-      if (c < cols - 1) neighbors.push(`prov-${r}-${c+1}`);
-      provinces[r * cols + c].neighbor_regions = neighbors;
+      provinces[r * cols + c].neighbor_regions = gridNeighborRegions(r, c, rows, cols, wrapX);
     }
   }
 
