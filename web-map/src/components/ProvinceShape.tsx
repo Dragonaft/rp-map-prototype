@@ -5,6 +5,15 @@ import { setSelectedTroops } from '../store/slices/provincesSlice';
 import type { BBox } from '../store/slices/provincesSlice';
 import { BUILDING_ICONS, LANDSCAPE_ICONS, RESOURCE_ICONS } from '../constants/buildingIcons';
 import type { RootState } from "../store/store.ts";
+import {
+  DEFAULT_MAP_LAND_COLOR,
+  DEFAULT_MAP_WATER_COLOR,
+  getCategoryModeColor,
+  getMapModeTooltip,
+  heatColor,
+  positiveScaleColor,
+} from '../utils/mapModes.ts';
+import type { MapModeRenderData } from '../utils/mapModes.ts';
 
 interface Props {
   province: Province;
@@ -17,12 +26,10 @@ interface Props {
   /** undefined = no enemy armies; null = present but count unknown; number = spy-revealed total */
   enemyArmyTroopCount?: number | null;
   enemyArmyOwnerId?: string;
+  mapModeRenderData: MapModeRenderData;
 }
 
 const MAP_VISIBLE_BUILDINGS = new Set(['CAPITAL', 'CAPITOL', 'FORT', 'FORESTRY', 'MINE']);
-
-const WATER_COLOR = 'rgb(174, 226, 255)';
-const DEFAULT_LAND_COLOR = 'rgb(255, 255, 255)';
 
 const ProvinceShapeComponent: React.FC<Props> = ({
   province,
@@ -34,6 +41,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   onArmyCountClick,
   enemyArmyTroopCount,
   enemyArmyOwnerId,
+  mapModeRenderData,
 }) => {
   const dispatch = useAppDispatch();
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
@@ -67,7 +75,42 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     return provinceOwnerColor;
   }, [enemyArmyOwnerId, otherUsers, provinceOwnerColor]);
 
-  const fillColor = isWater ? WATER_COLOR : (provinceOwnerColor || DEFAULT_LAND_COLOR);
+  const normalFillColor = isWater ? DEFAULT_MAP_WATER_COLOR : (provinceOwnerColor || DEFAULT_MAP_LAND_COLOR);
+  const fillColor = useMemo(() => {
+    switch (mapModeRenderData.mode) {
+      case 'landscape':
+      case 'resource':
+        return getCategoryModeColor(province, mapModeRenderData.mode, mapModeRenderData.filterValue) ?? normalFillColor;
+      case 'economic': {
+        if (isWater) return DEFAULT_MAP_WATER_COLOR;
+        if (!isCurrentUserProvince) return DEFAULT_MAP_LAND_COLOR;
+        const economy = mapModeRenderData.economyByProvinceId[province.id];
+        return heatColor(economy?.net ?? 0, mapModeRenderData.economyMaxAbs);
+      }
+      case 'army': {
+        if (isWater) return DEFAULT_MAP_WATER_COLOR;
+        if (!isCurrentUserProvince) return DEFAULT_MAP_LAND_COLOR;
+        const recruits = mapModeRenderData.recruitsByProvinceId[province.id] ?? 0;
+        return positiveScaleColor(recruits, mapModeRenderData.recruitsMax);
+      }
+      case 'buildings': {
+        if (isWater) return DEFAULT_MAP_WATER_COLOR;
+        const slots = mapModeRenderData.buildingSlotsByProvinceId[province.id];
+        if (!slots) return DEFAULT_MAP_LAND_COLOR;
+        return slots.free > 0
+          ? positiveScaleColor(slots.free, Math.max(1, slots.cap))
+          : heatColor(-1, 1);
+      }
+      case 'normal':
+      default:
+        return normalFillColor;
+    }
+  }, [mapModeRenderData, province, normalFillColor, isWater, isCurrentUserProvince]);
+
+  const mapModeTooltip = useMemo(
+    () => getMapModeTooltip(province, mapModeRenderData),
+    [province, mapModeRenderData],
+  );
   const strokeColor = isSelected ? 'rgb(255, 255, 0)' : 'rgb(0, 0, 0)';
   const strokeWidth = isSelected ? 4 : 2;
 
@@ -131,6 +174,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
 
   return (
     <g>
+      {mapModeTooltip && <title>{mapModeTooltip}</title>}
       {/* Base shape */}
       <path
         d={province.polygon}
@@ -139,7 +183,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
         strokeWidth={strokeWidth}
         onClick={handleClick}
         onContextMenu={handleRightClick}
-        style={{ cursor: 'pointer', transition: 'stroke 0.2s, stroke-width 0.2s' }}
+        style={{ cursor: 'pointer', transition: 'fill 0.2s, stroke 0.2s, stroke-width 0.2s' }}
       />
 
       {/* Landscape icon — top-left corner */}

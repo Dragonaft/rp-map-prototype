@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import type { RootState } from '../store';
-import { Province } from '../../types.ts';
+import { MapMode, Province } from '../../types.ts';
 
 interface SelectedTroops {
   provinceId: string;
@@ -18,6 +18,8 @@ interface ProvincesState {
   provinces: Province[];
   selectedProvinceId: string | null;
   selectedTroops: SelectedTroops | null;
+  mapMode: MapMode;
+  mapModeFilterValue: string | null;
   provinceCentersById: Record<string, { x: number; y: number }>;
   provinceBBoxById: Record<string, BBox>;
   mapWidth: number;
@@ -47,6 +49,8 @@ const initialState: ProvincesState = {
   provinces: [],
   selectedProvinceId: null,
   selectedTroops: null,
+  mapMode: 'normal',
+  mapModeFilterValue: null,
   provinceCentersById: {},
   provinceBBoxById: {},
   mapWidth: 0,
@@ -62,6 +66,13 @@ const provincesSlice = createSlice({
     },
     setSelectedTroops: (state, action: PayloadAction<SelectedTroops | null>) => {
       state.selectedTroops = action.payload;
+    },
+    setMapMode: (state, action: PayloadAction<MapMode>) => {
+      state.mapMode = action.payload;
+      state.mapModeFilterValue = null;
+    },
+    setMapModeFilterValue: (state, action: PayloadAction<string | null>) => {
+      state.mapModeFilterValue = action.payload;
     },
     setProvinces: (state, action: PayloadAction<any[]>) => {
       state.provinces = action.payload;
@@ -92,6 +103,8 @@ const provincesSlice = createSlice({
       state.selectedProvinceId = null;
       state.selectedTroops = null;
       state.provinces = [];
+      state.mapMode = 'normal';
+      state.mapModeFilterValue = null;
       state.provinceCentersById = {};
       state.provinceBBoxById = {};
       state.mapWidth = 0;
@@ -103,6 +116,8 @@ const provincesSlice = createSlice({
 export const {
   setSelectedProvinceId,
   setSelectedTroops,
+  setMapMode,
+  setMapModeFilterValue,
   setProvinces,
   updateProvinceById,
   resetProvincesState,
