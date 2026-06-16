@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
 export class ReplaceProvinceBuildingsJoinTable1780856738526 implements MigrationInterface {
-    name = 'ReplaceProvinceBuildingsJoinTable1749400000000'
+    name = 'ReplaceProvinceBuildingsJoinTable1780856738526'
 
     public async up(queryRunner: QueryRunner): Promise<void> {
         // 1. Create the new province_building table

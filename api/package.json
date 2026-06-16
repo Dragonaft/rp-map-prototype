@@ -27,6 +27,8 @@
     "seed:test-countries:prod": "node dist/scripts/seed-test-countries.js",
     "reset:game": "ts-node src/scripts/reset-game-data.ts",
     "reset:game:prod": "node dist/scripts/reset-game-data.js",
+    "fix:neighbors": "ts-node src/scripts/fix-province-neighbors.ts",
+    "fix:neighbors:prod": "node dist/scripts/fix-province-neighbors.js",
     "balance:report": "ts-node --transpile-only src/scripts/balance-report.ts"
   },
   "dependencies": {
