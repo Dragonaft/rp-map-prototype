@@ -19,6 +19,7 @@ export interface ProvinceBuildingSlots {
   cap: number;
   used: number;
   free: number;
+  pendingBuilds: number;
 }
 
 export interface MapModeRenderData {
@@ -68,6 +69,7 @@ const RESOURCE_MODE_COLORS: Record<string, string> = {
 
 export const DEFAULT_MAP_LAND_COLOR = 'rgb(255, 255, 255)';
 export const DEFAULT_MAP_WATER_COLOR = 'rgb(174, 226, 255)';
+export const BUILDING_PENDING_COLOR = '#facc15';
 
 const ZERO_HEAT_COLOR = '#fde68a';
 
@@ -177,7 +179,7 @@ export function getProvinceBuildingSlots(
 ): ProvinceBuildingSlots {
   const cap = Math.max(0, province.buildingCap ?? 0);
   const used = Math.max(0, (province.buildings?.length ?? 0) + pendingBuildCount);
-  return { cap, used, free: Math.max(0, cap - used) };
+  return { cap, used, free: Math.max(0, cap - used), pendingBuilds: Math.max(0, pendingBuildCount) };
 }
 
 export function getCategoryModeColor(
@@ -215,7 +217,8 @@ export function getMapModeTooltip(
   if (renderData.mode === 'buildings') {
     const slots = renderData.buildingSlotsByProvinceId[province.id];
     if (!slots) return null;
-    return `Building slots: ${slots.used}/${slots.cap} (${slots.free} free)`;
+    const pending = slots.pendingBuilds > 0 ? `, ${slots.pendingBuilds} pending` : '';
+    return `Building slots: ${slots.used}/${slots.cap} (${slots.free} free${pending})`;
   }
 
   return null;

@@ -6,6 +6,7 @@ import type { BBox } from '../store/slices/provincesSlice';
 import { BUILDING_ICONS, LANDSCAPE_ICONS, RESOURCE_ICONS } from '../constants/buildingIcons';
 import type { RootState } from "../store/store.ts";
 import {
+  BUILDING_PENDING_COLOR,
   DEFAULT_MAP_LAND_COLOR,
   DEFAULT_MAP_WATER_COLOR,
   getCategoryModeColor,
@@ -98,6 +99,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
         if (!isCurrentUserProvince) return DEFAULT_MAP_LAND_COLOR;
         const slots = mapModeRenderData.buildingSlotsByProvinceId[province.id];
         if (!slots) return DEFAULT_MAP_LAND_COLOR;
+        if (slots.pendingBuilds > 0) return BUILDING_PENDING_COLOR;
         return slots.free > 0
           ? positiveScaleColor(slots.free, Math.max(1, slots.cap))
           : heatColor(-1, 1);
