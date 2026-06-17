@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "api:local": "node scripts/local-api.js",
     "db:local": "node scripts/local-mysql.js up",
     "db:local:env": "node scripts/local-mysql.js env",
     "db:local:logs": "docker compose -f docker-compose.yml -f docker-compose.local-db.yml logs -f db",

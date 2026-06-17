@@ -1,4 +1,4 @@
-import { ActionType, BuildingTypes, MapMode, Province } from '../types';
+import { ActionType, Building, BuildingTypes, MapMode, Province, ProvinceBuilding } from '../types';
 
 export const MAP_MODE_OPTIONS: { value: MapMode; label: string }[] = [
   { value: 'normal', label: 'Normal' },
@@ -19,6 +19,9 @@ export interface ProvinceBuildingSlots {
   cap: number;
   used: number;
   free: number;
+  pendingBuilds: number;
+  pendingUpgrades: number;
+  availableUpgrades: number;
 }
 
 export interface MapModeRenderData {
@@ -68,6 +71,8 @@ const RESOURCE_MODE_COLORS: Record<string, string> = {
 
 export const DEFAULT_MAP_LAND_COLOR = 'rgb(255, 255, 255)';
 export const DEFAULT_MAP_WATER_COLOR = 'rgb(174, 226, 255)';
+export const BUILDING_PENDING_COLOR = '#facc15';
+export const BUILDING_UPGRADE_AVAILABLE_COLOR = '#a855f7';
 
 const ZERO_HEAT_COLOR = '#fde68a';
 
@@ -77,6 +82,11 @@ function positiveNumber(value: number | null | undefined): number {
 
 function getActionProvinceId(action: MinimalAction): string | null {
   const rawId = action.actionData?.province_id ?? action.actionData?.provinceId;
+  return rawId == null ? null : String(rawId);
+}
+
+function getActionProvinceBuildingId(action: MinimalAction): string | null {
+  const rawId = action.actionData?.province_building_id ?? action.actionData?.provinceBuildingId;
   return rawId == null ? null : String(rawId);
 }
 
@@ -171,13 +181,78 @@ export function getPendingBuildCountsByProvinceId(actions: MinimalAction[]): Rec
   return counts;
 }
 
+export function getPendingProvinceBuildingIdsByProvinceId(
+  actions: MinimalAction[],
+  actionType: ActionType.UPGRADE | ActionType.REMOVE,
+): Record<string, Set<string>> {
+  const idsByProvinceId: Record<string, Set<string>> = {};
+  for (const action of actions) {
+    if (action.actionType !== actionType) continue;
+    const provinceId = getActionProvinceId(action);
+    const provinceBuildingId = getActionProvinceBuildingId(action);
+    if (!provinceId || !provinceBuildingId) continue;
+    if (!idsByProvinceId[provinceId]) idsByProvinceId[provinceId] = new Set<string>();
+    idsByProvinceId[provinceId].add(provinceBuildingId);
+  }
+  return idsByProvinceId;
+}
+
+interface ProvinceBuildingSlotOptions {
+  pendingUpgradeBuildingIds?: Set<string>;
+  pendingRemoveBuildingIds?: Set<string>;
+  buildingTemplates?: Building[];
+  userMoney?: number;
+  completedResearch?: string[];
+}
+
+function canUpgradeProvinceBuilding(
+  province: Province,
+  building: ProvinceBuilding,
+  buildingByType: Map<string, Building>,
+  options: ProvinceBuildingSlotOptions,
+): boolean {
+  if (!building.upgradeTo) return false;
+  if (options.pendingUpgradeBuildingIds?.has(building.instanceId)) return false;
+  if (options.pendingRemoveBuildingIds?.has(building.instanceId)) return false;
+
+  const upgradeBuilding = buildingByType.get(building.upgradeTo);
+  if (!upgradeBuilding) return false;
+  if (upgradeBuilding.requirementBuilding && upgradeBuilding.requirementBuilding !== building.type) return false;
+
+  const cost = Number(upgradeBuilding.cost ?? 0) + 100;
+  if (!Number.isFinite(cost) || !options.userMoney || options.userMoney < cost) return false;
+
+  const allowedResources = upgradeBuilding.allowedProvinceResources;
+  if (allowedResources?.length && !allowedResources.includes(province.resourceType)) return false;
+
+  const completedResearch = options.completedResearch ?? [];
+  const missingTech = (upgradeBuilding.requirementTech ?? []).some(
+    (techKey) => !completedResearch.includes(techKey),
+  );
+  return !missingTech;
+}
+
 export function getProvinceBuildingSlots(
   province: Province,
   pendingBuildCount: number,
+  options: ProvinceBuildingSlotOptions = {},
 ): ProvinceBuildingSlots {
   const cap = Math.max(0, province.buildingCap ?? 0);
   const used = Math.max(0, (province.buildings?.length ?? 0) + pendingBuildCount);
-  return { cap, used, free: Math.max(0, cap - used) };
+  const pendingUpgrades = Math.max(0, options.pendingUpgradeBuildingIds?.size ?? 0);
+  const buildingByType = new Map((options.buildingTemplates ?? []).map((building) => [building.type, building]));
+  const availableUpgrades = (province.buildings ?? []).filter((building) =>
+    canUpgradeProvinceBuilding(province, building, buildingByType, options),
+  ).length;
+
+  return {
+    cap,
+    used,
+    free: Math.max(0, cap - used),
+    pendingBuilds: Math.max(0, pendingBuildCount),
+    pendingUpgrades,
+    availableUpgrades,
+  };
 }
 
 export function getCategoryModeColor(
@@ -215,7 +290,11 @@ export function getMapModeTooltip(
   if (renderData.mode === 'buildings') {
     const slots = renderData.buildingSlotsByProvinceId[province.id];
     if (!slots) return null;
-    return `Building slots: ${slots.used}/${slots.cap} (${slots.free} free)`;
+    const details = [`${slots.free} free`];
+    if (slots.pendingBuilds > 0) details.push(`${slots.pendingBuilds} pending build`);
+    if (slots.availableUpgrades > 0) details.push(`${slots.availableUpgrades} upgrade available`);
+    if (slots.pendingUpgrades > 0) details.push(`${slots.pendingUpgrades} pending upgrade`);
+    return `Building slots: ${slots.used}/${slots.cap} (${details.join(', ')})`;
   }
 
   return null;
