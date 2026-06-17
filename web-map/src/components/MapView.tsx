@@ -14,6 +14,7 @@ import { actionsApi } from '../api/actions.ts';
 import { removeActionById } from '../store/slices/actionsSlice.ts';
 import {
   getPendingBuildCountsByProvinceId,
+  getPendingProvinceBuildingIdsByProvinceId,
   getProvinceBuildingSlots,
   getProvinceEconomy,
   getProvinceRecruits,
@@ -31,7 +32,9 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const mapWidth  = useAppSelector((state: RootState) => state.provinces.mapWidth);
   const armies = useAppSelector((state: RootState) => state.armies.armies);
   const currentUserId = useAppSelector((state: RootState) => state.user.id);
+  const currentUserMoney = useAppSelector((state: RootState) => state.user.money);
   const completedResearch = useAppSelector((state: RootState) => state.user.completedResearch);
+  const buildings = useAppSelector((state: RootState) => state.buildings.buildings);
   const mapMode = useAppSelector((state: RootState) => state.provinces.mapMode);
   const mapModeFilterValue = useAppSelector((state: RootState) => state.provinces.mapModeFilterValue);
 
@@ -188,6 +191,8 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
 
   const mapModeRenderData = useMemo<MapModeRenderData>(() => {
     const pendingBuildCountsByProvinceId = getPendingBuildCountsByProvinceId(userActions);
+    const pendingUpgradeBuildingIdsByProvinceId = getPendingProvinceBuildingIdsByProvinceId(userActions, ActionType.UPGRADE);
+    const pendingRemoveBuildingIdsByProvinceId = getPendingProvinceBuildingIdsByProvinceId(userActions, ActionType.REMOVE);
     const economyByProvinceId: MapModeRenderData['economyByProvinceId'] = {};
     const recruitsByProvinceId: MapModeRenderData['recruitsByProvinceId'] = {};
     const buildingSlotsByProvinceId: MapModeRenderData['buildingSlotsByProvinceId'] = {};
@@ -202,6 +207,13 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
       buildingSlotsByProvinceId[province.id] = getProvinceBuildingSlots(
         province,
         pendingBuildCountsByProvinceId[province.id] ?? 0,
+        {
+          pendingUpgradeBuildingIds: pendingUpgradeBuildingIdsByProvinceId[province.id],
+          pendingRemoveBuildingIds: pendingRemoveBuildingIdsByProvinceId[province.id],
+          buildingTemplates: buildings,
+          userMoney: currentUserMoney,
+          completedResearch,
+        },
       );
 
       const economy = getProvinceEconomy(province, completedResearch);
@@ -222,7 +234,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
       recruitsMax,
       buildingSlotsByProvinceId,
     };
-  }, [userActions, provinces, currentUserId, completedResearch, mapMode, mapModeFilterValue]);
+  }, [userActions, provinces, currentUserId, currentUserMoney, completedResearch, buildings, mapMode, mapModeFilterValue]);
 
   // Enemy army presence per province: null = present/unknown count, number = spy-revealed total
   const enemyArmyInfoByProvinceId = useMemo(() => {
