@@ -197,12 +197,12 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     for (const province of provinces) {
       if (province.type === 'water') continue;
 
+      if (province.userId !== currentUserId) continue;
+
       buildingSlotsByProvinceId[province.id] = getProvinceBuildingSlots(
         province,
         pendingBuildCountsByProvinceId[province.id] ?? 0,
       );
-
-      if (province.userId !== currentUserId) continue;
 
       const economy = getProvinceEconomy(province, completedResearch);
       economyByProvinceId[province.id] = economy;

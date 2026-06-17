@@ -95,6 +95,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
       }
       case 'buildings': {
         if (isWater) return DEFAULT_MAP_WATER_COLOR;
+        if (!isCurrentUserProvince) return DEFAULT_MAP_LAND_COLOR;
         const slots = mapModeRenderData.buildingSlotsByProvinceId[province.id];
         if (!slots) return DEFAULT_MAP_LAND_COLOR;
         return slots.free > 0
