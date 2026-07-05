@@ -30,6 +30,7 @@ const MINE_RESOURCE_TYPES = new Set(['iron', 'gold', 'stone']);
 const REQUIRED_BUILDING_TYPES = [
   BuildingTypes.BAZAAR,
   BuildingTypes.BARRACKS,
+  BuildingTypes.GARDEN,
   BuildingTypes.MINE,
 ] as const;
 
@@ -199,7 +200,7 @@ function randomBuildingsForProvince(province: Province, rng: () => number): Buil
     selected.push(BuildingTypes.MINE);
   }
 
-  const fillTypes = [BuildingTypes.BAZAAR, BuildingTypes.BARRACKS];
+  const fillTypes = [BuildingTypes.BAZAAR, BuildingTypes.BARRACKS, BuildingTypes.GARDEN];
   while (selected.length < cap) {
     selected.push(fillTypes[Math.floor(rng() * fillTypes.length)]);
   }
