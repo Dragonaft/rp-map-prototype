@@ -142,9 +142,9 @@ export class BuildActionHandler implements ActionHandler {
       }
 
       const allowedResources = buildingTemplate.allowed_province_resources;
-      if (allowedResources?.length && !allowedResources.includes(province.resource_type)) {
+      if (allowedResources?.length && !allowedResources.includes(province.resource?.key)) {
         throw new Error(
-          `${buildingTemplate.name} can only be built on provinces with resource type: ${allowedResources.join(', ')} (this province: ${province.resource_type ?? 'none'})`,
+          `${buildingTemplate.name} can only be built on provinces with resource type: ${allowedResources.join(', ')} (this province: ${province.resource?.key ?? 'none'})`,
         );
       }
 
@@ -159,13 +159,12 @@ export class BuildActionHandler implements ActionHandler {
           relations: ['provinceBuildings', 'provinceBuildings.building'],
         });
 
-        // Maybe refactor in future and move resource types into separate table
         let resourceCount = 0;
         let resourceUsed = 0;
         for (const p of userProvinces) {
           for (const b of p.buildings ?? []) {
             // Resource-producing buildings: MINE on matching province, FORESTRY on wood
-            if (b.type === BuildingTypes.MINE && p.resource_type === resourceType) {
+            if (b.type === BuildingTypes.MINE && p.resource?.key === resourceType) {
               resourceCount++;
             } else if (b.type === BuildingTypes.FORESTRY && resourceType === 'wood') {
               resourceCount++;
@@ -340,9 +339,9 @@ export class UpgradeActionHandler implements ActionHandler {
       }
 
       const allowedResources = upgradeBuilding.allowed_province_resources;
-      if (allowedResources?.length && !allowedResources.includes(province.resource_type)) {
+      if (allowedResources?.length && !allowedResources.includes(province.resource?.key)) {
         throw new Error(
-          `${upgradeBuilding.name} can only be built on provinces with resource type: ${allowedResources.join(', ')} (this province: ${province.resource_type ?? 'none'})`,
+          `${upgradeBuilding.name} can only be built on provinces with resource type: ${allowedResources.join(', ')} (this province: ${province.resource?.key ?? 'none'})`,
         );
       }
 

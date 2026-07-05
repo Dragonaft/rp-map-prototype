@@ -129,7 +129,9 @@ container ships only compiled `dist/`, so the plain `ts-node` scripts
 # Run migrations
 docker compose exec api npm run migration:run:prod
 
-# Seed data
+# Seed data (resources must be seeded before importing provinces —
+# import:provinces resolves each province's resource_type key against this table)
+docker compose exec api npm run seed:resources:prod
 docker compose exec api npm run seed:buildings:prod
 docker compose exec api npm run seed:techs:prod
 docker compose exec api npm run seed:troop-types:prod

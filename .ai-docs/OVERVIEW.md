@@ -99,3 +99,7 @@ During execution, the API returns **503** on most endpoints (ActionExecutionBloc
 - [GAME-MECHANICS.md](GAME-MECHANICS.md) — Turn system, combat, economy, tech tree
 - [DOCKER.md](DOCKER.md) — Container orchestration, env vars, networking
 - [DATABASE.md](DATABASE.md) — Entity schemas and relationships
+
+## Note
+- Don't push or commit any changes to git.
+- Add comments only to complex logic.

@@ -6,13 +6,6 @@ import { UserGameState } from './user-state-loader.service';
 import { INCOME_RESEARCH_EFFECTS, RESEARCH_POINT_EFFECTS } from '../techs/research-effects';
 import { parseIncome } from "../utils/parseIncome";
 
-// TODO: Maybe make dynamic
-const MINE_INCOME_BY_RESOURCE: Record<string, number> = {
-  stone: 75,
-  iron:  125,
-  gold:  300,
-};
-
 /** Runs once per scheduled queue tick before upkeep; credits building income for all users. */
 @Injectable()
 export class IncomeActionService {
@@ -54,7 +47,7 @@ export class IncomeActionService {
               incomeTotal += parseIncome(b.income);
               break;
             case BuildingTypes.MINE: {
-              const mineIncome = MINE_INCOME_BY_RESOURCE[province.resource_type] ?? 0;
+              const mineIncome = province.resource?.plain_income ?? 0;
               incomeTotal += mineIncome;
               break;
             }

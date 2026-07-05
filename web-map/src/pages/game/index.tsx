@@ -19,6 +19,8 @@ import { techsApi } from "../../api/techs.ts";
 import { setTechs } from "../../store/slices/techsSlice.ts";
 import { armiesApi } from "../../api/armies.ts";
 import { setArmies, setTroopTypes } from "../../store/slices/armiesSlice.ts";
+import { resourcesApi } from "../../api/resources.ts";
+import { setResources } from "../../store/slices/resourcesSlice.ts";
 
 
 const style = {
@@ -67,6 +69,8 @@ export const GamePage: React.FC = () => {
   const { data: armiesData } = useQuery(fetchArmies, []);
   const fetchTroopTypes = useCallback(() => armiesApi.getTroopTypes(), []);
   const { data: troopTypesData } = useQuery(fetchTroopTypes, []);
+  const fetchResources = useCallback(() => resourcesApi.getAll(), []);
+  const { data: resourcesData } = useQuery(fetchResources, []);
 
   useEffect(() => {
     if (!userData) return;
@@ -108,6 +112,11 @@ export const GamePage: React.FC = () => {
     if (!troopTypesData) return;
     dispatch(setTroopTypes(troopTypesData));
   }, [troopTypesData, dispatch]);
+
+  useEffect(() => {
+    if (!resourcesData) return;
+    dispatch(setResources(resourcesData));
+  }, [resourcesData, dispatch]);
 
   // Prevent browser zoom when Ctrl+wheel anywhere on the page
   useEffect(() => {

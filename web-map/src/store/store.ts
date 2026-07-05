@@ -6,6 +6,7 @@ import actionsReducer from "./slices/actionsSlice.ts";
 import buildingsReducer from "./slices/buildingsSlice.ts";
 import techsReducer from "./slices/techsSlice.ts";
 import armiesReducer from "./slices/armiesSlice.ts";
+import resourcesReducer from "./slices/resourcesSlice.ts";
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +17,7 @@ export const store = configureStore({
     buildings: buildingsReducer,
     techs: techsReducer,
     armies: armiesReducer,
+    resources: resourcesReducer,
   },
   devTools: process.env.NODE_ENV !== 'production',
 });

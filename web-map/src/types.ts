@@ -38,6 +38,14 @@ export interface Tech {
 }
 
 
+export interface Resource {
+  id: string;
+  key: string;
+  name: string;
+  type: 'plain' | 'consumable';
+  plainIncome: number;
+}
+
 export interface Building {
   id: string;
   type: string;

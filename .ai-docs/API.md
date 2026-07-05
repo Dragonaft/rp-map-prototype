@@ -27,6 +27,7 @@ AppModule
 ├── TechsModule         Tech tree definitions + research effects
 ├── ArmiesModule        Army CRUD, troop types, visibility rules
 ├── ActionsModule       Action queue, executor, scheduler, income, upkeep
+├── ResourcesModule     Resource definitions (key, name, type, plain_income)
 └── AdminModule         Admin CRUD for all entities
 ```
 
@@ -64,6 +65,11 @@ AppModule
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET    | /    | JWT  | All building templates |
+
+### Resources (`/resources`)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET    | /    | JWT  | All resource definitions (key, name, type, plainIncome) |
 
 ### Techs (`/techs`)
 | Method | Path | Auth | Description |
@@ -116,6 +122,10 @@ AppModule
 | POST   | /troop-types     | Admin | Create troop type |
 | PATCH  | /troop-types/:id | Admin | Update troop type |
 | DELETE | /troop-types/:id | Admin | Delete troop type |
+| GET    | /resources     | Admin | List resources |
+| POST   | /resources     | Admin | Create resource |
+| PATCH  | /resources/:id | Admin | Update resource |
+| DELETE | /resources/:id | Admin | Delete resource |
 
 ## Action Types (Enum)
 
@@ -184,12 +194,14 @@ api/src/
 ├── armies/         controller, service, entities (army, army-unit, troop-type)
 ├── actions/        controller, service, executor (12 handlers), scheduler,
 │                   combat-calculator, income, upkeep, state-loader, middleware
+├── resources/      controller, service, entity, types (plain/consumable)
 ├── admin/          controller, service
 ├── db/             data-source.ts, data-source.prod.ts, migrations/
 ├── utils/          logger.ts, parseIncome.ts
-└── scripts/        import-provinces, seed-buildings, seed-techs, seed-troop-types, balance-report, reset-game-data
+└── scripts/        seed-resources, import-provinces, seed-buildings, seed-techs,
+                    seed-troop-types, balance-report, reset-game-data
 
-api/data/           provinces.json, buildings.json, techs.json, troop-types.json
+api/data/           resources.json, provinces.json, buildings.json, techs.json, troop-types.json
                     (sibling of src/, NOT api/src/data/)
 ```
 
@@ -201,6 +213,7 @@ api/data/           provinces.json, buildings.json, techs.json, troop-types.json
 | `build`            | Compile TypeScript                               |
 | `migration:run`    | Run pending migrations                           |
 | `migration:fresh`  | Drop schema + re-run all migrations              |
+| `seed:resources`   | Seed resource definitions (run before `import:provinces`) |
 | `import:provinces` | Import provinces.json into DB                    |
 | `seed:buildings`   | Seed building definitions                        |
 | `seed:techs`       | Seed tech tree                                   |

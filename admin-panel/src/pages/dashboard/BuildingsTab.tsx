@@ -5,7 +5,7 @@ import {
 } from '@mui/x-data-grid';
 import {
   Box, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Select, MenuItem, FormControl, InputLabel, Alert, Snackbar,
+  TextField, Select, MenuItem, FormControl, InputLabel, Checkbox, ListItemText, Alert, Snackbar,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -20,18 +20,17 @@ const BUILDING_TYPES = [
   'CATHEDRAL', 'TRADE_HOUSE', 'CASTLE',
 ];
 
-const RESOURCE_TYPES = ['', 'iron', 'gold', 'stone', 'wood', 'grain'];
-
 const EMPTY_NEW_BUILDING = {
   type: '', name: '', description: '', income: 0, upkeep: 0,
   modifier: '', cost: 0, upgrade_to: '', requirement_tech: '', requirement_building: '',
   buildable: true, destructible: true, unique_per_province: false,
-  allowed_province_resources: '', requirement_resource: '', requirement_resource_amount: 0,
+  allowed_province_resources: [] as string[], requirement_resource: '', requirement_resource_amount: 0,
   visible: false, can_recruit: false,
 };
 
 export const BuildingsTab = () => {
   const [rows, setRows] = useState<any[]>([]);
+  const [resourceKeys, setResourceKeys] = useState<string[]>([]);
   const [rowModesModel, setRowModesModel] = useState<GridRowModesModel>({});
   const [addOpen, setAddOpen] = useState(false);
   const [newBuilding, setNewBuilding] = useState({ ...EMPTY_NEW_BUILDING });
@@ -39,7 +38,10 @@ export const BuildingsTab = () => {
 
   useEffect(() => {
     adminApi.getBuildings().then((res) => setRows(res.data));
+    adminApi.getResources().then((res) => setResourceKeys(res.data.map((r: any) => r.key)));
   }, []);
+
+  const REQ_RESOURCE_OPTIONS = ['', ...resourceKeys];
 
   const handleSaveClick = (id: GridRowId) => () =>
     setRowModesModel({ ...rowModesModel, [id]: { mode: GridRowModes.View } });
@@ -80,8 +82,8 @@ export const BuildingsTab = () => {
           : [],
         upgrade_to: newBuilding.upgrade_to || null,
         requirement_building: newBuilding.requirement_building || null,
-        allowed_province_resources: newBuilding.allowed_province_resources
-          ? newBuilding.allowed_province_resources.split(',').map((s) => s.trim()).filter(Boolean)
+        allowed_province_resources: newBuilding.allowed_province_resources.length
+          ? newBuilding.allowed_province_resources
           : null,
         requirement_resource: newBuilding.requirement_resource || null,
         requirement_resource_amount: newBuilding.requirement_resource_amount || null,
@@ -127,7 +129,7 @@ export const BuildingsTab = () => {
     { field: 'visible', headerName: 'Visible', width: 90, editable: true, type: 'boolean' },
     { field: 'can_recruit', headerName: 'Can Recruit', width: 100, editable: true, type: 'boolean' },
     arrCol('allowed_province_resources', 'Allowed Resources', 160),
-    { field: 'requirement_resource', headerName: 'Req. Resource', width: 120, editable: true, type: 'singleSelect', valueOptions: RESOURCE_TYPES },
+    { field: 'requirement_resource', headerName: 'Req. Resource', width: 120, editable: true, type: 'singleSelect', valueOptions: REQ_RESOURCE_OPTIONS },
     { field: 'requirement_resource_amount', headerName: 'Req. Amount', type: 'number', width: 100, editable: true },
     {
       field: 'actions',
@@ -233,11 +235,33 @@ export const BuildingsTab = () => {
               <MenuItem value="false">No</MenuItem>
             </Select>
           </FormControl>
-          <TextField label="Allowed Resources (comma-separated)" value={newBuilding.allowed_province_resources} onChange={(e) => setNewBuilding((p) => ({ ...p, allowed_province_resources: e.target.value }))} />
+          <FormControl>
+            <InputLabel>Allowed Resources</InputLabel>
+            <Select
+              multiple
+              label="Allowed Resources"
+              value={newBuilding.allowed_province_resources}
+              onChange={(e) => {
+                const value = e.target.value;
+                setNewBuilding((p) => ({
+                  ...p,
+                  allowed_province_resources: typeof value === 'string' ? value.split(',') : value,
+                }));
+              }}
+              renderValue={(selected) => (selected as string[]).join(', ')}
+            >
+              {resourceKeys.map((key) => (
+                <MenuItem key={key} value={key}>
+                  <Checkbox checked={newBuilding.allowed_province_resources.includes(key)} />
+                  <ListItemText primary={key} />
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <FormControl>
             <InputLabel>Req. Resource</InputLabel>
             <Select label="Req. Resource" value={newBuilding.requirement_resource} onChange={(e) => setNewBuilding((p) => ({ ...p, requirement_resource: e.target.value }))}>
-              {RESOURCE_TYPES.map((o) => <MenuItem key={o} value={o}>{o || '(none)'}</MenuItem>)}
+              {REQ_RESOURCE_OPTIONS.map((o) => <MenuItem key={o} value={o}>{o || '(none)'}</MenuItem>)}
             </Select>
           </FormControl>
           <TextField label="Req. Resource Amount" type="number" value={newBuilding.requirement_resource_amount} onChange={(e) => setNewBuilding((p) => ({ ...p, requirement_resource_amount: Number(e.target.value) }))} />

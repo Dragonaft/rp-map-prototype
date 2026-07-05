@@ -1,6 +1,7 @@
 import { AppDataSource as AppDataSourceDev } from '../db/data-source';
 import { AppDataSource as AppDataSourceProd } from '../db/data-source.prod';
 import { Province } from '../provinces/entities/province.entity';
+import { Resource } from '../resources/entities/resource.entity';
 import * as fs from 'fs';
 import * as path from 'path';
 import { colors, logger } from "../utils/logger";
@@ -126,6 +127,16 @@ async function importProvinces() {
   }
 
   const provinceRepository = AppDataSource.getRepository(Province);
+  const resourceRepository = AppDataSource.getRepository(Resource);
+
+  // Step 4.5: Load the resource key -> id lookup (resources must be seeded first)
+  const resources = await resourceRepository.find();
+  if (resources.length === 0) {
+    logger.error('No resources found — run `npm run seed:resources` before importing provinces');
+    await AppDataSource.destroy();
+    process.exit(1);
+  }
+  const resourceIdByKey = new Map(resources.map((r) => [r.key, r.id]));
 
   // Step 5: Clear existing provinces and relations
   logger.log('Clearing existing provinces and relations...');
@@ -155,12 +166,22 @@ async function importProvinces() {
     const provinceData = validProvinces[i];
 
     try {
+      let resource_id: string | null = null;
+      if (provinceData.resource_type) {
+        resource_id = resourceIdByKey.get(provinceData.resource_type) ?? null;
+        if (!resource_id) {
+          throw new Error(
+            `Unknown resource_type "${provinceData.resource_type}" — not present in the resources table`,
+          );
+        }
+      }
+
       const province = provinceRepository.create({
         polygon: provinceData.polygon,
         type: provinceData.type,
         landscape: provinceData.landscape,
         local_troops: provinceData.local_troops ?? 0,
-        resource_type: provinceData.resource_type,
+        resource_id,
         user_id: provinceData.user_id,
         region_id: provinceData.region_id,
         neighbor_ids: null, // Will be populated in second pass

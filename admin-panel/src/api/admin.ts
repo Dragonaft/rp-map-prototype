@@ -30,4 +30,10 @@ export const adminApi = {
   createTroopType: (data: Record<string, any>) => apiClient.post('/admin/troop-types', data),
   updateTroopType: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/troop-types/${id}`, data),
   deleteTroopType: (id: string) => apiClient.delete(`/admin/troop-types/${id}`),
+
+  // Resources
+  getResources: () => apiClient.get('/admin/resources'),
+  createResource: (data: Record<string, any>) => apiClient.post('/admin/resources', data),
+  updateResource: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/resources/${id}`, data),
+  deleteResource: (id: string) => apiClient.delete(`/admin/resources/${id}`),
 };

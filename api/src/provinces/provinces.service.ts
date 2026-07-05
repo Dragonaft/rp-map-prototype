@@ -80,7 +80,9 @@ export class ProvincesService {
   async getLayout() {
     const provinces = await this.provinceRepository
       .createQueryBuilder('p')
-      .select(['p.id', 'p.polygon', 'p.type', 'p.landscape', 'p.resource_type', 'p.region_id', 'p.neighbor_ids'])
+      .select(['p.id', 'p.polygon', 'p.type', 'p.landscape', 'p.region_id', 'p.neighbor_ids'])
+      .leftJoin('p.resource', 'resource')
+      .addSelect(['resource.key'])
       .getMany();
 
     return provinces.map(p => ({
@@ -88,7 +90,7 @@ export class ProvincesService {
       polygon: p.polygon,
       type: p.type,
       landscape: p.landscape,
-      resourceType: p.resource_type,
+      resourceType: p.resource?.key ?? null,
       regionId: p.region_id,
       neighbors: p.neighbor_ids,
     }));
@@ -99,7 +101,7 @@ export class ProvincesService {
     const [provinces, user, reserved, enemyArmies] = await Promise.all([
       this.provinceRepository
         .createQueryBuilder('p')
-        .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.resource_type', 'p.neighbor_ids'])
+        .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.neighbor_ids'])
         .leftJoinAndSelect('p.provinceBuildings', 'pb')
         .leftJoinAndSelect('pb.building', 'building')
         .getMany(),
@@ -220,7 +222,7 @@ export class ProvincesService {
     const enrichedUser = await this.usersService.findOne(user.id, user.id);
     const newProvince = await this.provinceRepository
       .createQueryBuilder('p')
-      .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.resource_type'])
+      .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape'])
       .leftJoinAndSelect('p.provinceBuildings', 'pb')
       .leftJoinAndSelect('pb.building', 'building')
       .where('p.id = :id', { id: province.id })

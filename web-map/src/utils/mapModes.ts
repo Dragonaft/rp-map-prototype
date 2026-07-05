@@ -39,12 +39,6 @@ interface MinimalAction {
   actionData?: Record<string, unknown> | null;
 }
 
-const MINE_INCOME_BY_RESOURCE: Record<string, number> = {
-  stone: 75,
-  iron: 125,
-  gold: 300,
-};
-
 const BUILDING_UPKEEP_TYPES = new Set<string>([
   BuildingTypes.FORT,
   BuildingTypes.BARRACKS,
@@ -115,7 +109,11 @@ export function positiveScaleColor(value: number, maxValue: number): string {
   return mixColor([220, 252, 231], [22, 163, 74], intensity);
 }
 
-export function getProvinceEconomy(province: Province, completedResearch: string[]): ProvinceEconomy {
+export function getProvinceEconomy(
+  province: Province,
+  completedResearch: string[],
+  plainIncomeByResourceKey: Record<string, number> = {},
+): ProvinceEconomy {
   let income = 0;
   let upkeep = 0;
   let farmGardenIncome = 0;
@@ -123,7 +121,7 @@ export function getProvinceEconomy(province: Province, completedResearch: string
   for (const building of province.buildings ?? []) {
     switch (building.type) {
       case BuildingTypes.MINE:
-        income += MINE_INCOME_BY_RESOURCE[province.resourceType] ?? 0;
+        income += plainIncomeByResourceKey[province.resourceType] ?? 0;
         break;
       case BuildingTypes.FARM:
       case BuildingTypes.GARDEN: {

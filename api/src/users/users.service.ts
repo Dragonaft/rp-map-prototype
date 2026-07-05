@@ -15,12 +15,6 @@ import {
   RESEARCH_POINT_EFFECTS,
 } from '../techs/research-effects';
 
-const MINE_INCOME_BY_RESOURCE: Record<string, number> = {
-  stone: 75,
-  iron: 125,
-  gold: 300,
-};
-
 const BUILDING_UPKEEP_TYPES = new Set<string>([
   BuildingTypes.FORT,
   BuildingTypes.BARRACKS,
@@ -103,8 +97,8 @@ export class UsersService {
       for (const b of p.buildings ?? []) {
         switch (b.type) {
           case BuildingTypes.MINE:
-            incomeTotal += MINE_INCOME_BY_RESOURCE[p.resource_type] ?? 0;
-            switch (p.resource_type) {
+            incomeTotal += p.resource?.plain_income ?? 0;
+            switch (p.resource?.key) {
               case 'stone': resources.stone++; break;
               case 'iron':  resources.iron++;  break;
               case 'gold':  resources.gold++;  break;

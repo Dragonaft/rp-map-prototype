@@ -89,7 +89,7 @@ function isLandProvince(province: Province): boolean {
 }
 
 function canBuildMine(province: Province): boolean {
-  return MINE_RESOURCE_TYPES.has(province.resource_type?.toLowerCase());
+  return MINE_RESOURCE_TYPES.has(province.resource?.key?.toLowerCase());
 }
 
 function growCluster(
@@ -304,10 +304,11 @@ async function seedTestCountries() {
           id: true,
           type: true,
           landscape: true,
-          resource_type: true,
           neighbor_ids: true,
           user_id: true,
+          resource: { key: true },
         },
+        relations: { resource: true },
       });
 
       let clusterPair = findNeighboringClusters(

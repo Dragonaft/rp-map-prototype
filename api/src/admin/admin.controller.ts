@@ -128,4 +128,27 @@ export class AdminController {
   deleteTroopType(@Param('id') id: string) {
     return this.adminService.deleteTroopType(id);
   }
+
+  // --- Resources ---
+
+  @Get('resources')
+  getResources() {
+    return this.adminService.findAllResources();
+  }
+
+  @Post('resources')
+  createResource(@Body() body: Record<string, any>) {
+    return this.adminService.createResource(body);
+  }
+
+  @Patch('resources/:id')
+  updateResource(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateResource(id, body);
+  }
+
+  @Delete('resources/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteResource(@Param('id') id: string) {
+    return this.adminService.deleteResource(id);
+  }
 }

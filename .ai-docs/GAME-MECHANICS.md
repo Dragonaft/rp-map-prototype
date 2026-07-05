@@ -32,7 +32,9 @@ During execution, API returns 503 Service Unavailable on all endpoints except an
 
 ### Income Calculation
 - Each building type has base `income` value
-- MINE income varies by resource: stone=75, iron=125, gold=300
+- MINE income varies by the province's resource: driven by `Resource.plain_income`
+  (seeded: stone=75, iron=125, gold=300, wood/grain/fish=0), editable via the
+  admin panel's Resources tab — see [DATABASE.md](DATABASE.md#resource)
 - Research modifiers apply (e.g., `economy.trade_routes` → +20% income)
 - Upkeep modifiers apply (e.g., `guild.merchant_guilds` → -15% upkeep)
 

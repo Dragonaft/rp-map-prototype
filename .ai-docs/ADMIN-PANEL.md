@@ -15,7 +15,7 @@
 
 ## Features
 
-Four tabs in the dashboard, each managing one entity via MUI DataGrid with inline row editing:
+Six tabs in the dashboard, each managing one entity via MUI DataGrid with inline row editing:
 
 ### Users Tab
 - Fields: login, password, country_name, color, money, troops, piety, research_points, is_new, completed_research, class (guild/holy/noble), role (ADMIN/MODERATOR/PLAYER)
@@ -34,12 +34,21 @@ Four tabs in the dashboard, each managing one entity via MUI DataGrid with inlin
 - Fields: key (unique), name, description, branch (economy/military/guild/holy/noble), cost, isClassRoot (boolean), prerequisites (comma-separated tech keys)
 - Create via modal (key + name + description + branch required)
 
+### Troop Types Tab
+- Fields: key (unique), name, description, category, cost_per_100, attack, defense, upkeep_per_100, tech_requirement, building_requirement
+
+### Resources Tab
+- Fields: key (unique), name, type (plain/consumable), plain_income
+- Create via modal (key + name required)
+- Backs the dropdowns in the Buildings tab: `allowed_province_resources` (multi-select) and `requirement_resource` (single-select) are sourced from this list rather than a hardcoded array
+- `plain_income` drives MINE building income for provinces with that resource (see [GAME-MECHANICS.md](GAME-MECHANICS.md))
+
 ## API Communication
 
 - Base URL: `VITE_API_BASE_URL` (default `http://localhost:3000`, Docker: `/api`)
 - `withCredentials: true`
 - 401 interceptor with token refresh queue (identical pattern to web-map)
-- Endpoints: `/admin/users`, `/admin/buildings`, `/admin/armies`, `/admin/techs` (GET, POST, PATCH, DELETE)
+- Endpoints: `/admin/users`, `/admin/buildings`, `/admin/armies`, `/admin/techs`, `/admin/troop-types`, `/admin/resources` (GET, POST, PATCH, DELETE)
 
 ## Auth Flow
 

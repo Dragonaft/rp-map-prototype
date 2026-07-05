@@ -7,6 +7,7 @@ import { Building } from '../buildings/entities/building.entity';
 import { Army } from '../armies/entities/army.entity';
 import { Tech } from '../techs/entities/tech.entity';
 import { TroopType } from '../armies/entities/troop-type.entity';
+import { Resource } from '../resources/entities/resource.entity';
 
 @Injectable()
 export class AdminService {
@@ -16,6 +17,7 @@ export class AdminService {
     @InjectRepository(Army) private readonly armyRepo: Repository<Army>,
     @InjectRepository(Tech) private readonly techRepo: Repository<Tech>,
     @InjectRepository(TroopType) private readonly troopTypeRepo: Repository<TroopType>,
+    @InjectRepository(Resource) private readonly resourceRepo: Repository<Resource>,
   ) {}
 
   // --- Users ---
@@ -150,5 +152,29 @@ export class AdminService {
     const troopType = await this.troopTypeRepo.findOne({ where: { id } });
     if (!troopType) throw new NotFoundException(`TroopType ${id} not found`);
     await this.troopTypeRepo.remove(troopType);
+  }
+
+  // --- Resources ---
+
+  findAllResources() {
+    return this.resourceRepo.find();
+  }
+
+  async createResource(dto: Record<string, any>) {
+    const resource = this.resourceRepo.create(dto);
+    return this.resourceRepo.save(resource);
+  }
+
+  async updateResource(id: string, dto: Record<string, any>) {
+    const resource = await this.resourceRepo.findOne({ where: { id } });
+    if (!resource) throw new NotFoundException(`Resource ${id} not found`);
+    Object.assign(resource, dto);
+    return this.resourceRepo.save(resource);
+  }
+
+  async deleteResource(id: string) {
+    const resource = await this.resourceRepo.findOne({ where: { id } });
+    if (!resource) throw new NotFoundException(`Resource ${id} not found`);
+    await this.resourceRepo.remove(resource);
   }
 }
