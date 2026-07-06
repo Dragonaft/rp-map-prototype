@@ -28,7 +28,7 @@ AppModule
 ├── ArmiesModule        Army CRUD, troop types, visibility rules
 ├── ActionsModule       Action queue, executor, scheduler, income, upkeep
 ├── ResourcesModule     Resource definitions (key, name, type, plain_income)
-├── GoodsModule         Good definitions (name, type, price_per_one) — economy rework, step 2
+├── GoodsModule         Good definitions + per-user UserGood inventory ledger — economy rework, step 3
 └── AdminModule         Admin CRUD for all entities
 ```
 
@@ -73,9 +73,10 @@ AppModule
 | GET    | /    | JWT  | All resource definitions (key, name, type, plainIncome) |
 
 ### Goods (`/goods`)
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET    | /    | JWT  | All good definitions (name, type, price_per_one) |
+| Method | Path  | Auth | Description |
+|--------|-------|------|-------------|
+| GET    | /     | JWT  | All good definitions (name, type, price_per_one) |
+| GET    | /mine | JWT  | Caller's UserGood inventory rows (good + quantity). No spend/trade endpoints yet |
 
 ### Techs (`/techs`)
 | Method | Path | Auth | Description |
@@ -190,6 +191,12 @@ be integers in `[1, 1_000_000]`.
 - SSE endpoint streams state changes to clients
 - **Single-process only** — needs Redis for horizontal scaling
 
+### UserGoodsService
+- Keeps `UserGood` fully populated: one row per (user, good) pair, always.
+- `createRowsForNewGood(good)` — called from `AdminService.createGood` — inserts a zero-quantity row for every existing user.
+- `createRowsForNewUser(user)` — called from `UsersService.create` (registration) and `AdminService.createUser` — inserts a zero-quantity row for every existing good.
+- No credit/debit/spend logic yet — purely maintains the invariant so storage is never missing rows.
+
 ## File Structure
 
 ```
@@ -205,6 +212,8 @@ api/src/
 ├── actions/        controller, service, executor (12 handlers), scheduler,
 │                   combat-calculator, income, upkeep, state-loader, middleware
 ├── resources/      controller, service, entity, types (plain/consumable)
+├── goods/          controller, service (Good), user-goods.service (UserGood ledger),
+│                   entities (good, user-good)
 ├── admin/          controller, service
 ├── db/             data-source.ts, data-source.prod.ts, migrations/
 ├── utils/          logger.ts, parseIncome.ts

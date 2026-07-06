@@ -26,11 +26,13 @@ const EMPTY_NEW_BUILDING = {
   buildable: true, destructible: true, unique_per_province: false,
   allowed_province_resources: [] as string[], requirement_resource: '', requirement_resource_amount: 0,
   visible: false, can_recruit: false, isProduction: false,
+  production_good_id: '', production_requirement_resource: '',
 };
 
 export const BuildingsTab = () => {
   const [rows, setRows] = useState<any[]>([]);
   const [resourceKeys, setResourceKeys] = useState<string[]>([]);
+  const [goods, setGoods] = useState<{ id: string; name: string }[]>([]);
   const [rowModesModel, setRowModesModel] = useState<GridRowModesModel>({});
   const [addOpen, setAddOpen] = useState(false);
   const [newBuilding, setNewBuilding] = useState({ ...EMPTY_NEW_BUILDING });
@@ -39,9 +41,11 @@ export const BuildingsTab = () => {
   useEffect(() => {
     adminApi.getBuildings().then((res) => setRows(res.data));
     adminApi.getResources().then((res) => setResourceKeys(res.data.map((r: any) => r.key)));
+    adminApi.getGoods().then((res) => setGoods(res.data));
   }, []);
 
   const REQ_RESOURCE_OPTIONS = ['', ...resourceKeys];
+  const GOOD_OPTIONS = [{ value: '', label: '(none)' }, ...goods.map((g) => ({ value: g.id, label: g.name }))];
 
   const handleSaveClick = (id: GridRowId) => () =>
     setRowModesModel({ ...rowModesModel, [id]: { mode: GridRowModes.View } });
@@ -87,6 +91,8 @@ export const BuildingsTab = () => {
           : null,
         requirement_resource: newBuilding.requirement_resource || null,
         requirement_resource_amount: newBuilding.requirement_resource_amount || null,
+        production_good_id: newBuilding.production_good_id || null,
+        production_requirement_resource: newBuilding.production_requirement_resource || null,
       };
       const res = await adminApi.createBuilding(payload);
       setRows((prev) => [...prev, res.data]);
@@ -129,6 +135,8 @@ export const BuildingsTab = () => {
     { field: 'visible', headerName: 'Visible', width: 90, editable: true, type: 'boolean' },
     { field: 'can_recruit', headerName: 'Can Recruit', width: 100, editable: true, type: 'boolean' },
     { field: 'isProduction', headerName: 'Production', width: 100, editable: true, type: 'boolean' },
+    { field: 'production_good_id', headerName: 'Production Good', width: 150, editable: true, type: 'singleSelect', valueOptions: GOOD_OPTIONS },
+    { field: 'production_requirement_resource', headerName: 'Prod. Req. Resource', width: 150, editable: true, type: 'singleSelect', valueOptions: REQ_RESOURCE_OPTIONS },
     arrCol('allowed_province_resources', 'Allowed Resources', 160),
     { field: 'requirement_resource', headerName: 'Req. Resource', width: 120, editable: true, type: 'singleSelect', valueOptions: REQ_RESOURCE_OPTIONS },
     { field: 'requirement_resource_amount', headerName: 'Req. Amount', type: 'number', width: 100, editable: true },
@@ -241,6 +249,18 @@ export const BuildingsTab = () => {
             <Select label="Production" value={newBuilding.isProduction ? 'true' : 'false'} onChange={(e) => setNewBuilding((p) => ({ ...p, isProduction: e.target.value === 'true' }))}>
               <MenuItem value="true">Yes</MenuItem>
               <MenuItem value="false">No</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl>
+            <InputLabel>Production Good</InputLabel>
+            <Select label="Production Good" value={newBuilding.production_good_id} onChange={(e) => setNewBuilding((p) => ({ ...p, production_good_id: e.target.value }))}>
+              {GOOD_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <FormControl>
+            <InputLabel>Production Req. Resource</InputLabel>
+            <Select label="Production Req. Resource" value={newBuilding.production_requirement_resource} onChange={(e) => setNewBuilding((p) => ({ ...p, production_requirement_resource: e.target.value }))}>
+              {REQ_RESOURCE_OPTIONS.map((o) => <MenuItem key={o} value={o}>{o || '(none)'}</MenuItem>)}
             </Select>
           </FormControl>
           <FormControl>

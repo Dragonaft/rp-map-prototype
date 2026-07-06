@@ -5,23 +5,24 @@
 - **ORM:** TypeORM 0.3 (NestJS integration via `@nestjs/typeorm`)
 - **Database:** MySQL 8
 - **Config:** `api/src/db/data-source.ts` (dev), `data-source.prod.ts` (prod; compiled to `dist/db/data-source.prod.js`)
-- **Migrations:** `api/src/db/migrations/` (22 migration files)
+- **Migrations:** `api/src/db/migrations/` (26 migration files)
 
 ## Entity Relationship Diagram
 
 ```
 User (1) ──── (*) Province ──── (*:1) Resource
   │                 │
-  │                 └── (1) ─ (*) ProvinceBuilding (*:1) ──── Building
+  │                 └── (1) ─ (*) ProvinceBuilding (*:1) ──── Building (*:1) ──── Good
   │
-  └── (1) ──── (*) Army
-                    │
-                    └── (1) ──── (*) ArmyUnit ──── (*:1) TroopType
+  ├── (1) ──── (*) Army
+  │                 │
+  │                 └── (1) ──── (*) ArmyUnit ──── (*:1) TroopType
+  │
+  └── (1) ──── (*) UserGood (*:1) ──── Good
 
 User (1) ──── (*) ActionQueue
 
 Tech (standalone, referenced by key strings in user.completed_research)
-Good (standalone, not yet referenced by other entities — economy rework in progress)
 ActionsLog (standalone, JSON blob)
 ExecutionLock (standalone, distributed locking)
 ```
@@ -77,7 +78,9 @@ ExecutionLock (standalone, distributed locking)
 | requirement_building        | varchar      | Building type prerequisite (BuildingTypes value) |
 | visible                     | boolean      | Whether the building shows in UI listings (default false) |
 | can_recruit                 | boolean      | Whether troops can be recruited here (exposed as `canRecruit`, default false) |
-| isProduction                | boolean      | Whether this building produces goods (default false; economy rework, not yet wired to goods logic) |
+| isProduction                | boolean      | Whether this building produces goods (default false; economy rework, not yet wired to turn logic) |
+| production_good_id          | uuid (FK)    | → Good, nullable. The single Good this building produces per turn when `isProduction` is true. Exposed as `productionGood` getter (returns the FK id) on the player-facing API |
+| production_requirement_resource | varchar   | Nullable, references `Resource.key` (same convention as `requirement_resource`). Building only produces if the owning user holds > 0 of this resource. Not yet wired to turn logic |
 | buildable                   | boolean      | Whether players can construct this (default true). CAPITAL/CAPITOL = false |
 | destructible                | boolean      | Whether players can demolish this (default true). CAPITAL = false |
 | unique_per_province         | boolean      | Only one per province allowed (default false). MINE, FORT, CASTLE = true |
@@ -151,6 +154,18 @@ Join entity linking provinces and buildings (replaced the old ManyToMany join ta
 | price_per_one | int       | Money cost per unit |
 
 > First step of the wider economy rework (goods to be produced/traded, following the resource rework). Not yet wired into any building/trade logic. Editable via the admin panel's Goods tab.
+
+### UserGood
+Per-player goods inventory (ledger), mirroring the `Army`/`ArmyUnit`/`TroopType` shape.
+
+| Column   | Type      | Notes |
+|----------|-----------|-------|
+| id       | uuid (PK) | |
+| user_id  | uuid (FK) | → User, `ON DELETE CASCADE` |
+| good_id  | uuid (FK) | → Good (eager), `ON DELETE CASCADE` |
+| quantity | int       | Amount held, default 0 |
+
+> Unique constraint on `(user_id, good_id)` — every user has exactly one row per good. Rows are backfilled automatically: `UserGoodsService.createRowsForNewGood` fans a zero-quantity row out to every existing user when an admin creates a `Good`; `UserGoodsService.createRowsForNewUser` fans a zero-quantity row out across every existing `Good` when a user is created (registration or admin). No spend/trade/turn logic wired yet — `GET /goods/mine` just returns the caller's rows.
 
 ### Tech
 | Column        | Type          | Notes |

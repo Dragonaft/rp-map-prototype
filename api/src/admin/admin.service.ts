@@ -9,6 +9,7 @@ import { Tech } from '../techs/entities/tech.entity';
 import { TroopType } from '../armies/entities/troop-type.entity';
 import { Resource } from '../resources/entities/resource.entity';
 import { Good } from '../goods/entities/good.entity';
+import { UserGoodsService } from '../goods/user-goods.service';
 
 @Injectable()
 export class AdminService {
@@ -20,6 +21,7 @@ export class AdminService {
     @InjectRepository(TroopType) private readonly troopTypeRepo: Repository<TroopType>,
     @InjectRepository(Resource) private readonly resourceRepo: Repository<Resource>,
     @InjectRepository(Good) private readonly goodRepo: Repository<Good>,
+    private readonly userGoodsService: UserGoodsService,
   ) {}
 
   // --- Users ---
@@ -34,6 +36,7 @@ export class AdminService {
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = this.userRepo.create({ ...rest, password: hashedPassword, is_new: rest.is_new ?? true });
     const saved = await this.userRepo.save(user);
+    await this.userGoodsService.createRowsForNewUser(saved);
     const { password: _, ...result } = saved as any;
     return result;
   }
@@ -188,7 +191,9 @@ export class AdminService {
 
   async createGood(dto: Record<string, any>) {
     const good = this.goodRepo.create(dto);
-    return this.goodRepo.save(good);
+    const saved = await this.goodRepo.save(good);
+    await this.userGoodsService.createRowsForNewGood(saved);
+    return saved;
   }
 
   async updateGood(id: string, dto: Record<string, any>) {

@@ -8,6 +8,7 @@ import { UsersUpdateBodyRequest } from "./requests/users-update-body.request";
 import { PartialUser, UserClasses, UserRoles } from "./types/users.types";
 import { BuildingTypes } from '../buildings/types/building.types';
 import { Army } from '../armies/entities/army.entity';
+import { UserGoodsService } from '../goods/user-goods.service';
 import { parseIncome } from '../utils/parseIncome';
 import {
   INCOME_RESEARCH_EFFECTS,
@@ -28,6 +29,7 @@ export class UsersService {
     private readonly usersRepository: Repository<User>,
     @InjectRepository(Army)
     private readonly armyRepository: Repository<Army>,
+    private readonly userGoodsService: UserGoodsService,
   ) {}
 
   async create(createUserDto: UsersCreateBodyRequest): Promise<User> {
@@ -40,7 +42,9 @@ export class UsersService {
       role,
     });
 
-    return await this.usersRepository.save(user);
+    const saved = await this.usersRepository.save(user);
+    await this.userGoodsService.createRowsForNewUser(saved);
+    return saved;
   }
 
   async findAll(): Promise<PartialUser[]> {

@@ -2,10 +2,13 @@ import {
   BaseEntity,
   Column,
   Entity,
+  JoinColumn,
+  ManyToOne,
   PrimaryColumn,
 } from 'typeorm';
 import { BuildingTypes } from "../types/building.types";
-import { Expose } from "class-transformer";
+import { Exclude, Expose } from "class-transformer";
+import { Good } from "../../goods/entities/good.entity";
 
 @Entity({ name: 'buildings' })
 export class Building extends BaseEntity {
@@ -76,5 +79,23 @@ export class Building extends BaseEntity {
 
   @Column({ default: false })
   public isProduction: boolean;
+
+  @Column({ name: 'production_good_id', nullable: true })
+  @Exclude()
+  public production_good_id: string | null;
+
+  @ManyToOne(() => Good, { nullable: true })
+  @JoinColumn({ name: 'production_good_id' })
+  @Exclude()
+  public productionGoodEntity?: Good | null;
+
+  @Expose({ name: 'productionGood' })
+  get productionGood(): string | null {
+    return this.production_good_id;
+  }
+
+  @Column({ nullable: true })
+  @Expose({ name: 'productionRequirementResource' })
+  public production_requirement_resource: string | null;
 
 }
