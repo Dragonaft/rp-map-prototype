@@ -8,6 +8,7 @@ import { Army } from '../armies/entities/army.entity';
 import { Tech } from '../techs/entities/tech.entity';
 import { TroopType } from '../armies/entities/troop-type.entity';
 import { Resource } from '../resources/entities/resource.entity';
+import { Good } from '../goods/entities/good.entity';
 
 @Injectable()
 export class AdminService {
@@ -18,6 +19,7 @@ export class AdminService {
     @InjectRepository(Tech) private readonly techRepo: Repository<Tech>,
     @InjectRepository(TroopType) private readonly troopTypeRepo: Repository<TroopType>,
     @InjectRepository(Resource) private readonly resourceRepo: Repository<Resource>,
+    @InjectRepository(Good) private readonly goodRepo: Repository<Good>,
   ) {}
 
   // --- Users ---
@@ -176,5 +178,29 @@ export class AdminService {
     const resource = await this.resourceRepo.findOne({ where: { id } });
     if (!resource) throw new NotFoundException(`Resource ${id} not found`);
     await this.resourceRepo.remove(resource);
+  }
+
+  // --- Goods ---
+
+  findAllGoods() {
+    return this.goodRepo.find();
+  }
+
+  async createGood(dto: Record<string, any>) {
+    const good = this.goodRepo.create(dto);
+    return this.goodRepo.save(good);
+  }
+
+  async updateGood(id: string, dto: Record<string, any>) {
+    const good = await this.goodRepo.findOne({ where: { id } });
+    if (!good) throw new NotFoundException(`Good ${id} not found`);
+    Object.assign(good, dto);
+    return this.goodRepo.save(good);
+  }
+
+  async deleteGood(id: string) {
+    const good = await this.goodRepo.findOne({ where: { id } });
+    if (!good) throw new NotFoundException(`Good ${id} not found`);
+    await this.goodRepo.remove(good);
   }
 }

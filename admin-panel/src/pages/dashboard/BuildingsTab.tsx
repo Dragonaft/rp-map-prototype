@@ -25,7 +25,7 @@ const EMPTY_NEW_BUILDING = {
   modifier: '', cost: 0, upgrade_to: '', requirement_tech: '', requirement_building: '',
   buildable: true, destructible: true, unique_per_province: false,
   allowed_province_resources: [] as string[], requirement_resource: '', requirement_resource_amount: 0,
-  visible: false, can_recruit: false,
+  visible: false, can_recruit: false, isProduction: false,
 };
 
 export const BuildingsTab = () => {
@@ -128,6 +128,7 @@ export const BuildingsTab = () => {
     { field: 'unique_per_province', headerName: 'Unique/Prov', width: 100, editable: true, type: 'boolean' },
     { field: 'visible', headerName: 'Visible', width: 90, editable: true, type: 'boolean' },
     { field: 'can_recruit', headerName: 'Can Recruit', width: 100, editable: true, type: 'boolean' },
+    { field: 'isProduction', headerName: 'Production', width: 100, editable: true, type: 'boolean' },
     arrCol('allowed_province_resources', 'Allowed Resources', 160),
     { field: 'requirement_resource', headerName: 'Req. Resource', width: 120, editable: true, type: 'singleSelect', valueOptions: REQ_RESOURCE_OPTIONS },
     { field: 'requirement_resource_amount', headerName: 'Req. Amount', type: 'number', width: 100, editable: true },
@@ -231,6 +232,13 @@ export const BuildingsTab = () => {
           <FormControl>
             <InputLabel>Can Recruit</InputLabel>
             <Select label="Can Recruit" value={newBuilding.can_recruit ? 'true' : 'false'} onChange={(e) => setNewBuilding((p) => ({ ...p, can_recruit: e.target.value === 'true' }))}>
+              <MenuItem value="true">Yes</MenuItem>
+              <MenuItem value="false">No</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl>
+            <InputLabel>Production</InputLabel>
+            <Select label="Production" value={newBuilding.isProduction ? 'true' : 'false'} onChange={(e) => setNewBuilding((p) => ({ ...p, isProduction: e.target.value === 'true' }))}>
               <MenuItem value="true">Yes</MenuItem>
               <MenuItem value="false">No</MenuItem>
             </Select>

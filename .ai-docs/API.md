@@ -28,6 +28,7 @@ AppModule
 ├── ArmiesModule        Army CRUD, troop types, visibility rules
 ├── ActionsModule       Action queue, executor, scheduler, income, upkeep
 ├── ResourcesModule     Resource definitions (key, name, type, plain_income)
+├── GoodsModule         Good definitions (name, type, price_per_one) — economy rework, step 2
 └── AdminModule         Admin CRUD for all entities
 ```
 
@@ -70,6 +71,11 @@ AppModule
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
 | GET    | /    | JWT  | All resource definitions (key, name, type, plainIncome) |
+
+### Goods (`/goods`)
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET    | /    | JWT  | All good definitions (name, type, price_per_one) |
 
 ### Techs (`/techs`)
 | Method | Path | Auth | Description |
@@ -126,6 +132,10 @@ AppModule
 | POST   | /resources     | Admin | Create resource |
 | PATCH  | /resources/:id | Admin | Update resource |
 | DELETE | /resources/:id | Admin | Delete resource |
+| GET    | /goods         | Admin | List goods |
+| POST   | /goods         | Admin | Create good |
+| PATCH  | /goods/:id     | Admin | Update good |
+| DELETE | /goods/:id     | Admin | Delete good |
 
 ## Action Types (Enum)
 
@@ -220,3 +230,6 @@ api/data/           resources.json, provinces.json, buildings.json, techs.json, 
 | `seed:troop-types` | Seed troop type definitions                      |
 | `balance:report`   | Generate combat balance analysis                 |
 | `reset:game`       | Reset game data (`reset:game:prod` for prod)     |
+
+## None
+- For creating migrations use `typeorm -- migration:create` command, don’t create migrations manually.

@@ -12,6 +12,7 @@ import { TechsModule } from './techs/techs.module';
 import { ArmiesModule } from './armies/armies.module';
 import { AdminModule } from './admin/admin.module';
 import { ResourcesModule } from './resources/resources.module';
+import { GoodsModule } from './goods/goods.module';
 import { Province } from './provinces/entities/province.entity';
 import { User } from './users/entities/user.entity';
 import { Building } from './buildings/entities/building.entity';
@@ -24,6 +25,7 @@ import { Army } from './armies/entities/army.entity';
 import { ArmyUnit } from './armies/entities/army-unit.entity';
 import { TroopType } from './armies/entities/troop-type.entity';
 import { Resource } from './resources/entities/resource.entity';
+import { Good } from './goods/entities/good.entity';
 
 @Module({
   imports: [
@@ -39,7 +41,7 @@ import { Resource } from './resources/entities/resource.entity';
       database: process.env.DB_NAME,
       entities: [
         Province, User, Building, ProvinceBuilding, ActionQueue, ActionsLog, ExecutionLock, Tech,
-        Army, ArmyUnit, TroopType, Resource,
+        Army, ArmyUnit, TroopType, Resource, Good,
       ],
       synchronize: false,
     }),
@@ -52,6 +54,7 @@ import { Resource } from './resources/entities/resource.entity';
     ArmiesModule,
     AdminModule,
     ResourcesModule,
+    GoodsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

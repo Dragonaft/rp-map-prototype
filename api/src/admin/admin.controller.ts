@@ -151,4 +151,27 @@ export class AdminController {
   deleteResource(@Param('id') id: string) {
     return this.adminService.deleteResource(id);
   }
+
+  // --- Goods ---
+
+  @Get('goods')
+  getGoods() {
+    return this.adminService.findAllGoods();
+  }
+
+  @Post('goods')
+  createGood(@Body() body: Record<string, any>) {
+    return this.adminService.createGood(body);
+  }
+
+  @Patch('goods/:id')
+  updateGood(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateGood(id, body);
+  }
+
+  @Delete('goods/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteGood(@Param('id') id: string) {
+    return this.adminService.deleteGood(id);
+  }
 }

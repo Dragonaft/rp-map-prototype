@@ -36,4 +36,10 @@ export const adminApi = {
   createResource: (data: Record<string, any>) => apiClient.post('/admin/resources', data),
   updateResource: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/resources/${id}`, data),
   deleteResource: (id: string) => apiClient.delete(`/admin/resources/${id}`),
+
+  // Goods
+  getGoods: () => apiClient.get('/admin/goods'),
+  createGood: (data: Record<string, any>) => apiClient.post('/admin/goods', data),
+  updateGood: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/goods/${id}`, data),
+  deleteGood: (id: string) => apiClient.delete(`/admin/goods/${id}`),
 };

@@ -15,7 +15,7 @@
 
 ## Features
 
-Six tabs in the dashboard, each managing one entity via MUI DataGrid with inline row editing:
+Seven tabs in the dashboard, each managing one entity via MUI DataGrid with inline row editing:
 
 ### Users Tab
 - Fields: login, password, country_name, color, money, troops, piety, research_points, is_new, completed_research, class (guild/holy/noble), role (ADMIN/MODERATOR/PLAYER)
@@ -23,7 +23,7 @@ Six tabs in the dashboard, each managing one entity via MUI DataGrid with inline
 - Inline edit, delete with confirmation
 
 ### Buildings Tab
-- Fields: type (enum of 17 building types), name, description, income, upkeep, cost, modifier, upgrade_to, requirement_tech (array), requirement_building
+- Fields: type (enum of 17 building types), name, description, income, upkeep, cost, modifier, upgrade_to, requirement_tech (array), requirement_building, isProduction (boolean, default false)
 - Create via modal (type + name + description required)
 
 ### Armies Tab
@@ -43,12 +43,17 @@ Six tabs in the dashboard, each managing one entity via MUI DataGrid with inline
 - Backs the dropdowns in the Buildings tab: `allowed_province_resources` (multi-select) and `requirement_resource` (single-select) are sourced from this list rather than a hardcoded array
 - `plain_income` drives MINE building income for provinces with that resource (see [GAME-MECHANICS.md](GAME-MECHANICS.md))
 
+### Goods Tab
+- Fields: name, type (civilian/military), price_per_one
+- Create via modal (name required)
+- First step of the economy rework (follows the resource rework); not yet wired into any building/trade logic
+
 ## API Communication
 
 - Base URL: `VITE_API_BASE_URL` (default `http://localhost:3000`, Docker: `/api`)
 - `withCredentials: true`
 - 401 interceptor with token refresh queue (identical pattern to web-map)
-- Endpoints: `/admin/users`, `/admin/buildings`, `/admin/armies`, `/admin/techs`, `/admin/troop-types`, `/admin/resources` (GET, POST, PATCH, DELETE)
+- Endpoints: `/admin/users`, `/admin/buildings`, `/admin/armies`, `/admin/techs`, `/admin/troop-types`, `/admin/resources`, `/admin/goods` (GET, POST, PATCH, DELETE)
 
 ## Auth Flow
 
@@ -67,7 +72,8 @@ admin-panel/src/
 ├── context/          AuthContext.tsx
 ├── pages/
 │   ├── login/        LoginPage.tsx
-│   └── dashboard/    index.tsx, UsersTab.tsx, BuildingsTab.tsx, ArmiesTab.tsx, TechsTab.tsx
+│   └── dashboard/    index.tsx, UsersTab.tsx, BuildingsTab.tsx, ArmiesTab.tsx, TechsTab.tsx,
+│                     TroopTypesTab.tsx, ResourcesTab.tsx, GoodsTab.tsx
 ├── App.tsx           Router setup
 └── main.tsx          Entry point
 ```

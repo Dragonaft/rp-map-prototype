@@ -21,6 +21,7 @@ User (1) ──── (*) Province ──── (*:1) Resource
 User (1) ──── (*) ActionQueue
 
 Tech (standalone, referenced by key strings in user.completed_research)
+Good (standalone, not yet referenced by other entities — economy rework in progress)
 ActionsLog (standalone, JSON blob)
 ExecutionLock (standalone, distributed locking)
 ```
@@ -76,6 +77,7 @@ ExecutionLock (standalone, distributed locking)
 | requirement_building        | varchar      | Building type prerequisite (BuildingTypes value) |
 | visible                     | boolean      | Whether the building shows in UI listings (default false) |
 | can_recruit                 | boolean      | Whether troops can be recruited here (exposed as `canRecruit`, default false) |
+| isProduction                | boolean      | Whether this building produces goods (default false; economy rework, not yet wired to goods logic) |
 | buildable                   | boolean      | Whether players can construct this (default true). CAPITAL/CAPITOL = false |
 | destructible                | boolean      | Whether players can demolish this (default true). CAPITAL = false |
 | unique_per_province         | boolean      | Only one per province allowed (default false). MINE, FORT, CASTLE = true |
@@ -139,6 +141,16 @@ Join entity linking provinces and buildings (replaced the old ManyToMany join ta
 | plain_income  | int       | Money/turn credited by a MINE built on a province with this resource (default 0). Replaces the old hardcoded `MINE_INCOME_BY_RESOURCE` map |
 
 > Editable via the admin panel's Resources tab. Seeded rows: stone, iron, gold, wood, grain, fish (fish covers water provinces).
+
+### Good
+| Column        | Type      | Notes |
+|---------------|-----------|-------|
+| id            | uuid (PK) | |
+| name          | varchar   | Display name |
+| type          | varchar   | `civilian` or `military` (not a DB enum) |
+| price_per_one | int       | Money cost per unit |
+
+> First step of the wider economy rework (goods to be produced/traded, following the resource rework). Not yet wired into any building/trade logic. Editable via the admin panel's Goods tab.
 
 ### Tech
 | Column        | Type          | Notes |

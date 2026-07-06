@@ -7,6 +7,7 @@ import { ArmiesTab } from './ArmiesTab';
 import { TechsTab } from './TechsTab';
 import { TroopTypesTab } from './TroopTypesTab';
 import { ResourcesTab } from './ResourcesTab';
+import { GoodsTab } from './GoodsTab';
 
 export const DashboardPage = () => {
   const [tab, setTab] = useState(0);
@@ -36,6 +37,7 @@ export const DashboardPage = () => {
           <Tab label="Techs" />
           <Tab label="Troop Types" />
           <Tab label="Resources" />
+          <Tab label="Goods" />
         </Tabs>
       </Box>
 
@@ -46,6 +48,7 @@ export const DashboardPage = () => {
         {tab === 3 && <TechsTab />}
         {tab === 4 && <TroopTypesTab />}
         {tab === 5 && <ResourcesTab />}
+        {tab === 6 && <GoodsTab />}
       </Box>
     </Box>
   );

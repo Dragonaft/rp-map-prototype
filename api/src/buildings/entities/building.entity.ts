@@ -74,4 +74,7 @@ export class Building extends BaseEntity {
   @Expose({ name: 'canRecruit' })
   public can_recruit: boolean;
 
+  @Column({ default: false })
+  public isProduction: boolean;
+
 }
