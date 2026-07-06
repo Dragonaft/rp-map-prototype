@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { UserGood } from './entities/user-good.entity';
 import { Good } from './entities/good.entity';
 import { User } from '../users/entities/user.entity';
@@ -40,5 +40,26 @@ export class UserGoodsService {
       this.userGoodRepo.create({ user_id: user.id, good_id: good.id, quantity: 0 }),
     );
     await this.userGoodRepo.save(rows);
+  }
+
+  /**
+   * Unconditional grant/release, clamped at 0. Used to credit turn production
+   * into a user's stockpile of a specific good (looked up by id, not key —
+   * Good has no natural key like Resource does).
+   */
+  async adjustQuantity(
+    manager: EntityManager, userId: string, goodId: string, delta: number,
+  ): Promise<void> {
+    let row = await manager.findOne(UserGood, {
+      where: { user_id: userId, good_id: goodId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!row) {
+      row = await manager.save(UserGood, manager.create(UserGood, {
+        user_id: userId, good_id: goodId, quantity: 0,
+      }));
+    }
+    row.quantity = Math.max(0, row.quantity + delta);
+    await manager.save(UserGood, row);
   }
 }

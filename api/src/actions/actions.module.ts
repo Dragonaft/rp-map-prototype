@@ -32,9 +32,11 @@ import { ArmyUnit } from '../armies/entities/army-unit.entity';
 import { TroopType } from '../armies/entities/troop-type.entity';
 import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
+import { ProductionActionService } from './production-action.service';
 import { UserStateLoaderService } from './user-state-loader.service';
 import { TechsModule } from '../techs/techs.module';
 import { ResourcesModule } from '../resources/resources.module';
+import { GoodsModule } from '../goods/goods.module';
 
 @Module({
   imports: [
@@ -45,6 +47,7 @@ import { ResourcesModule } from '../resources/resources.module';
     ]),
     TechsModule,
     ResourcesModule,
+    GoodsModule,
   ],
   controllers: [ActionsController, ActionExecutionStatusController],
   providers: [
@@ -54,6 +57,7 @@ import { ResourcesModule } from '../resources/resources.module';
     ActionSchedulerService,
     IncomeActionService,
     UpkeepActionService,
+    ProductionActionService,
     UserStateLoaderService,
     ActionExecutorService,
     BuildActionHandler,

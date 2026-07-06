@@ -7,6 +7,7 @@ import { ActionExecutionStateService } from './action-execution-state.service';
 import { ActionExecutorService, ExecutionContext } from './action-executor.service';
 import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
+import { ProductionActionService } from './production-action.service';
 import { UserStateLoaderService } from './user-state-loader.service';
 import { UserResourcesService } from '../resources/user-resources.service';
 import { ActionsLog, ExecutedAction } from './entities/actions-log.entity';
@@ -44,6 +45,7 @@ export class ActionSchedulerService {
     private readonly actionExecutor: ActionExecutorService,
     private readonly incomeAction: IncomeActionService,
     private readonly upkeepAction: UpkeepActionService,
+    private readonly productionAction: ProductionActionService,
     private readonly userStateLoader: UserStateLoaderService,
     private readonly actionExecutionState: ActionExecutionStateService,
     private readonly userResourcesService: UserResourcesService,
@@ -140,6 +142,7 @@ export class ActionSchedulerService {
       await this.dataSource.transaction(async (manager) => {
         const state = await this.userStateLoader.load(manager);
         await this.incomeAction.execute(state, manager);
+        await this.productionAction.execute(state, manager);
         await this.upkeepAction.execute(state, manager);
       });
     } catch (error) {

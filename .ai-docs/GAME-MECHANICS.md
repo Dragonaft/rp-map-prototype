@@ -9,17 +9,18 @@
 ### Execution Order
 1. **Distributed lock** acquired (prevents multi-instance race)
 2. **Income phase** — credit resources from buildings
-3. **Upkeep phase** — deduct building + army maintenance costs
-4. **Action execution** — process queued actions in `order` ASC, then `createdAt` ASC
-5. **Cleanup** — mark actions completed/failed, write execution log
-6. **Post-processing integrity** (each step in its own transaction, runs after cleanup):
+3. **Production phase** — credit goods from production buildings (see [Goods Production](#goods-production))
+4. **Upkeep phase** — deduct building + army maintenance costs
+5. **Action execution** — process queued actions in `order` ASC, then `createdAt` ASC
+6. **Cleanup** — mark actions completed/failed, write execution log
+7. **Post-processing integrity** (each step in its own transaction, runs after cleanup):
    - Disband armies with < 100 troops (`ARMY_MIN_SIZE`)
    - Resolve multi-faction battles in same province — on conquest, also transfers the
      province's MINE/FORESTRY resource capacity and any `requirement_resource`
      reservations from the losing owner's `UserResource` ledger to the winner's
    - Sync province ownership with army presence — same resource-footprint transfer
      applies here too
-7. **SSE broadcast** — clients auto-reload
+8. **SSE broadcast** — clients auto-reload
 
 ### 503 Gate
 During execution, API returns 503 Service Unavailable on all endpoints except an exact-match whitelist of five paths: `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`. (`/auth/me` is **not** whitelisted.)
@@ -48,6 +49,14 @@ During execution, API returns 503 Service Unavailable on all endpoints except an
 - **Building upkeep:** FORT, BARRACKS, ARMORY only
 - **Army upkeep:** `flat_upkeep` (100) + per-unit costs (unit.count / 100 * troopType.upkeep_per_100)
 - **Paladins:** upkeep paid in piety instead of money
+
+### Goods Production
+Buildings can also produce **Goods** (a separate catalog from Resources — see [DATABASE.md](DATABASE.md#good)) each turn, stocked in the owner's `UserGood` ledger:
+- Requires `isProduction = true` and `production_good_id` set (which good)
+- **Gate, not a spend (optional):** if `production_requirement_resource` is set, production only happens on turns where the owner's `UserResource.quantity` for it is > 0 (e.g. ARMORY → iron → Weapons, FORESTRY → wood → Lumber, FARM/GARDEN → grain → Food). The resource is never consumed by this check. If left null, the building produces unconditionally — CAPITAL → Food (25/turn) has no gate
+- **Credit amount:** `production_amount` (default 1) units of the good, added to `UserGood.quantity` per building per turn
+- No spend/trade logic for goods yet — `GET /goods/mine` (used by the web-map TopBar) is currently the only consumer
+- Caveat in the current seed data: nothing grants **grain** production capacity (only MINE grants iron/gold/stone, FORESTRY grants wood — see [DATABASE.md](DATABASE.md#userresource)), so FARM/GARDEN's Food gate never actually opens today. CAPITAL's ungated 25/turn is the only Food source until that's addressed
 
 ## Buildings
 
@@ -169,9 +178,10 @@ Defined in `api/src/techs/research-effects.ts`:
 
 ## Province Setup (New Player)
 1. Player selects unclaimed province
-2. CAPITAL building placed automatically
+2. CAPITAL building placed automatically — this is a direct, synchronous write in `ProvincesService.setupStart` (all in one transaction), **not** queued as a BUILD action, since the player can't wait for the next turn tick to get their capital
 3. Player receives 3000 troops + 5000 money + 10 research points
-4. `is_new` flag set to false
+4. Starting goods granted directly to the `UserGood` ledger in the same transaction: 200 Lumber, 500 Food (see `STARTING_GOODS` in `provinces.service.ts`)
+5. `is_new` flag set to false
 
 ## Colonization
 - Target must be a **land** province (water cannot be colonized), unowned, and

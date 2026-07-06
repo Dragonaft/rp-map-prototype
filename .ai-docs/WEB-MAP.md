@@ -32,13 +32,17 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 
 | Slice        | Key Fields                                                        |
 |--------------|-------------------------------------------------------------------|
-| `user`       | id, login, countryName, color, money, troops, piety, class, researchPoints, completedResearch, resources ({stone,iron,gold,wood}), isNew, provinces, projectedIncome/Troops/Research/Piety |
+| `user`       | id, login, countryName, color, money, troops, piety, class, researchPoints, completedResearch, isNew, provinces, projectedIncome/Troops/Research/Piety |
 | `provinces`  | provinces[], selectedProvinceId, selectedTroops, provinceCentersById, provinceBBoxById, mapWidth/Height |
 | `armies`     | armies[], troopTypes[]                                            |
 | `buildings`  | buildings[]                                                       |
 | `techs`      | techs[]                                                           |
 | `actions`    | actions[] (pending BUILD, ARMY_MOVE, RESEARCH, COLONIZE, etc.)   |
 | `otherUsers` | otherUsers[] (id, countryName, color)                            |
+| `resources`  | resources[] (catalog, `/resources`), mine[] (`UserResourceHolding[]`, `/resources/mine`) |
+| `goods`      | mine[] (`UserGoodHolding[]`, `/goods/mine`)                       |
+
+> Player resource/good holdings are no longer embedded in the `user` slice — they're fetched separately as ledger rows (`resource`/`good` + `quantity`) and displayed in `TopBar.tsx`, mirroring each other.
 
 ## Context API
 
@@ -52,7 +56,7 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 - `withCredentials: true` (httpOnly cookies)
 - 401 interceptor: queues failed requests, calls `/auth/refresh`, retries all
 
-**API modules:** auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts
+**API modules:** auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts, resources.ts, goods.ts
 
 **SSE:** `/actions/execution-stream` — listened in `useActionExecutionReload` hook for auto-reload when turn completes.
 
@@ -147,10 +151,12 @@ graph rendered inside `TechsModal`.)
 
 ```
 web-map/src/
-├── api/              config.ts, auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts
+├── api/              config.ts, auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts,
+│                     resources.ts, goods.ts
 ├── components/       MapView, ProvinceShape, SelectedProvinceHover, ArmyBlock, TopBar, TechTree, modals
 ├── pages/            game/index.tsx, auth/login/LoginPage.tsx, auth/register/RegisterPage.tsx
-├── store/            store.ts, hooks.ts, slices/ (user, provinces, armies, buildings, techs, actions, otherUsers)
+├── store/            store.ts, hooks.ts, slices/ (user, provinces, armies, buildings, techs, actions, otherUsers,
+│                     resources, goods)
 ├── context/          AuthContext.tsx, SnackbarContext.tsx
 ├── hooks/            useApi.ts, useActionExecutionReload.ts
 ├── constants/        buildingIcons.ts

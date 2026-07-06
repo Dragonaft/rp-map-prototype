@@ -26,7 +26,7 @@ const EMPTY_NEW_BUILDING = {
   buildable: true, destructible: true, unique_per_province: false,
   allowed_province_resources: [] as string[], requirement_resource: '', requirement_resource_amount: 0,
   visible: false, can_recruit: false, isProduction: false,
-  production_good_id: '', production_requirement_resource: '',
+  production_good_id: '', production_requirement_resource: '', production_amount: 1,
 };
 
 export const BuildingsTab = () => {
@@ -93,6 +93,7 @@ export const BuildingsTab = () => {
         requirement_resource_amount: newBuilding.requirement_resource_amount || null,
         production_good_id: newBuilding.production_good_id || null,
         production_requirement_resource: newBuilding.production_requirement_resource || null,
+        production_amount: newBuilding.production_amount || null,
       };
       const res = await adminApi.createBuilding(payload);
       setRows((prev) => [...prev, res.data]);
@@ -137,6 +138,7 @@ export const BuildingsTab = () => {
     { field: 'isProduction', headerName: 'Production', width: 100, editable: true, type: 'boolean' },
     { field: 'production_good_id', headerName: 'Production Good', width: 150, editable: true, type: 'singleSelect', valueOptions: GOOD_OPTIONS },
     { field: 'production_requirement_resource', headerName: 'Prod. Req. Resource', width: 150, editable: true, type: 'singleSelect', valueOptions: REQ_RESOURCE_OPTIONS },
+    { field: 'production_amount', headerName: 'Prod. Amount', type: 'number', width: 120, editable: true },
     arrCol('allowed_province_resources', 'Allowed Resources', 160),
     { field: 'requirement_resource', headerName: 'Req. Resource', width: 120, editable: true, type: 'singleSelect', valueOptions: REQ_RESOURCE_OPTIONS },
     { field: 'requirement_resource_amount', headerName: 'Req. Amount', type: 'number', width: 100, editable: true },
@@ -263,6 +265,7 @@ export const BuildingsTab = () => {
               {REQ_RESOURCE_OPTIONS.map((o) => <MenuItem key={o} value={o}>{o || '(none)'}</MenuItem>)}
             </Select>
           </FormControl>
+          <TextField label="Production Amount" type="number" value={newBuilding.production_amount} onChange={(e) => setNewBuilding((p) => ({ ...p, production_amount: Number(e.target.value) }))} />
           <FormControl>
             <InputLabel>Allowed Resources</InputLabel>
             <Select

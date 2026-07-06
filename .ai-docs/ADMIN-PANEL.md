@@ -23,7 +23,7 @@ Seven tabs in the dashboard, each managing one entity via MUI DataGrid with inli
 - Inline edit, delete with confirmation
 
 ### Buildings Tab
-- Fields: type (enum of 17 building types), name, description, income, upkeep, cost, modifier, upgrade_to, requirement_tech (array), requirement_building, isProduction (boolean, default false), production_good_id (dropdown sourced from Goods tab), production_requirement_resource (dropdown sourced from Resources tab, same as requirement_resource)
+- Fields: type (enum of 17 building types), name, description, income, upkeep, cost, modifier, upgrade_to, requirement_tech (array), requirement_building, isProduction (boolean, default false), production_good_id (dropdown sourced from Goods tab), production_requirement_resource (dropdown sourced from Resources tab, same as requirement_resource), production_amount (units of the good credited per turn, default 1)
 - Create via modal (type + name + description required)
 
 ### Armies Tab

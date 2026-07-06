@@ -178,7 +178,7 @@ be integers in `[1, 1_000_000]`.
 - Production: two separate crons, `0 13 * * *` and `0 20 * * *` (Europe/Kyiv) — i.e. 13:00 and 20:00
 - Dev: two fast crons, every 2 minutes (`*/2 * * * *`) and every 5 minutes (`*/5 * * * *`), both gated by `isFastDevCronEnabled()` (disabled if `DISABLE_FAST_ACTION_CRON=true` or `NODE_ENV=production`)
 - Acquires distributed `ExecutionLock` before processing
-- Phases: income → upkeep → action execution → cleanup (mark actions completed/failed) → post-processing integrity checks
+- Phases: income → production → upkeep → action execution → cleanup (mark actions completed/failed) → post-processing integrity checks
 - Post-processing (disband weak armies, resolve multi-faction combat, sync
   province ownership) each runs in its own transaction. Multi-faction combat
   engages attackers in a deterministic order (strongest attack power first).
@@ -196,13 +196,19 @@ be integers in `[1, 1_000_000]`.
 - Keeps `UserGood` fully populated: one row per (user, good) pair, always.
 - `createRowsForNewGood(good)` — called from `AdminService.createGood` — inserts a zero-quantity row for every existing user.
 - `createRowsForNewUser(user)` — called from `UsersService.create` (registration) and `AdminService.createUser` — inserts a zero-quantity row for every existing good.
-- No credit/debit/spend logic yet — purely maintains the invariant so storage is never missing rows.
+- `adjustQuantity(manager, userId, goodId, delta)` — unconditional grant/release, clamped at 0. Keyed by `goodId` (not a key string — `Good` has no natural key like `Resource` does). Called from `ProductionActionService` to credit turn production. No spend/trade logic yet.
+
+### ProductionActionService
+- Runs once per scheduled queue tick, right after `IncomeActionService` and before `UpkeepActionService`.
+- For every building a user owns where `isProduction && production_good_id && production_requirement_resource`: if `UserResourcesService.getQuantitiesForUsers` shows the user's quantity for `production_requirement_resource` is > 0 (a **gate**, not a spend — never decremented), credits `production_amount` (default 1) of `productionGoodEntity` into `UserGood` via `UserGoodsService.adjustQuantity`.
+- Resource quantities for all users are batched in one query up front (`getQuantitiesForUsers`) rather than queried per building.
 
 ### UserResourcesService
 - Maintains the `UserResource` capacity ledger — see [DATABASE.md](DATABASE.md#userresource) for the full column/semantics writeup.
 - `adjustQuantity(manager, userId, resourceKey, delta)` — unconditional grant/release, clamped at 0.
 - `tryReserve(manager, userId, resourceKey, amount)` — atomic conditional decrement (locks the row; used at BUILD/UPGRADE time to consume `requirement_resource`).
 - `sumIncomeForUsers`/`sumIncomeForUser` — `quantity × plain_income` per user, consumed by `IncomeActionService` and `UsersService.findOne`'s projection.
+- `getQuantitiesForUsers(manager, userIds)` — bulk read-only quantities (userId → resourceKey → quantity), no row lock. Used by `ProductionActionService` for the production gate check.
 - `createRowsForNewResource`/`createRowsForNewUser` — same fan-out pattern as `UserGoodsService`.
 - All mutating methods take an explicit `EntityManager` so they participate in the same transaction as the BUILD/REMOVE/UPGRADE action handler or turn-phase service calling them; `defaultManager` is used by non-transactional callers (e.g. the `/resources/mine` read, `UsersService`'s projection).
 - Called from `action-executor.service.ts` (Build/Remove/UpgradeActionHandler) and `action-scheduler.service.ts` (`transferProvinceResourceFootprint`, invoked on conquest from both `resolveArmyConflicts` and `syncProvinceOwnershipWithArmies`).
@@ -228,10 +234,10 @@ api/src/
 ├── admin/          controller, service
 ├── db/             data-source.ts, data-source.prod.ts, migrations/
 ├── utils/          logger.ts, parseIncome.ts
-└── scripts/        seed-resources, import-provinces, seed-buildings, seed-techs,
+└── scripts/        seed-resources, seed-goods, import-provinces, seed-buildings, seed-techs,
                     seed-troop-types, balance-report, reset-game-data
 
-api/data/           resources.json, provinces.json, buildings.json, techs.json, troop-types.json
+api/data/           resources.json, goods.json, provinces.json, buildings.json, techs.json, troop-types.json
                     (sibling of src/, NOT api/src/data/)
 ```
 
@@ -244,8 +250,9 @@ api/data/           resources.json, provinces.json, buildings.json, techs.json, 
 | `migration:run`    | Run pending migrations                           |
 | `migration:fresh`  | Drop schema + re-run all migrations              |
 | `seed:resources`   | Seed resource definitions (run before `import:provinces`) |
+| `seed:goods`       | Seed good definitions (run before `seed:buildings`) |
 | `import:provinces` | Import provinces.json into DB                    |
-| `seed:buildings`   | Seed building definitions                        |
+| `seed:buildings`   | Seed building definitions (resolves `production_good_name` — run after `seed:goods`) |
 | `seed:techs`       | Seed tech tree                                   |
 | `seed:troop-types` | Seed troop type definitions                      |
 | `balance:report`   | Generate combat balance analysis                 |

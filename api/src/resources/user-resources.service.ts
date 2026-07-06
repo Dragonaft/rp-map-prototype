@@ -107,6 +107,24 @@ export class UserResourcesService {
     return map.get(userId) ?? 0;
   }
 
+  /**
+   * Bulk read-only quantities for a set of users, keyed by userId then resource
+   * key — for gating checks (e.g. "does this user have any iron?") that don't
+   * need a row lock since nothing is mutated.
+   */
+  async getQuantitiesForUsers(manager: EntityManager, userIds: string[]): Promise<Map<string, Map<string, number>>> {
+    const result = new Map<string, Map<string, number>>();
+    if (!userIds.length) return result;
+
+    const rows = await manager.find(UserResource, { where: { user_id: In(userIds) } });
+    for (const row of rows) {
+      const byResource = result.get(row.user_id) ?? new Map<string, number>();
+      if (row.resource?.key) byResource.set(row.resource.key, row.quantity);
+      result.set(row.user_id, byResource);
+    }
+    return result;
+  }
+
   /** Default (non-transactional) EntityManager, for call sites outside a per-action/per-tick transaction. */
   get defaultManager(): EntityManager {
     return this.userResourceRepo.manager;

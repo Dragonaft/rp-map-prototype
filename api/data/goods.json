@@ -1,0 +1,5 @@
+[
+  { "name": "Lumber", "type": "civilian", "price_per_one": 10 },
+  { "name": "Food", "type": "civilian", "price_per_one": 5 },
+  { "name": "Weapons", "type": "military", "price_per_one": 50 }
+]

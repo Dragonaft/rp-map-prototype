@@ -19,6 +19,8 @@
     "import:provinces:prod": "node dist/scripts/import-provinces.js",
     "seed:resources": "ts-node src/scripts/seed-resources.ts",
     "seed:resources:prod": "node dist/scripts/seed-resources.js",
+    "seed:goods": "ts-node src/scripts/seed-goods.ts",
+    "seed:goods:prod": "node dist/scripts/seed-goods.js",
     "seed:buildings": "ts-node src/scripts/seed-buildings.ts",
     "seed:buildings:prod": "node dist/scripts/seed-buildings.js",
     "seed:techs": "ts-node src/scripts/seed-techs.ts",

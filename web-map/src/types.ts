@@ -46,6 +46,22 @@ export interface Resource {
   plainIncome: number;
 }
 
+export interface Good {
+  id: string;
+  name: string;
+  type: 'civilian' | 'military';
+  price_per_one: number;
+}
+
+/** A row from the player's goods inventory (GET /goods/mine). */
+export interface UserGoodHolding {
+  id: string;
+  user_id: string;
+  good_id: string;
+  good: Good;
+  quantity: number;
+}
+
 export interface Building {
   id: string;
   type: string;

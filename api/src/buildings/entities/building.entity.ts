@@ -98,4 +98,8 @@ export class Building extends BaseEntity {
   @Expose({ name: 'productionRequirementResource' })
   public production_requirement_resource: string | null;
 
+  @Column({ nullable: true })
+  @Expose({ name: 'productionAmount' })
+  public production_amount: number | null;
+
 }

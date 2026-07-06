@@ -21,6 +21,8 @@ import { armiesApi } from "../../api/armies.ts";
 import { setArmies, setTroopTypes } from "../../store/slices/armiesSlice.ts";
 import { resourcesApi } from "../../api/resources.ts";
 import { setResources, setMyResources } from "../../store/slices/resourcesSlice.ts";
+import { goodsApi } from "../../api/goods.ts";
+import { setMyGoods } from "../../store/slices/goodsSlice.ts";
 
 
 const style = {
@@ -73,6 +75,8 @@ export const GamePage: React.FC = () => {
   const { data: resourcesData } = useQuery(fetchResources, []);
   const fetchMyResources = useCallback(() => resourcesApi.getMine(), []);
   const { data: myResourcesData } = useQuery(fetchMyResources, []);
+  const fetchMyGoods = useCallback(() => goodsApi.getMine(), []);
+  const { data: myGoodsData } = useQuery(fetchMyGoods, []);
 
   useEffect(() => {
     if (!userData) return;
@@ -124,6 +128,11 @@ export const GamePage: React.FC = () => {
     if (!myResourcesData) return;
     dispatch(setMyResources(myResourcesData));
   }, [myResourcesData, dispatch]);
+
+  useEffect(() => {
+    if (!myGoodsData) return;
+    dispatch(setMyGoods(myGoodsData));
+  }, [myGoodsData, dispatch]);
 
   // Prevent browser zoom when Ctrl+wheel anywhere on the page
   useEffect(() => {

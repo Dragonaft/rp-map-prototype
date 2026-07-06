@@ -13,6 +13,14 @@ import { UsersService } from '../users/users.service';
 import { computeBuildingCap } from '../techs/research-effects';
 import { BuildingTypes } from "../buildings/types/building.types";
 import { Army } from '../armies/entities/army.entity';
+import { GoodsService } from '../goods/goods.service';
+import { UserGoodsService } from '../goods/user-goods.service';
+
+/** Goods granted to a new player at province setup (name -> quantity). Not routed through the action queue — CAPITAL must exist immediately. */
+const STARTING_GOODS: Record<string, number> = {
+  Lumber: 200,
+  Food: 500,
+};
 
 @Injectable()
 export class ProvincesService {
@@ -27,6 +35,8 @@ export class ProvincesService {
     private readonly armyRepository: Repository<Army>,
     private readonly actionsService: ActionsService,
     private readonly usersService: UsersService,
+    private readonly goodsService: GoodsService,
+    private readonly userGoodsService: UserGoodsService,
   ) {}
 
   async getAll(userId: string) {
@@ -204,20 +214,32 @@ export class ProvincesService {
     if (!building) {
       throw new Error('CAPITAL building template not found — run the building seed before setup');
     }
-    const pb = new ProvinceBuilding();
-    pb.province_id = province.id;
-    pb.building_id = building.id;
-    province.provinceBuildings.push(pb);
 
-    province.user_id = user.id;
+    // CAPITAL must exist immediately — this is a direct write, not queued as a
+    // BUILD action (setup can't wait for the next turn tick to resolve).
+    await this.provinceRepository.manager.transaction(async (manager) => {
+      const pb = new ProvinceBuilding();
+      pb.province_id = province.id;
+      pb.building_id = building.id;
+      province.provinceBuildings.push(pb);
 
-    foundUser.is_new = false;
-    foundUser.troops = 3000;
-    foundUser.money = 5000;
-    foundUser.research_points = 10;
+      province.user_id = user.id;
 
-    await this.userRepository.save(foundUser);
-    await this.provinceRepository.save(province);
+      foundUser.is_new = false;
+      foundUser.troops = 3000;
+      foundUser.money = 5000;
+      foundUser.research_points = 10;
+
+      await manager.save(User, foundUser);
+      await manager.save(Province, province);
+
+      for (const [goodName, quantity] of Object.entries(STARTING_GOODS)) {
+        const good = await this.goodsService.findByName(goodName);
+        if (good) {
+          await this.userGoodsService.adjustQuantity(manager, user.id, good.id, quantity);
+        }
+      }
+    });
 
     const enrichedUser = await this.usersService.findOne(user.id, user.id);
     const newProvince = await this.provinceRepository

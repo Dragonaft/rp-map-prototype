@@ -152,6 +152,7 @@ jobs:
               docker compose exec -T api npm run seed:resources:prod
               docker compose exec -T api npm run import:provinces:prod
               docker compose exec -T api npm run reset:game:prod
+              docker compose exec -T api npm run seed:goods:prod
               docker compose exec -T api npm run seed:buildings:prod
               docker compose exec -T api npm run seed:techs:prod
               docker compose exec -T api npm run seed:troop-types:prod

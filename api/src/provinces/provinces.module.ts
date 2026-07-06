@@ -8,6 +8,7 @@ import { User } from "../users/entities/user.entity";
 import { ActionsModule } from '../actions/actions.module';
 import { UsersModule } from '../users/users.module';
 import { ArmiesModule } from '../armies/armies.module';
+import { GoodsModule } from '../goods/goods.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { ArmiesModule } from '../armies/armies.module';
     ActionsModule,
     UsersModule,
     ArmiesModule,
+    GoodsModule,
   ],
   controllers: [ProvincesController],
   providers: [ProvincesService],

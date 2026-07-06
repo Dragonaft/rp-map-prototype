@@ -4,6 +4,7 @@ import { AppDataSource as AppDataSourceDev } from '../db/data-source';
 import { AppDataSource as AppDataSourceProd } from '../db/data-source.prod';
 import { Building } from '../buildings/entities/building.entity';
 import { BuildingTypes } from '../buildings/types/building.types';
+import { Good } from '../goods/entities/good.entity';
 import { colors, logger } from '../utils/logger';
 
 const env = process.env.NODE_ENV;
@@ -34,6 +35,11 @@ interface BuildingSeedRow {
   requirement_resource_amount?: number | null;
   visible?: boolean;
   can_recruit?: boolean;
+  isProduction?: boolean;
+  /** Good.name to resolve to production_good_id at seed time — Good has no natural key like Resource does. */
+  production_good_name?: string | null;
+  production_requirement_resource?: string | null;
+  production_amount?: number | null;
 }
 
 const BUILDING_TYPE_VALUES = new Set<string>(Object.values(BuildingTypes));
@@ -118,10 +124,24 @@ async function seedBuildings() {
   }
 
   const repo = AppDataSource.getRepository(Building);
+  const goodRepo = AppDataSource.getRepository(Good);
   let created = 0;
   let updated = 0;
 
   for (const row of rows) {
+    let production_good_id: string | null = null;
+    if (row.production_good_name) {
+      const good = await goodRepo.findOne({ where: { name: row.production_good_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.type}: production_good_name "${row.production_good_name}" not found — run seed:goods before seed:buildings`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      production_good_id = good.id;
+    }
+
     const patch = {
       name: row.name,
       description: row.description,
@@ -140,6 +160,10 @@ async function seedBuildings() {
       requirement_resource_amount: row.requirement_resource_amount ?? null,
       visible: row.visible ?? false,
       can_recruit: row.can_recruit ?? false,
+      isProduction: row.isProduction ?? false,
+      production_good_id,
+      production_requirement_resource: row.production_requirement_resource ?? null,
+      production_amount: row.production_amount ?? null,
     };
 
     const existing = await repo.find({

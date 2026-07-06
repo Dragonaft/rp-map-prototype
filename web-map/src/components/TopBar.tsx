@@ -17,6 +17,7 @@ export const TopBar = () => {
   const buildings = useAppSelector(state => state.buildings.buildings);
   const provinces = useAppSelector(state => state.provinces.provinces);
   const myResources = useAppSelector(state => state.resources.mine);
+  const myGoods = useAppSelector(state => state.goods.mine);
   const mapMode = useAppSelector(state => state.provinces.mapMode);
   const { mutate } = useMutation(authApi.logout);
   const [openTechModal, setOpenTechModal] = useState(false);
@@ -149,6 +150,27 @@ export const TopBar = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-xs uppercase tracking-widest cursor-pointer"
               >
                 Resources
+              </Button>
+            </Tooltip>
+            <Tooltip
+              title={
+                <div className="flex flex-col gap-2 p-1" style={{ fontSize: '14px', lineHeight: '1.6' }}>
+                  {myGoods.length === 0 && <div>No goods yet</div>}
+                  {myGoods.map((holding) => (
+                    <div key={holding.id}>
+                      {holding.good.type === 'military' ? '⚔️' : '📦'} {holding.good.name}: {holding.quantity}
+                    </div>
+                  ))}
+                </div>
+              }
+              arrow
+              placement="bottom"
+              componentsProps={{ tooltip: { sx: { fontSize: '14px', p: 1.5 } } }}
+            >
+              <Button
+                className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-xs uppercase tracking-widest cursor-pointer"
+              >
+                Goods
               </Button>
             </Tooltip>
             <div

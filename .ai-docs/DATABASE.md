@@ -5,7 +5,7 @@
 - **ORM:** TypeORM 0.3 (NestJS integration via `@nestjs/typeorm`)
 - **Database:** MySQL 8
 - **Config:** `api/src/db/data-source.ts` (dev), `data-source.prod.ts` (prod; compiled to `dist/db/data-source.prod.js`)
-- **Migrations:** `api/src/db/migrations/` (27 migration files)
+- **Migrations:** `api/src/db/migrations/` (28 migration files)
 
 ## Entity Relationship Diagram
 
@@ -80,9 +80,10 @@ ExecutionLock (standalone, distributed locking)
 | requirement_building        | varchar      | Building type prerequisite (BuildingTypes value) |
 | visible                     | boolean      | Whether the building shows in UI listings (default false) |
 | can_recruit                 | boolean      | Whether troops can be recruited here (exposed as `canRecruit`, default false) |
-| isProduction                | boolean      | Whether this building produces goods (default false; economy rework, not yet wired to turn logic) |
+| isProduction                | boolean      | Whether this building produces goods each turn (default false) |
 | production_good_id          | uuid (FK)    | → Good, nullable. The single Good this building produces per turn when `isProduction` is true. Exposed as `productionGood` getter (returns the FK id) on the player-facing API |
-| production_requirement_resource | varchar   | Nullable, references `Resource.key` (same convention as `requirement_resource`). Building only produces if the owning user holds > 0 of this resource. Not yet wired to turn logic |
+| production_requirement_resource | varchar   | Nullable, references `Resource.key`. Optional **gate**, not a spend: if set, production only happens on turns where the owner's `UserResource.quantity` for this key is > 0 (checked, never decremented); if null, the building produces unconditionally (e.g. CAPITAL) |
+| production_amount           | int          | How many units of `productionGoodEntity` are credited to the owner's `UserGood` ledger per turn (nullable, defaults to 1 in code — see `ProductionActionService`) |
 | buildable                   | boolean      | Whether players can construct this (default true). CAPITAL/CAPITOL = false |
 | destructible                | boolean      | Whether players can demolish this (default true). CAPITAL = false |
 | unique_per_province         | boolean      | Only one per province allowed (default false). MINE, FORT, CASTLE = true |
@@ -185,7 +186,15 @@ Per-player goods inventory (ledger), mirroring the `Army`/`ArmyUnit`/`TroopType`
 | good_id  | uuid (FK) | → Good (eager), `ON DELETE CASCADE` |
 | quantity | int       | Amount held, default 0 |
 
-> Unique constraint on `(user_id, good_id)` — every user has exactly one row per good. Rows are backfilled automatically: `UserGoodsService.createRowsForNewGood` fans a zero-quantity row out to every existing user when an admin creates a `Good`; `UserGoodsService.createRowsForNewUser` fans a zero-quantity row out across every existing `Good` when a user is created (registration or admin). No spend/trade/turn logic wired yet — `GET /goods/mine` just returns the caller's rows.
+> Unique constraint on `(user_id, good_id)` — every user has exactly one row per good. Rows are backfilled automatically: `UserGoodsService.createRowsForNewGood` fans a zero-quantity row out to every existing user when an admin creates a `Good`; `UserGoodsService.createRowsForNewUser` fans a zero-quantity row out across every existing `Good` when a user is created (registration or admin). `UserGoodsService.adjustQuantity` credits turn production (see `ProductionActionService` below) — no spend/trade logic yet. `GET /goods/mine` returns the caller's rows.
+
+### Goods Production (turn logic)
+Each turn, `ProductionActionService` (runs right after income, before upkeep — see [GAME-MECHANICS.md](GAME-MECHANICS.md#income-calculation)) scans every building the user owns:
+- Skipped unless `isProduction` and `production_good_id` are set.
+- **Gate (optional):** if `production_requirement_resource` is set, the owner's `UserResource.quantity` for it must be > 0 (a presence check, not consumed) — e.g. ARMORY→Weapons gates on iron, FORESTRY→Lumber gates on wood. If null, production is unconditional (CAPITAL→Food has no gate).
+- **Credit:** `production_amount` (default 1) units of `productionGoodEntity` are added to the owner's `UserGood.quantity` via `UserGoodsService.adjustQuantity`.
+- Reads are batched per turn via `UserResourcesService.getQuantitiesForUsers` (no per-building query).
+- Seed data (`api/data/buildings.json`): CAPITAL→Food (25, no gate), GARDEN/FARM→Food (1, gated on grain — note nothing currently grants grain *capacity*, so this gate never actually opens; CAPITAL's ungated production is the real Food source today), FORESTRY→Lumber (1, gated on wood), ARMORY→Weapons (1, gated on iron).
 
 ### Tech
 | Column        | Type          | Notes |
@@ -232,13 +241,15 @@ Per-player goods inventory (ledger), mirroring the `Army`/`ArmyUnit`/`TroopType`
 
 Located in `api/data/`:
 - `resources.json` — Resource definitions (key, name, type, plain_income)
+- `goods.json` — Good definitions (name, type, price_per_one)
 - `provinces.json` — Map geometry and metadata (generated by map-generator; `resource_type` is a resource **key** string, resolved to `resource_id` at import time)
-- `buildings.json` — Building type definitions
+- `buildings.json` — Building type definitions, including `production_good_name` (a Good **name** string, resolved to `production_good_id` at seed time — Good has no natural key like Resource does)
 - `techs.json` — Tech tree definitions
 - `troop-types.json` — Troop type stats
 
 Import scripts in `api/src/scripts/`:
 - `seed-resources.ts` — Seeds the resources table. **Must run before `import-provinces.ts`**, which looks up each province's resource key against this table and fails loudly on an unknown key
+- `seed-goods.ts` — Seeds the goods table, keyed on `name` (no natural key field). **Must run before `seed-buildings.ts`**, which resolves `production_good_name` against this table and fails loudly on an unknown name
 - `import-provinces.ts` — Reads provinces.json, upserts into DB
 - `seed-buildings.ts` — Seeds building definitions
 - `seed-techs.ts` — Seeds tech tree
