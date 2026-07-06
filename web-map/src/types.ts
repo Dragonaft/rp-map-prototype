@@ -116,11 +116,13 @@ export enum UserClasses {
   NOBLE = 'noble',
 }
 
-export interface UserResources {
-  stone: number;
-  iron: number;
-  gold: number;
-  wood: number;
+/** A row from the player's resource ledger (GET /resources/mine). */
+export interface UserResourceHolding {
+  id: string;
+  user_id: string;
+  resource_id: string;
+  resource: Resource;
+  quantity: number;
 }
 
 export interface UserUpdate {
@@ -142,7 +144,6 @@ export interface User {
   provinces: Province[];
   researchPoints: number;
   completedResearch: string[];
-  resources: UserResources;
 }
 
 export interface UserActive extends User {
@@ -214,7 +215,6 @@ export interface SetupUserResponse {
     projectedPiety: number,
     projectedResearch: number,
     projectedTroops: number,
-    resources: UserResources,
   };
   province: {
     id: string;

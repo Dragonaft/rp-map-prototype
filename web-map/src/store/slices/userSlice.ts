@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Province, UserResources } from "../../types.ts";
+import { Province } from "../../types.ts";
 
 interface UserState {
   id: string;
@@ -18,7 +18,6 @@ interface UserState {
   provinces: Province[];
   completedResearch: string[];
   researchPoints: number;
-  resources: UserResources;
 }
 
 const initialState: UserState = {
@@ -38,7 +37,6 @@ const initialState: UserState = {
   provinces: [],
   completedResearch: [],
   researchPoints: 0,
-  resources: { stone: 0, iron: 0, gold: 0, wood: 0 },
 };
 
 const userSlice = createSlice({
@@ -62,7 +60,6 @@ const userSlice = createSlice({
       state.provinces = action.payload.provinces;
       state.completedResearch = action.payload.completedResearch ?? [];
       state.researchPoints = action.payload.researchPoints;
-      state.resources = action.payload.resources ?? { stone: 0, iron: 0, gold: 0, wood: 0 };
     },
     updateUserTroops: (state, action: PayloadAction<number>) => {
       state.troops = action.payload;

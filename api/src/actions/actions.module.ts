@@ -34,6 +34,7 @@ import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
 import { UserStateLoaderService } from './user-state-loader.service';
 import { TechsModule } from '../techs/techs.module';
+import { ResourcesModule } from '../resources/resources.module';
 
 @Module({
   imports: [
@@ -43,6 +44,7 @@ import { TechsModule } from '../techs/techs.module';
       Army, ArmyUnit, TroopType,
     ]),
     TechsModule,
+    ResourcesModule,
   ],
   controllers: [ActionsController, ActionExecutionStatusController],
   providers: [

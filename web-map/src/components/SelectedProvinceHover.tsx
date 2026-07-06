@@ -30,17 +30,17 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
   const actions = useAppSelector((state: RootState) => state.actions.actions);
   const techs = useAppSelector((state: RootState) => state.techs.techs);
   const armies = useAppSelector((state: RootState) => state.armies.armies);
-  const provinces = useAppSelector((state: RootState) => state.provinces.provinces);
   const { mutate } = useMutation(provincesApi.setupUser);
 
-  // Owner provinces from the provinces slice. The /users endpoint does not
-  // serialize the Province.buildings getter, so user.provinces[].buildings is
-  // empty — the provinces slice (from /provinces/state) has real buildings.
-  const ownedProvinces = useMemo(
-    () => provinces.filter(p => p.userId === user.id),
-    [provinces, user.id],
-  );
   const isUserOwner = user.id === selectedProvince?.userId;
+
+  // Player's resource ledger (GET /resources/mine), keyed by resource key for
+  // quick lookup — already nets out everything currently built.
+  const myResources = useAppSelector((state: RootState) => state.resources.mine);
+  const myResourcesByKey = useMemo(
+    () => Object.fromEntries(myResources.map(h => [h.resource.key, h.quantity])),
+    [myResources],
+  );
 
   const [isOpenBuildMenu, setIsOpenBuildMenu] = useState(false);
   const [buildingsState, setBuildingsState] = useState<Building[]>([]);
@@ -186,7 +186,6 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         projectedPiety: response.user.projectedPiety,
         projectedResearch: response.user.projectedResearch,
         projectedTroops: response.user.projectedTroops,
-        resources: response.user.resources,
       }));
     }
     if (response?.province) {
@@ -555,8 +554,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         userCompletedResearch={user.completedResearch}
         pendingBuildTypes={pendingBuildTypesInProvince}
         techs={techs}
-        userResources={user.resources}
-        userProvinces={ownedProvinces}
+        userResourcesByKey={myResourcesByKey}
         pendingResourceUsage={pendingResourceUsage}
         builtTypesInProvince={new Set(builtInProvince.map(b => b.type))}
         onBuild={(id) => { void handleBuildAction(id); setIsOpenBuildMenu(false); }}

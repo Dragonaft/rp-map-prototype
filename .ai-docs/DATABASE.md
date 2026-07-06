@@ -5,7 +5,7 @@
 - **ORM:** TypeORM 0.3 (NestJS integration via `@nestjs/typeorm`)
 - **Database:** MySQL 8
 - **Config:** `api/src/db/data-source.ts` (dev), `data-source.prod.ts` (prod; compiled to `dist/db/data-source.prod.js`)
-- **Migrations:** `api/src/db/migrations/` (26 migration files)
+- **Migrations:** `api/src/db/migrations/` (27 migration files)
 
 ## Entity Relationship Diagram
 
@@ -18,7 +18,9 @@ User (1) ──── (*) Province ──── (*:1) Resource
   │                 │
   │                 └── (1) ──── (*) ArmyUnit ──── (*:1) TroopType
   │
-  └── (1) ──── (*) UserGood (*:1) ──── Good
+  ├── (1) ──── (*) UserGood (*:1) ──── Good
+  │
+  └── (1) ──── (*) UserResource (*:1) ──── Resource
 
 User (1) ──── (*) ActionQueue
 
@@ -85,10 +87,10 @@ ExecutionLock (standalone, distributed locking)
 | destructible                | boolean      | Whether players can demolish this (default true). CAPITAL = false |
 | unique_per_province         | boolean      | Only one per province allowed (default false). MINE, FORT, CASTLE = true |
 | allowed_province_resources  | simple-array | Province resource key filter (nullable), references `Resource.key`. MINE=['iron','gold','stone'], FORESTRY=['wood'], FARM=['grain']. Null = any province |
-| requirement_resource        | varchar      | User resource consumed on build (nullable), references `Resource.key`. ARMORY='iron', FORT='stone' |
-| requirement_resource_amount | int          | How many of that resource consumed (nullable). Usually 1 |
+| requirement_resource        | varchar      | User resource reserved from the `UserResource` ledger on build/upgrade (nullable), references `Resource.key`. ARMORY='iron', FORT='stone' |
+| requirement_resource_amount | int          | How much of that resource is reserved (nullable). Usually 1 |
 
-> Building has no direct relation to Province. The link is the **ProvinceBuilding** join entity (see below). Building's resource fields reference `Resource.key` (not a FK) — they're plain strings sourced from a dropdown in the admin panel.
+> Building has no direct relation to Province. The link is the **ProvinceBuilding** join entity (see below). Building's resource fields reference `Resource.key` (not a FK) — they're plain strings sourced from a dropdown in the admin panel, resolved against the `UserResource` ledger at BUILD/UPGRADE/REMOVE time (see [UserResource](#userresource)).
 
 ### ProvinceBuilding
 Join entity linking provinces and buildings (replaced the old ManyToMany join table — migration `ReplaceProvinceBuildingsJoinTable`).
@@ -140,10 +142,28 @@ Join entity linking provinces and buildings (replaced the old ManyToMany join ta
 | id            | uuid (PK) | |
 | key           | varchar   | Unique natural key (e.g., "iron"). Referenced by Building's `allowed_province_resources`/`requirement_resource`, map-generator output, and frontend icon/color maps |
 | name          | varchar   | Display name, editable in admin panel |
-| type          | varchar   | `plain` or `consumable` (not a DB enum). Metadata only — not wired to any behavior yet (reserved for the wider economy rework) |
-| plain_income  | int       | Money/turn credited by a MINE built on a province with this resource (default 0). Replaces the old hardcoded `MINE_INCOME_BY_RESOURCE` map |
+| type          | varchar   | `plain` or `consumable` (not a DB enum). Distinguishes resources that are only ever monetized (plain) from those also spent as building requirements (consumable) — both are tracked in the `UserResource` ledger the same way |
+| plain_income  | int       | Money/turn credited per unit of `UserResource.quantity` a user holds for this resource (default 0). Replaces the old hardcoded `MINE_INCOME_BY_RESOURCE` map |
 
 > Editable via the admin panel's Resources tab. Seeded rows: stone, iron, gold, wood, grain, fish (fish covers water provinces).
+
+### UserResource
+Per-player resource ledger, mirroring the `UserGood` shape. Unlike `UserGood` (a real accumulating stockpile), `UserResource.quantity` represents **currently available capacity**: production from `MINE`/`FORESTRY` buildings minus whatever is reserved by buildings with a matching `requirement_resource`. This replaces what used to be re-derived from a full province/building scan on every read.
+
+| Column      | Type      | Notes |
+|-------------|-----------|-------|
+| id          | uuid (PK) | |
+| user_id     | uuid (FK) | → User, `ON DELETE CASCADE` |
+| resource_id | uuid (FK) | → Resource (eager), `ON DELETE CASCADE` |
+| quantity    | int       | Available amount, default 0, never negative |
+
+> Unique constraint on `(user_id, resource_id)`. Maintained by `UserResourcesService` (`api/src/resources/user-resources.service.ts`):
+> - `adjustQuantity` — unconditional grant/release (clamped at 0): +1/-1 for MINE/FORESTRY capacity on build/demolish, +amount when releasing a `requirement_resource` reservation on demolish/upgrade.
+> - `tryReserve` — atomic conditional decrement (locks the row, checks availability, decrements or fails) used when a building's `requirement_resource` is consumed at BUILD/UPGRADE time. Replaces the old per-action "count your mines minus buildings that already used this type" scan in `action-executor.service.ts`.
+> - `sumIncomeForUsers`/`sumIncomeForUser` — `quantity × resource.plain_income` per user, read by `IncomeActionService` (turn income) and `UsersService.findOne` (income projection) instead of re-scanning MINE buildings each time.
+> - `createRowsForNewResource`/`createRowsForNewUser` — same fan-out pattern as `UserGoodsService`, keeping every (user, resource) pair populated.
+> - Conquest: `ActionSchedulerService.transferProvinceResourceFootprint` moves a captured province's MINE/FORESTRY capacity and any `requirement_resource` reservations from the losing owner's ledger to the winner's, called from both `resolveArmyConflicts` and `syncProvinceOwnershipWithArmies` whenever `province.user_id` changes.
+> - The migration that created this table (`CreateUserResourcesTable`) backfilled initial quantities from the pre-ledger derived count, so the cutover didn't change anyone's available resources.
 
 ### Good
 | Column        | Type      | Notes |

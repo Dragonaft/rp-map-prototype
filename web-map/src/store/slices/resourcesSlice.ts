@@ -1,12 +1,14 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Resource } from '../../types';
+import { Resource, UserResourceHolding } from '../../types';
 
 interface ResourcesState {
   resources: Resource[];
+  mine: UserResourceHolding[];
 }
 
 const initialState: ResourcesState = {
   resources: [],
+  mine: [],
 };
 
 const resourcesSlice = createSlice({
@@ -16,8 +18,11 @@ const resourcesSlice = createSlice({
     setResources: (state, action: PayloadAction<Resource[]>) => {
       state.resources = action.payload;
     },
+    setMyResources: (state, action: PayloadAction<UserResourceHolding[]>) => {
+      state.mine = action.payload;
+    },
   },
 });
 
-export const { setResources } = resourcesSlice.actions;
+export const { setResources, setMyResources } = resourcesSlice.actions;
 export default resourcesSlice.reducer;

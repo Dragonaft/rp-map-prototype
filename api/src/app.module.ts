@@ -27,6 +27,7 @@ import { TroopType } from './armies/entities/troop-type.entity';
 import { Resource } from './resources/entities/resource.entity';
 import { Good } from './goods/entities/good.entity';
 import { UserGood } from './goods/entities/user-good.entity';
+import { UserResource } from './resources/entities/user-resource.entity';
 
 @Module({
   imports: [
@@ -42,7 +43,7 @@ import { UserGood } from './goods/entities/user-good.entity';
       database: process.env.DB_NAME,
       entities: [
         Province, User, Building, ProvinceBuilding, ActionQueue, ActionsLog, ExecutionLock, Tech,
-        Army, ArmyUnit, TroopType, Resource, Good, UserGood,
+        Army, ArmyUnit, TroopType, Resource, Good, UserGood, UserResource,
       ],
       synchronize: false,
     }),

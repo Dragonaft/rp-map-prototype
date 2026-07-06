@@ -9,6 +9,7 @@ import { PartialUser, UserClasses, UserRoles } from "./types/users.types";
 import { BuildingTypes } from '../buildings/types/building.types';
 import { Army } from '../armies/entities/army.entity';
 import { UserGoodsService } from '../goods/user-goods.service';
+import { UserResourcesService } from '../resources/user-resources.service';
 import { parseIncome } from '../utils/parseIncome';
 import {
   INCOME_RESEARCH_EFFECTS,
@@ -30,6 +31,7 @@ export class UsersService {
     @InjectRepository(Army)
     private readonly armyRepository: Repository<Army>,
     private readonly userGoodsService: UserGoodsService,
+    private readonly userResourcesService: UserResourcesService,
   ) {}
 
   async create(createUserDto: UsersCreateBodyRequest): Promise<User> {
@@ -44,6 +46,7 @@ export class UsersService {
 
     const saved = await this.usersRepository.save(user);
     await this.userGoodsService.createRowsForNewUser(saved);
+    await this.userResourcesService.createRowsForNewUser(saved);
     return saved;
   }
 
@@ -88,9 +91,6 @@ export class UsersService {
     const completedResearch = user.completed_research ?? [];
     const provinces = user.provinces ?? [];
 
-    // ---- Resources ----
-    const resources = { stone: 0, iron: 0, gold: 0, wood: 0 };
-
     // ---- Income projection (mirrors IncomeActionService) ----
     let incomeTotal = 0;
     let barracksCount = 0;
@@ -101,16 +101,10 @@ export class UsersService {
       for (const b of p.buildings ?? []) {
         switch (b.type) {
           case BuildingTypes.MINE:
-            incomeTotal += p.resource?.plain_income ?? 0;
-            switch (p.resource?.key) {
-              case 'stone': resources.stone++; break;
-              case 'iron':  resources.iron++;  break;
-              case 'gold':  resources.gold++;  break;
-            }
+            // Money from mines now comes from the resource ledger, added below.
             break;
           case BuildingTypes.FORESTRY:
             incomeTotal += parseIncome(b.income);
-            resources.wood++;
             break;
           case BuildingTypes.BARRACKS:
             barracksCount++;
@@ -129,6 +123,8 @@ export class UsersService {
         }
       }
     }
+
+    incomeTotal += await this.userResourcesService.sumIncomeForUser(this.userResourcesService.defaultManager, id);
 
     const incomeCtx = { incomeTotal, barracksCount, farmGardenIncome, provinceCount: provinces.length, capitalCount };
     for (const techKey of completedResearch) {
@@ -199,7 +195,6 @@ export class UsersService {
 
     return {
       ...instanceToPlain(user),
-      resources,
       projectedIncome: incomeTotal - upkeepCtx.totalUpkeep,
       projectedTroops: barracksCount * 50,
       projectedResearch: rpCtx.researchTotal,

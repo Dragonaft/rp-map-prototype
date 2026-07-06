@@ -5,9 +5,10 @@ import { UsersController } from './users.controller';
 import { User } from './entities/user.entity';
 import { Army } from '../armies/entities/army.entity';
 import { GoodsModule } from '../goods/goods.module';
+import { ResourcesModule } from '../resources/resources.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Army]), GoodsModule],
+  imports: [TypeOrmModule.forFeature([User, Army]), GoodsModule, ResourcesModule],
   controllers: [UsersController],
   providers: [UsersService],
   exports: [UsersService],

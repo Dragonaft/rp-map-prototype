@@ -27,7 +27,7 @@ AppModule
 ├── TechsModule         Tech tree definitions + research effects
 ├── ArmiesModule        Army CRUD, troop types, visibility rules
 ├── ActionsModule       Action queue, executor, scheduler, income, upkeep
-├── ResourcesModule     Resource definitions (key, name, type, plain_income)
+├── ResourcesModule     Resource definitions + per-user UserResource capacity ledger (drives build gating + MINE income)
 ├── GoodsModule         Good definitions + per-user UserGood inventory ledger — economy rework, step 3
 └── AdminModule         Admin CRUD for all entities
 ```
@@ -68,9 +68,10 @@ AppModule
 | GET    | /    | JWT  | All building templates |
 
 ### Resources (`/resources`)
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET    | /    | JWT  | All resource definitions (key, name, type, plainIncome) |
+| Method | Path  | Auth | Description |
+|--------|-------|------|-------------|
+| GET    | /     | JWT  | All resource definitions (key, name, type, plainIncome) |
+| GET    | /mine | JWT  | Caller's UserResource ledger rows (resource + available quantity) |
 
 ### Goods (`/goods`)
 | Method | Path  | Auth | Description |
@@ -197,6 +198,15 @@ be integers in `[1, 1_000_000]`.
 - `createRowsForNewUser(user)` — called from `UsersService.create` (registration) and `AdminService.createUser` — inserts a zero-quantity row for every existing good.
 - No credit/debit/spend logic yet — purely maintains the invariant so storage is never missing rows.
 
+### UserResourcesService
+- Maintains the `UserResource` capacity ledger — see [DATABASE.md](DATABASE.md#userresource) for the full column/semantics writeup.
+- `adjustQuantity(manager, userId, resourceKey, delta)` — unconditional grant/release, clamped at 0.
+- `tryReserve(manager, userId, resourceKey, amount)` — atomic conditional decrement (locks the row; used at BUILD/UPGRADE time to consume `requirement_resource`).
+- `sumIncomeForUsers`/`sumIncomeForUser` — `quantity × plain_income` per user, consumed by `IncomeActionService` and `UsersService.findOne`'s projection.
+- `createRowsForNewResource`/`createRowsForNewUser` — same fan-out pattern as `UserGoodsService`.
+- All mutating methods take an explicit `EntityManager` so they participate in the same transaction as the BUILD/REMOVE/UPGRADE action handler or turn-phase service calling them; `defaultManager` is used by non-transactional callers (e.g. the `/resources/mine` read, `UsersService`'s projection).
+- Called from `action-executor.service.ts` (Build/Remove/UpgradeActionHandler) and `action-scheduler.service.ts` (`transferProvinceResourceFootprint`, invoked on conquest from both `resolveArmyConflicts` and `syncProvinceOwnershipWithArmies`).
+
 ## File Structure
 
 ```
@@ -211,7 +221,8 @@ api/src/
 ├── armies/         controller, service, entities (army, army-unit, troop-type)
 ├── actions/        controller, service, executor (12 handlers), scheduler,
 │                   combat-calculator, income, upkeep, state-loader, middleware
-├── resources/      controller, service, entity, types (plain/consumable)
+├── resources/      controller, service (Resource), user-resources.service (UserResource ledger),
+│                   entities (resource, user-resource), types (plain/consumable)
 ├── goods/          controller, service (Good), user-goods.service (UserGood ledger),
 │                   entities (good, user-good)
 ├── admin/          controller, service

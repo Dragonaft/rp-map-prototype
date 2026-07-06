@@ -1,19 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, Repository } from 'typeorm';
 import { ActionsService } from './actions.service';
 import { ActionExecutionStateService } from './action-execution-state.service';
 import { ActionExecutorService, ExecutionContext } from './action-executor.service';
 import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
 import { UserStateLoaderService } from './user-state-loader.service';
+import { UserResourcesService } from '../resources/user-resources.service';
 import { ActionsLog, ExecutedAction } from './entities/actions-log.entity';
 import { ExecutionLock } from './entities/execution-lock.entity';
 import { ActionQueue, ActionStatus } from './entities/action-queue.entity';
 import { Army } from '../armies/entities/army.entity';
 import { ArmyUnit } from '../armies/entities/army-unit.entity';
 import { Province } from '../provinces/entities/province.entity';
+import { BuildingTypes } from '../buildings/types/building.types';
 import {
   ARMY_MIN_SIZE,
   CASUALTY_FLOOR,
@@ -44,10 +46,33 @@ export class ActionSchedulerService {
     private readonly upkeepAction: UpkeepActionService,
     private readonly userStateLoader: UserStateLoaderService,
     private readonly actionExecutionState: ActionExecutionStateService,
+    private readonly userResourcesService: UserResourcesService,
     private readonly dataSource: DataSource,
   ) {
     // Create unique instance ID (hostname + process ID)
     this.instanceId = `${os.hostname()}-${process.pid}`;
+  }
+
+  /**
+   * Moves a conquered province's resource footprint between ledgers: MINE/FORESTRY
+   * production capacity, and any requirement_resource reservations held by its
+   * buildings. Called whenever province.user_id changes ownership.
+   */
+  private async transferProvinceResourceFootprint(
+    manager: EntityManager, province: Province, fromUserId: string | null, toUserId: string,
+  ): Promise<void> {
+    const resourceKey = province.resource?.key;
+    for (const building of province.buildings ?? []) {
+      if (resourceKey && (building.type === BuildingTypes.MINE || building.type === BuildingTypes.FORESTRY)) {
+        if (fromUserId) await this.userResourcesService.adjustQuantity(manager, fromUserId, resourceKey, -1);
+        await this.userResourcesService.adjustQuantity(manager, toUserId, resourceKey, 1);
+      }
+      if (building.requirement_resource) {
+        const amount = building.requirement_resource_amount ?? 1;
+        if (fromUserId) await this.userResourcesService.adjustQuantity(manager, fromUserId, building.requirement_resource, amount);
+        await this.userResourcesService.adjustQuantity(manager, toUserId, building.requirement_resource, -amount);
+      }
+    }
   }
 
   // TODO: Create custom cron setup
@@ -362,6 +387,7 @@ export class ActionSchedulerService {
           );
 
           // Determine defender: user who owns the province
+          const originalOwnerId = province.user_id;
           let defenderUserId = province.user_id;
 
           // If no army belongs to the province owner, the first user (sorted for
@@ -370,6 +396,7 @@ export class ActionSchedulerService {
             defenderUserId = [...userIds].sort()[0];
             province.user_id = defenderUserId;
             await manager.save(Province, province);
+            await this.transferProvinceResourceFootprint(manager, province, originalOwnerId, defenderUserId);
             this.logger.warn(
               `Province ${provinceId}: no owner army present, assigned to user ${defenderUserId}`,
             );
@@ -438,6 +465,7 @@ export class ActionSchedulerService {
               // Transfer province ownership
               province.user_id = attackerUserId;
               await manager.save(Province, province);
+              await this.transferProvinceResourceFootprint(manager, province, defenderUserId, attackerUserId);
               defenderArmies = survivingAttackers;
 
               this.logger.log(
@@ -509,10 +537,10 @@ export class ActionSchedulerService {
         if (armies.length === 0) return;
 
         const provinceIds = [...new Set(armies.map((a) => a.province_id))];
-        const provinces = await manager
-          .createQueryBuilder(Province, 'p')
-          .where('p.id IN (:...ids)', { ids: provinceIds })
-          .getMany();
+        const provinces = await manager.find(Province, {
+          where: { id: In(provinceIds) },
+          relations: ['provinceBuildings', 'provinceBuildings.building'],
+        });
 
         const provinceMap = new Map(provinces.map((p) => [p.id, p]));
         let updated = 0;
@@ -522,8 +550,10 @@ export class ActionSchedulerService {
           if (!province || province.type === 'water') continue;
 
           if (province.user_id !== army.user_id) {
+            const previousOwnerId = province.user_id;
             province.user_id = army.user_id;
             await manager.save(Province, province);
+            await this.transferProvinceResourceFootprint(manager, province, previousOwnerId, army.user_id);
             updated++;
             this.logger.warn(
               `Province ${province.id} ownership corrected to user ${army.user_id} (army ${army.id})`,

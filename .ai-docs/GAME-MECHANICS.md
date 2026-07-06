@@ -14,8 +14,11 @@
 5. **Cleanup** — mark actions completed/failed, write execution log
 6. **Post-processing integrity** (each step in its own transaction, runs after cleanup):
    - Disband armies with < 100 troops (`ARMY_MIN_SIZE`)
-   - Resolve multi-faction battles in same province
-   - Sync province ownership with army presence
+   - Resolve multi-faction battles in same province — on conquest, also transfers the
+     province's MINE/FORESTRY resource capacity and any `requirement_resource`
+     reservations from the losing owner's `UserResource` ledger to the winner's
+   - Sync province ownership with army presence — same resource-footprint transfer
+     applies here too
 7. **SSE broadcast** — clients auto-reload
 
 ### 503 Gate
@@ -32,9 +35,12 @@ During execution, API returns 503 Service Unavailable on all endpoints except an
 
 ### Income Calculation
 - Each building type has base `income` value
-- MINE income varies by the province's resource: driven by `Resource.plain_income`
-  (seeded: stone=75, iron=125, gold=300, wood/grain/fish=0), editable via the
-  admin panel's Resources tab — see [DATABASE.md](DATABASE.md#resource)
+- MINE income is `UserResource.quantity × Resource.plain_income`, summed across a
+  user's resource ledger (seeded plain_income: stone=75, iron=125, gold=300,
+  wood/grain/fish=0), editable via the admin panel's Resources tab — see
+  [DATABASE.md](DATABASE.md#userresource). This replaced a per-turn scan of every
+  province's buildings; the ledger is now maintained incrementally as MINE/FORESTRY
+  buildings are built, demolished, or a province changes hands via conquest
 - Research modifiers apply (e.g., `economy.trade_routes` → +20% income)
 - Upkeep modifiers apply (e.g., `guild.merchant_guilds` → -15% upkeep)
 
@@ -56,7 +62,7 @@ All building validation rules are stored in the DB (editable via admin panel), n
 - **`destructible`** — whether players can demolish this building (CAPITAL = false). Demolition costs 100 money
 - **`unique_per_province`** — only one allowed per province (MINE, FORT, CASTLE = true)
 - **`allowed_province_resources`** — province must have matching resource_type. MINE=['iron','gold','stone'], FORESTRY=['wood'], FARM=['grain']. Null = buildable anywhere
-- **`requirement_resource`** + **`requirement_resource_amount`** — user resource consumed on build. ARMORY requires 1 iron, FORT/CASTLE require 1 stone. User resources are derived counts (number of MINE/FORESTRY buildings)
+- **`requirement_resource`** + **`requirement_resource_amount`** — user resource reserved from the `UserResource` ledger on build/upgrade, and released back on demolish/upgrade-away. ARMORY requires 1 iron, FORT/CASTLE require 1 stone. `UserResource.quantity` = MINE/FORESTRY production capacity minus what's currently reserved (see [DATABASE.md](DATABASE.md#userresource))
 - **`requirement_tech`** — tech keys that must be researched first
 - **`requirement_building`** — building type prerequisite (for upgrades)
 - **Upgrade chains:** e.g., GARDEN → FARM, FORT → CASTLE

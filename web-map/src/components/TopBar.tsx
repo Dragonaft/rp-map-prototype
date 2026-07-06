@@ -8,6 +8,7 @@ import { ProfileModal } from "./Modals/ProfileModal.tsx";
 import { ActionType, ProvinceBuilding, UserClasses } from "../types.ts";
 import { MAP_MODE_OPTIONS } from "../utils/mapModes.ts";
 import { setMapMode } from "../store/slices/provincesSlice.ts";
+import { RESOURCE_ICONS } from "../constants/buildingIcons.ts";
 
 export const TopBar = () => {
   const dispatch = useAppDispatch();
@@ -15,6 +16,7 @@ export const TopBar = () => {
   const actions = useAppSelector(state => state.actions.actions);
   const buildings = useAppSelector(state => state.buildings.buildings);
   const provinces = useAppSelector(state => state.provinces.provinces);
+  const myResources = useAppSelector(state => state.resources.mine);
   const mapMode = useAppSelector(state => state.provinces.mapMode);
   const { mutate } = useMutation(authApi.logout);
   const [openTechModal, setOpenTechModal] = useState(false);
@@ -22,19 +24,10 @@ export const TopBar = () => {
   const [mapModeAnchorEl, setMapModeAnchorEl] = useState<HTMLElement | null>(null);
   const activeMapModeLabel = MAP_MODE_OPTIONS.find(option => option.value === mapMode)?.label ?? 'Normal';
 
-  // Resources committed by built buildings + pending build actions.
-  // Built buildings come from the provinces slice — the /users endpoint does NOT
-  // serialize the Province.buildings getter, so user.provinces[].buildings is empty.
-  const usedResourcesByType = useMemo(() => {
+  // The resource ledger (myResources) already nets out built buildings — this is
+  // only a forward-looking preview of BUILD actions still queued for next turn.
+  const pendingResourceUsage = useMemo(() => {
     const used: Record<string, number> = {};
-    for (const province of provinces) {
-      if (province.userId !== user.id) continue;
-      for (const b of province.buildings ?? []) {
-        if (b.requirementResource && b.requirementResourceAmount) {
-          used[b.requirementResource] = (used[b.requirementResource] ?? 0) + b.requirementResourceAmount;
-        }
-      }
-    }
     const buildingById = new Map(buildings.map(b => [String(b.id), b]));
     for (const action of actions) {
       if (action.actionType !== ActionType.BUILD) continue;
@@ -45,7 +38,7 @@ export const TopBar = () => {
       }
     }
     return used;
-  }, [provinces, user.id, buildings, actions]);
+  }, [actions, buildings]);
 
   // Sum gold cost of all queued actions that have a known upfront cost.
   // BUILD: building.cost, UPGRADE: building.cost + 100, COLONIZE: 500.
@@ -131,16 +124,17 @@ export const TopBar = () => {
             <Tooltip
               title={
                 <div className="flex flex-col gap-2 p-1" style={{ fontSize: '14px', lineHeight: '1.6' }}>
-                  {(['stone', 'iron', 'gold', 'wood'] as const).map((res) => {
-                    const icons: Record<string, string> = { stone: '🪨', iron: '⚙', gold: '🪙', wood: '🪵' };
-                    const total = user.resources?.[res] ?? 0;
-                    const used = usedResourcesByType[res] ?? 0;
-                    const free = total - used;
+                  {myResources.length === 0 && <div>No resources yet</div>}
+                  {myResources.map((holding) => {
+                    const key = holding.resource.key;
+                    const icon = RESOURCE_ICONS[key] ?? '📦';
+                    const pending = pendingResourceUsage[key] ?? 0;
+                    const free = holding.quantity - pending;
                     return (
-                      <div key={res}>
-                        {icons[res]} {res.charAt(0).toUpperCase() + res.slice(1)}: {total}
-                        {used > 0 && (
-                          <span style={{ color: free <= 0 ? '#ffb3b3' : '#ffd580' }}> ({used} used, {Math.max(0, free)} free)</span>
+                      <div key={holding.id}>
+                        {icon} {holding.resource.name}: {holding.quantity}
+                        {pending > 0 && (
+                          <span style={{ color: free <= 0 ? '#ffb3b3' : '#ffd580' }}> ({pending} queued, {Math.max(0, free)} free)</span>
                         )}
                       </div>
                     );

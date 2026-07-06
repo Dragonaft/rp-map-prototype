@@ -3,6 +3,7 @@ import { EntityManager } from 'typeorm';
 import { BuildingTypes } from '../buildings/types/building.types';
 import { User } from '../users/entities/user.entity';
 import { UserGameState } from './user-state-loader.service';
+import { UserResourcesService } from '../resources/user-resources.service';
 import { INCOME_RESEARCH_EFFECTS, RESEARCH_POINT_EFFECTS } from '../techs/research-effects';
 import { parseIncome } from "../utils/parseIncome";
 
@@ -11,9 +12,18 @@ import { parseIncome } from "../utils/parseIncome";
 export class IncomeActionService {
   private readonly logger = new Logger(IncomeActionService.name);
 
+  constructor(private readonly userResourcesService: UserResourcesService) {}
+
   async execute(state: UserGameState, manager: EntityManager): Promise<void> {
     const { users, provincesByUser } = state;
     if (users.length === 0) return;
+
+    // Resource-ledger income (quantity * plain_income) replaces the old per-turn
+    // MINE-building scan — the ledger is already maintained as buildings are
+    // built/demolished/conquered, so this is a straight read instead of a re-derivation.
+    const resourceIncomeByUser = await this.userResourcesService.sumIncomeForUsers(
+      manager, users.map((u) => u.id),
+    );
 
     for (const user of users) {
       const userProvinces = provincesByUser.get(user.id) ?? [];
@@ -46,11 +56,9 @@ export class IncomeActionService {
               farmGardenIncome += parseIncome(b.income);
               incomeTotal += parseIncome(b.income);
               break;
-            case BuildingTypes.MINE: {
-              const mineIncome = province.resource?.plain_income ?? 0;
-              incomeTotal += mineIncome;
+            case BuildingTypes.MINE:
+              // Money from mines now comes from the resource ledger (see resourceIncomeByUser below).
               break;
-            }
             case BuildingTypes.TEMPLE: {
               pietyCount += 1;
               incomeTotal += parseIncome(b.income);
@@ -69,6 +77,8 @@ export class IncomeActionService {
           }
         }
       }
+
+      incomeTotal += resourceIncomeByUser.get(user.id) ?? 0;
 
       const completedResearch = user.completed_research ?? [];
 

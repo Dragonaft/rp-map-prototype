@@ -10,9 +10,14 @@ import { TroopType } from '../armies/entities/troop-type.entity';
 import { Resource } from '../resources/entities/resource.entity';
 import { Good } from '../goods/entities/good.entity';
 import { GoodsModule } from '../goods/goods.module';
+import { ResourcesModule } from '../resources/resources.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User, Building, Army, Tech, TroopType, Resource, Good]), GoodsModule],
+  imports: [
+    TypeOrmModule.forFeature([User, Building, Army, Tech, TroopType, Resource, Good]),
+    GoodsModule,
+    ResourcesModule,
+  ],
   controllers: [AdminController],
   providers: [AdminService],
 })

@@ -10,6 +10,7 @@ import { TroopType } from '../armies/entities/troop-type.entity';
 import { Resource } from '../resources/entities/resource.entity';
 import { Good } from '../goods/entities/good.entity';
 import { UserGoodsService } from '../goods/user-goods.service';
+import { UserResourcesService } from '../resources/user-resources.service';
 
 @Injectable()
 export class AdminService {
@@ -22,6 +23,7 @@ export class AdminService {
     @InjectRepository(Resource) private readonly resourceRepo: Repository<Resource>,
     @InjectRepository(Good) private readonly goodRepo: Repository<Good>,
     private readonly userGoodsService: UserGoodsService,
+    private readonly userResourcesService: UserResourcesService,
   ) {}
 
   // --- Users ---
@@ -37,6 +39,7 @@ export class AdminService {
     const user = this.userRepo.create({ ...rest, password: hashedPassword, is_new: rest.is_new ?? true });
     const saved = await this.userRepo.save(user);
     await this.userGoodsService.createRowsForNewUser(saved);
+    await this.userResourcesService.createRowsForNewUser(saved);
     const { password: _, ...result } = saved as any;
     return result;
   }
@@ -167,7 +170,9 @@ export class AdminService {
 
   async createResource(dto: Record<string, any>) {
     const resource = this.resourceRepo.create(dto);
-    return this.resourceRepo.save(resource);
+    const saved = await this.resourceRepo.save(resource);
+    await this.userResourcesService.createRowsForNewResource(saved);
+    return saved;
   }
 
   async updateResource(id: string, dto: Record<string, any>) {

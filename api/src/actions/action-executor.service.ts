@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { BuildingTypes } from '../buildings/types/building.types';
+import { UserResourcesService } from '../resources/user-resources.service';
 import { Building } from '../buildings/entities/building.entity';
 import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { Province } from '../provinces/entities/province.entity';
@@ -53,6 +54,7 @@ export class BuildActionHandler implements ActionHandler {
   constructor(
     @InjectRepository(Province)
     private readonly provinceRepo: Repository<Province>,
+    private readonly userResourcesService: UserResourcesService,
   ) {}
 
   async handle(action: ActionQueue): Promise<void> {
@@ -148,37 +150,15 @@ export class BuildActionHandler implements ActionHandler {
         );
       }
 
-      // Check user resource cost
+      // Reserve the user resource cost from the ledger (atomic check-and-decrement).
       if (buildingTemplate.requirement_resource) {
-        const resourceType = buildingTemplate.requirement_resource;
         const requiredAmount = buildingTemplate.requirement_resource_amount ?? 1;
-
-        // Count user's available resource (derived from buildings across all provinces)
-        const userProvinces = await manager.find(Province, {
-          where: { user_id: action.userId },
-          relations: ['provinceBuildings', 'provinceBuildings.building'],
-        });
-
-        let resourceCount = 0;
-        let resourceUsed = 0;
-        for (const p of userProvinces) {
-          for (const b of p.buildings ?? []) {
-            // Resource-producing buildings: MINE on matching province, FORESTRY on wood
-            if (b.type === BuildingTypes.MINE && p.resource?.key === resourceType) {
-              resourceCount++;
-            } else if (b.type === BuildingTypes.FORESTRY && resourceType === 'wood') {
-              resourceCount++;
-            }
-            // Count how many buildings already consume this resource
-            if (b.requirement_resource === resourceType) {
-              resourceUsed += b.requirement_resource_amount ?? 1;
-            }
-          }
-        }
-
-        if ((resourceCount - resourceUsed) < requiredAmount) {
+        const { ok, available } = await this.userResourcesService.tryReserve(
+          manager, action.userId, buildingTemplate.requirement_resource, requiredAmount,
+        );
+        if (!ok) {
           throw new Error(
-            `Not enough ${resourceType} resource: have ${resourceCount}, already using ${resourceUsed}, need ${requiredAmount} more`,
+            `Not enough ${buildingTemplate.requirement_resource} resource: have ${available}, need ${requiredAmount}`,
           );
         }
       }
@@ -190,6 +170,14 @@ export class BuildActionHandler implements ActionHandler {
         province_id: provinceId,
         building_id: buildingId,
       }));
+
+      // MINE/FORESTRY grant +1 production capacity for the province's resource.
+      if (buildingTemplate.type === BuildingTypes.MINE || buildingTemplate.type === BuildingTypes.FORESTRY) {
+        const resourceKey = province.resource?.key ?? (buildingTemplate.type === BuildingTypes.FORESTRY ? 'wood' : null);
+        if (resourceKey) {
+          await this.userResourcesService.adjustQuantity(manager, action.userId, resourceKey, 1);
+        }
+      }
     });
   }
 }
@@ -201,6 +189,7 @@ export class RemoveActionHandler implements ActionHandler {
   constructor(
     @InjectRepository(Province)
     private readonly provinceRepo: Repository<Province>,
+    private readonly userResourcesService: UserResourcesService,
   ) {}
 
   async handle(action: ActionQueue): Promise<void> {
@@ -258,6 +247,19 @@ export class RemoveActionHandler implements ActionHandler {
       await manager.save(User, user);
 
       await manager.remove(ProvinceBuilding, pb);
+
+      // Release the reserved requirement_resource, and drop MINE/FORESTRY production capacity.
+      if (pb.building.requirement_resource) {
+        await this.userResourcesService.adjustQuantity(
+          manager, action.userId, pb.building.requirement_resource, pb.building.requirement_resource_amount ?? 1,
+        );
+      }
+      if (pb.building.type === BuildingTypes.MINE || pb.building.type === BuildingTypes.FORESTRY) {
+        const resourceKey = province.resource?.key ?? (pb.building.type === BuildingTypes.FORESTRY ? 'wood' : null);
+        if (resourceKey) {
+          await this.userResourcesService.adjustQuantity(manager, action.userId, resourceKey, -1);
+        }
+      }
     });
   }
 }
@@ -269,6 +271,7 @@ export class UpgradeActionHandler implements ActionHandler {
   constructor(
     @InjectRepository(Province)
     private readonly provinceRepo: Repository<Province>,
+    private readonly userResourcesService: UserResourcesService,
   ) {}
 
   async handle(action: ActionQueue): Promise<void> {
@@ -358,6 +361,26 @@ export class UpgradeActionHandler implements ActionHandler {
         throw new Error('Not enough money to upgrade');
       }
 
+      // Swap the requirement_resource reservation: release what the old building
+      // held, then reserve what the new one needs (throws if insufficient).
+      if (currentBuilding.requirement_resource) {
+        await this.userResourcesService.adjustQuantity(
+          manager, action.userId, currentBuilding.requirement_resource,
+          currentBuilding.requirement_resource_amount ?? 1,
+        );
+      }
+      if (upgradeBuilding.requirement_resource) {
+        const requiredAmount = upgradeBuilding.requirement_resource_amount ?? 1;
+        const { ok, available } = await this.userResourcesService.tryReserve(
+          manager, action.userId, upgradeBuilding.requirement_resource, requiredAmount,
+        );
+        if (!ok) {
+          throw new Error(
+            `Not enough ${upgradeBuilding.requirement_resource} resource: have ${available}, need ${requiredAmount}`,
+          );
+        }
+      }
+
       user.money = currentMoney - cost;
       await manager.save(User, user);
 
@@ -369,6 +392,17 @@ export class UpgradeActionHandler implements ActionHandler {
         province_id: provinceId,
         building_id: upgradeBuilding.id,
       }));
+
+      // MINE/FORESTRY production capacity swap (defensive — no current upgrade chain changes this).
+      const resourceKey = province.resource?.key;
+      if (resourceKey) {
+        if (currentBuilding.type === BuildingTypes.MINE || currentBuilding.type === BuildingTypes.FORESTRY) {
+          await this.userResourcesService.adjustQuantity(manager, action.userId, resourceKey, -1);
+        }
+        if (upgradeBuilding.type === BuildingTypes.MINE || upgradeBuilding.type === BuildingTypes.FORESTRY) {
+          await this.userResourcesService.adjustQuantity(manager, action.userId, resourceKey, 1);
+        }
+      }
     });
   }
 }
