@@ -58,10 +58,9 @@ docker compose pull && docker compose up -d --wait
 
 The GitHub Actions deploy workflow (`.github/workflows/deploy.yml`) builds and
 pushes the three images, SSHes to the EC2 host, sets the `IMAGE_*` vars, pulls
-and brings the stack up, then runs `migration:run:prod` and (when
+and brings the stack up, then runs `migration:run` and (when
 `api/data/provinces.json` changed or a full reset is forced) re-imports
-provinces and re-seeds via the `:prod` scripts. The host only pulls images —
-it never builds.
+provinces and re-seeds. The host only pulls images — it never builds.
 
 ## Network Topology
 
@@ -122,25 +121,29 @@ docker compose up --build
 
 ## Post-Build Setup
 
-After first `docker compose up`. Use the **`:prod`** script variants — the
-container ships only compiled `dist/`, so the plain `ts-node` scripts
-(`seed:buildings`, `import:provinces`, …) will fail inside it:
+After first `docker compose up`. Every seed/migration script (`api/package.json`)
+runs through `api/scripts/run-env.js`, which auto-detects dev vs. prod from
+`NODE_ENV` and picks `ts-node` against `src/` or plain `node` against the
+compiled `dist/` accordingly — there's no separate `:prod` script name to
+remember. Inside the `api` container `NODE_ENV=production` is already set (see
+docker-compose.yml), so the same command names below resolve correctly whether
+run via `docker compose exec` or locally:
 ```bash
 # Run migrations
-docker compose exec api npm run migration:run:prod
+docker compose exec api npm run migration:run
 
 # Seed data (order matters: resources before import:provinces — it resolves
 # each province's resource_type key against that table; goods before buildings —
 # it resolves each production_good_name against that table)
-docker compose exec api npm run seed:resources:prod
-docker compose exec api npm run seed:goods:prod
-docker compose exec api npm run seed:buildings:prod
-docker compose exec api npm run seed:techs:prod
-docker compose exec api npm run seed:troop-types:prod
-docker compose exec api npm run import:provinces:prod
+docker compose exec api npm run seed:resources
+docker compose exec api npm run seed:goods
+docker compose exec api npm run seed:buildings
+docker compose exec api npm run seed:techs
+docker compose exec api npm run seed:troop-types
+docker compose exec api npm run import:provinces
 ```
 
-> `reset:game:prod` wipes and re-imports game data — the CI deploy runs it
+> `reset:game` wipes and re-imports game data — the CI deploy runs it
 > (with the seeds) whenever `api/data/provinces.json` changes.
 
 ## Local Development (Without Docker)

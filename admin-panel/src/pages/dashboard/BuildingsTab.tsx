@@ -16,7 +16,7 @@ import { adminApi } from '../../api/admin';
 
 const BUILDING_TYPES = [
   '', 'CAPITOL', 'CAPITAL', 'FARM', 'BARRACKS', 'FORT', 'MARKET', 'LIBRARY',
-  'MINE', 'FORESTRY', 'GARDEN', 'BAZAAR', 'ARMORY', 'ROAD', 'TEMPLE',
+  'MINE', 'FORESTRY', 'SAWMILL', 'BRICKYARD', 'BARN', 'GARDEN', 'BAZAAR', 'ARMORY', 'ROAD', 'TEMPLE',
   'CATHEDRAL', 'TRADE_HOUSE', 'CASTLE',
 ];
 
@@ -26,7 +26,9 @@ const EMPTY_NEW_BUILDING = {
   buildable: true, destructible: true, unique_per_province: false,
   allowed_province_resources: [] as string[], requirement_resource: '', requirement_resource_amount: 0,
   visible: false, can_recruit: false, isProduction: false,
-  production_good_id: '', production_requirement_resource: '', production_amount: 1,
+  production_good_id: '', production_requirement_resource: '', production_requirement_resource_amount: 0,
+  production_amount: 1, resource_production_amount: 0,
+  requirement_good_id: '', requirement_good_amount: 0,
 };
 
 export const BuildingsTab = () => {
@@ -93,7 +95,11 @@ export const BuildingsTab = () => {
         requirement_resource_amount: newBuilding.requirement_resource_amount || null,
         production_good_id: newBuilding.production_good_id || null,
         production_requirement_resource: newBuilding.production_requirement_resource || null,
+        production_requirement_resource_amount: newBuilding.production_requirement_resource_amount || null,
         production_amount: newBuilding.production_amount || null,
+        resource_production_amount: newBuilding.resource_production_amount || null,
+        requirement_good_id: newBuilding.requirement_good_id || null,
+        requirement_good_amount: newBuilding.requirement_good_amount || null,
       };
       const res = await adminApi.createBuilding(payload);
       setRows((prev) => [...prev, res.data]);
@@ -138,10 +144,14 @@ export const BuildingsTab = () => {
     { field: 'isProduction', headerName: 'Production', width: 100, editable: true, type: 'boolean' },
     { field: 'production_good_id', headerName: 'Production Good', width: 150, editable: true, type: 'singleSelect', valueOptions: GOOD_OPTIONS },
     { field: 'production_requirement_resource', headerName: 'Prod. Req. Resource', width: 150, editable: true, type: 'singleSelect', valueOptions: REQ_RESOURCE_OPTIONS },
+    { field: 'production_requirement_resource_amount', headerName: 'Prod. Req. Amount', type: 'number', width: 140, editable: true },
     { field: 'production_amount', headerName: 'Prod. Amount', type: 'number', width: 120, editable: true },
+    { field: 'resource_production_amount', headerName: 'Resource Prod. Amount', type: 'number', width: 160, editable: true },
     arrCol('allowed_province_resources', 'Allowed Resources', 160),
     { field: 'requirement_resource', headerName: 'Req. Resource', width: 120, editable: true, type: 'singleSelect', valueOptions: REQ_RESOURCE_OPTIONS },
     { field: 'requirement_resource_amount', headerName: 'Req. Amount', type: 'number', width: 100, editable: true },
+    { field: 'requirement_good_id', headerName: 'Req. Good', width: 150, editable: true, type: 'singleSelect', valueOptions: GOOD_OPTIONS },
+    { field: 'requirement_good_amount', headerName: 'Req. Good Amount', type: 'number', width: 140, editable: true },
     {
       field: 'actions',
       type: 'actions',
@@ -265,7 +275,16 @@ export const BuildingsTab = () => {
               {REQ_RESOURCE_OPTIONS.map((o) => <MenuItem key={o} value={o}>{o || '(none)'}</MenuItem>)}
             </Select>
           </FormControl>
+          <TextField label="Production Req. Resource Amount" type="number" value={newBuilding.production_requirement_resource_amount} onChange={(e) => setNewBuilding((p) => ({ ...p, production_requirement_resource_amount: Number(e.target.value) }))} />
           <TextField label="Production Amount" type="number" value={newBuilding.production_amount} onChange={(e) => setNewBuilding((p) => ({ ...p, production_amount: Number(e.target.value) }))} />
+          <TextField label="Resource Production Amount (MINE/FORESTRY)" type="number" value={newBuilding.resource_production_amount} onChange={(e) => setNewBuilding((p) => ({ ...p, resource_production_amount: Number(e.target.value) }))} />
+          <FormControl>
+            <InputLabel>Req. Good</InputLabel>
+            <Select label="Req. Good" value={newBuilding.requirement_good_id} onChange={(e) => setNewBuilding((p) => ({ ...p, requirement_good_id: e.target.value }))}>
+              {GOOD_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField label="Req. Good Amount" type="number" value={newBuilding.requirement_good_amount} onChange={(e) => setNewBuilding((p) => ({ ...p, requirement_good_amount: Number(e.target.value) }))} />
           <FormControl>
             <InputLabel>Allowed Resources</InputLabel>
             <Select

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, In, Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { UserResource } from './entities/user-resource.entity';
 import { Resource } from './entities/resource.entity';
 import { User } from '../users/entities/user.entity';
@@ -89,44 +89,4 @@ export class UserResourcesService {
     return { ok: true, available };
   }
 
-  /** Sum of quantity * resource.plain_income per user — replaces the old per-turn MINE building scan. */
-  async sumIncomeForUsers(manager: EntityManager, userIds: string[]): Promise<Map<string, number>> {
-    const result = new Map<string, number>();
-    if (!userIds.length) return result;
-
-    const rows = await manager.find(UserResource, { where: { user_id: In(userIds) } });
-    for (const row of rows) {
-      const income = row.quantity * (row.resource?.plain_income ?? 0);
-      result.set(row.user_id, (result.get(row.user_id) ?? 0) + income);
-    }
-    return result;
-  }
-
-  async sumIncomeForUser(manager: EntityManager, userId: string): Promise<number> {
-    const map = await this.sumIncomeForUsers(manager, [userId]);
-    return map.get(userId) ?? 0;
-  }
-
-  /**
-   * Bulk read-only quantities for a set of users, keyed by userId then resource
-   * key — for gating checks (e.g. "does this user have any iron?") that don't
-   * need a row lock since nothing is mutated.
-   */
-  async getQuantitiesForUsers(manager: EntityManager, userIds: string[]): Promise<Map<string, Map<string, number>>> {
-    const result = new Map<string, Map<string, number>>();
-    if (!userIds.length) return result;
-
-    const rows = await manager.find(UserResource, { where: { user_id: In(userIds) } });
-    for (const row of rows) {
-      const byResource = result.get(row.user_id) ?? new Map<string, number>();
-      if (row.resource?.key) byResource.set(row.resource.key, row.quantity);
-      result.set(row.user_id, byResource);
-    }
-    return result;
-  }
-
-  /** Default (non-transactional) EntityManager, for call sites outside a per-action/per-tick transaction. */
-  get defaultManager(): EntityManager {
-    return this.userResourceRepo.manager;
-  }
 }

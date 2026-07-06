@@ -24,6 +24,9 @@ export enum BuildingTypes {
   CATHEDRAL = 'CATHEDRAL',
   TRADE_HOUSE = 'TRADE_HOUSE',
   CASTLE = 'CASTLE',
+  SAWMILL = 'SAWMILL',
+  BRICKYARD = 'BRICKYARD',
+  BARN = 'BARN',
 }
 
 export interface Tech {
@@ -82,6 +85,14 @@ export interface Building {
   requirementResourceAmount: number | null;
   visible: boolean;
   canRecruit: boolean;
+  isProduction: boolean;
+  productionGood: string | null;
+  productionRequirementResource: string | null;
+  productionRequirementResourceAmount: number | null;
+  productionAmount: number | null;
+  resourceProductionAmount: number | null;
+  requirementGood: string | null;
+  requirementGoodAmount: number | null;
 }
 
 /** A building as it exists in a province — template fields plus the unique

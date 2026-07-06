@@ -39,7 +39,13 @@ interface BuildingSeedRow {
   /** Good.name to resolve to production_good_id at seed time — Good has no natural key like Resource does. */
   production_good_name?: string | null;
   production_requirement_resource?: string | null;
+  production_requirement_resource_amount?: number | null;
   production_amount?: number | null;
+  /** Per-turn amount of the province's resource credited to the ledger — MINE/FORESTRY. */
+  resource_production_amount?: number | null;
+  /** Good.name to resolve to requirement_good_id at seed time — a one-time BUILD cost, like requirement_resource but for goods. */
+  requirement_good_name?: string | null;
+  requirement_good_amount?: number | null;
 }
 
 const BUILDING_TYPE_VALUES = new Set<string>(Object.values(BuildingTypes));
@@ -142,6 +148,19 @@ async function seedBuildings() {
       production_good_id = good.id;
     }
 
+    let requirement_good_id: string | null = null;
+    if (row.requirement_good_name) {
+      const good = await goodRepo.findOne({ where: { name: row.requirement_good_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.type}: requirement_good_name "${row.requirement_good_name}" not found — run seed:goods before seed:buildings`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      requirement_good_id = good.id;
+    }
+
     const patch = {
       name: row.name,
       description: row.description,
@@ -163,7 +182,11 @@ async function seedBuildings() {
       isProduction: row.isProduction ?? false,
       production_good_id,
       production_requirement_resource: row.production_requirement_resource ?? null,
+      production_requirement_resource_amount: row.production_requirement_resource_amount ?? null,
       production_amount: row.production_amount ?? null,
+      resource_production_amount: row.resource_production_amount ?? null,
+      requirement_good_id,
+      requirement_good_amount: row.requirement_good_amount ?? null,
     };
 
     const existing = await repo.find({

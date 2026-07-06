@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { BuildingTypes } from '../buildings/types/building.types';
 import { UserResourcesService } from '../resources/user-resources.service';
+import { UserGoodsService } from '../goods/user-goods.service';
+import { Good } from '../goods/entities/good.entity';
 import { Building } from '../buildings/entities/building.entity';
 import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { Province } from '../provinces/entities/province.entity';
@@ -55,6 +57,7 @@ export class BuildActionHandler implements ActionHandler {
     @InjectRepository(Province)
     private readonly provinceRepo: Repository<Province>,
     private readonly userResourcesService: UserResourcesService,
+    private readonly userGoodsService: UserGoodsService,
   ) {}
 
   async handle(action: ActionQueue): Promise<void> {
@@ -163,6 +166,20 @@ export class BuildActionHandler implements ActionHandler {
         }
       }
 
+      // Reserve the user good cost from the ledger (atomic check-and-decrement).
+      if (buildingTemplate.requirement_good_id) {
+        const requiredAmount = buildingTemplate.requirement_good_amount ?? 1;
+        const { ok, available } = await this.userGoodsService.tryReserve(
+          manager, action.userId, buildingTemplate.requirement_good_id, requiredAmount,
+        );
+        if (!ok) {
+          const good = await manager.findOne(Good, { where: { id: buildingTemplate.requirement_good_id } });
+          throw new Error(
+            `Not enough ${good?.name ?? 'required good'}: have ${available}, need ${requiredAmount}`,
+          );
+        }
+      }
+
       user.money = currentMoney - cost;
       await manager.save(User, user);
 
@@ -170,14 +187,6 @@ export class BuildActionHandler implements ActionHandler {
         province_id: provinceId,
         building_id: buildingId,
       }));
-
-      // MINE/FORESTRY grant +1 production capacity for the province's resource.
-      if (buildingTemplate.type === BuildingTypes.MINE || buildingTemplate.type === BuildingTypes.FORESTRY) {
-        const resourceKey = province.resource?.key ?? (buildingTemplate.type === BuildingTypes.FORESTRY ? 'wood' : null);
-        if (resourceKey) {
-          await this.userResourcesService.adjustQuantity(manager, action.userId, resourceKey, 1);
-        }
-      }
     });
   }
 }
@@ -190,6 +199,7 @@ export class RemoveActionHandler implements ActionHandler {
     @InjectRepository(Province)
     private readonly provinceRepo: Repository<Province>,
     private readonly userResourcesService: UserResourcesService,
+    private readonly userGoodsService: UserGoodsService,
   ) {}
 
   async handle(action: ActionQueue): Promise<void> {
@@ -248,17 +258,16 @@ export class RemoveActionHandler implements ActionHandler {
 
       await manager.remove(ProvinceBuilding, pb);
 
-      // Release the reserved requirement_resource, and drop MINE/FORESTRY production capacity.
+      // Release the reserved requirement_resource / requirement_good back to the ledger.
       if (pb.building.requirement_resource) {
         await this.userResourcesService.adjustQuantity(
           manager, action.userId, pb.building.requirement_resource, pb.building.requirement_resource_amount ?? 1,
         );
       }
-      if (pb.building.type === BuildingTypes.MINE || pb.building.type === BuildingTypes.FORESTRY) {
-        const resourceKey = province.resource?.key ?? (pb.building.type === BuildingTypes.FORESTRY ? 'wood' : null);
-        if (resourceKey) {
-          await this.userResourcesService.adjustQuantity(manager, action.userId, resourceKey, -1);
-        }
+      if (pb.building.requirement_good_id) {
+        await this.userGoodsService.adjustQuantity(
+          manager, action.userId, pb.building.requirement_good_id, pb.building.requirement_good_amount ?? 1,
+        );
       }
     });
   }
@@ -272,6 +281,7 @@ export class UpgradeActionHandler implements ActionHandler {
     @InjectRepository(Province)
     private readonly provinceRepo: Repository<Province>,
     private readonly userResourcesService: UserResourcesService,
+    private readonly userGoodsService: UserGoodsService,
   ) {}
 
   async handle(action: ActionQueue): Promise<void> {
@@ -381,6 +391,26 @@ export class UpgradeActionHandler implements ActionHandler {
         }
       }
 
+      // Swap the requirement_good reservation the same way (e.g. FORESTRY -> SAWMILL needs Bricks).
+      if (currentBuilding.requirement_good_id) {
+        await this.userGoodsService.adjustQuantity(
+          manager, action.userId, currentBuilding.requirement_good_id,
+          currentBuilding.requirement_good_amount ?? 1,
+        );
+      }
+      if (upgradeBuilding.requirement_good_id) {
+        const requiredAmount = upgradeBuilding.requirement_good_amount ?? 1;
+        const { ok, available } = await this.userGoodsService.tryReserve(
+          manager, action.userId, upgradeBuilding.requirement_good_id, requiredAmount,
+        );
+        if (!ok) {
+          const good = await manager.findOne(Good, { where: { id: upgradeBuilding.requirement_good_id } });
+          throw new Error(
+            `Not enough ${good?.name ?? 'required good'}: have ${available}, need ${requiredAmount}`,
+          );
+        }
+      }
+
       user.money = currentMoney - cost;
       await manager.save(User, user);
 
@@ -392,17 +422,6 @@ export class UpgradeActionHandler implements ActionHandler {
         province_id: provinceId,
         building_id: upgradeBuilding.id,
       }));
-
-      // MINE/FORESTRY production capacity swap (defensive — no current upgrade chain changes this).
-      const resourceKey = province.resource?.key;
-      if (resourceKey) {
-        if (currentBuilding.type === BuildingTypes.MINE || currentBuilding.type === BuildingTypes.FORESTRY) {
-          await this.userResourcesService.adjustQuantity(manager, action.userId, resourceKey, -1);
-        }
-        if (upgradeBuilding.type === BuildingTypes.MINE || upgradeBuilding.type === BuildingTypes.FORESTRY) {
-          await this.userResourcesService.adjustQuantity(manager, action.userId, resourceKey, 1);
-        }
-      }
     });
   }
 }

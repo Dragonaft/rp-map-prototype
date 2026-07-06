@@ -196,22 +196,22 @@ be integers in `[1, 1_000_000]`.
 - Keeps `UserGood` fully populated: one row per (user, good) pair, always.
 - `createRowsForNewGood(good)` — called from `AdminService.createGood` — inserts a zero-quantity row for every existing user.
 - `createRowsForNewUser(user)` — called from `UsersService.create` (registration) and `AdminService.createUser` — inserts a zero-quantity row for every existing good.
-- `adjustQuantity(manager, userId, goodId, delta)` — unconditional grant/release, clamped at 0. Keyed by `goodId` (not a key string — `Good` has no natural key like `Resource` does). Called from `ProductionActionService` to credit turn production. No spend/trade logic yet.
+- `adjustQuantity(manager, userId, goodId, delta)` — unconditional grant/release, clamped at 0. Keyed by `goodId` (not a key string — `Good` has no natural key like `Resource` does). Used to credit turn production and to release a `requirement_good` reservation on demolish/upgrade.
+- `tryReserve(manager, userId, goodId, amount)` — atomic conditional decrement (locks the row). Used at BUILD/UPGRADE time to consume `requirement_good` (e.g. BARRACKS' 25 Weapons, SAWMILL's 25 Bricks). No spend/trade logic beyond BUILD costs yet.
 
 ### ProductionActionService
-- Runs once per scheduled queue tick, right after `IncomeActionService` and before `UpkeepActionService`.
-- For every building a user owns where `isProduction && production_good_id && production_requirement_resource`: if `UserResourcesService.getQuantitiesForUsers` shows the user's quantity for `production_requirement_resource` is > 0 (a **gate**, not a spend — never decremented), credits `production_amount` (default 1) of `productionGoodEntity` into `UserGood` via `UserGoodsService.adjustQuantity`.
-- Resource quantities for all users are batched in one query up front (`getQuantitiesForUsers`) rather than queried per building.
+- Runs once per scheduled queue tick, right after `IncomeActionService` and before `UpkeepActionService`. Two passes over every building each user owns:
+  1. **Resource production** — any building with `resource_production_amount` set (MINE, FORESTRY, BARN) unconditionally credits that amount of `province.resource.key` into `UserResource` via `adjustQuantity`.
+  2. **Goods production** — for buildings with `isProduction && production_good_id` set: if `production_requirement_resource` is also set, atomically `tryReserve` (spend) `production_requirement_resource_amount` of it from `UserResource` — skip this building for the turn if that fails. Otherwise (or on success), credit `production_amount` of `productionGoodEntity` into `UserGood` via `UserGoodsService.adjustQuantity`.
+- Pass 1 always completes before pass 2 starts, so this turn's mined resources are available to this turn's manufacturing regardless of building iteration order.
 
 ### UserResourcesService
-- Maintains the `UserResource` capacity ledger — see [DATABASE.md](DATABASE.md#userresource) for the full column/semantics writeup.
-- `adjustQuantity(manager, userId, resourceKey, delta)` — unconditional grant/release, clamped at 0.
-- `tryReserve(manager, userId, resourceKey, amount)` — atomic conditional decrement (locks the row; used at BUILD/UPGRADE time to consume `requirement_resource`).
-- `sumIncomeForUsers`/`sumIncomeForUser` — `quantity × plain_income` per user, consumed by `IncomeActionService` and `UsersService.findOne`'s projection.
-- `getQuantitiesForUsers(manager, userIds)` — bulk read-only quantities (userId → resourceKey → quantity), no row lock. Used by `ProductionActionService` for the production gate check.
+- Maintains the `UserResource` manufacturing stockpile — see [DATABASE.md](DATABASE.md#userresource) for the full column/semantics writeup and why money income no longer reads it.
+- `adjustQuantity(manager, userId, resourceKey, delta)` — unconditional grant/release, clamped at 0. Used for per-turn MINE/FORESTRY production credit and for releasing a `requirement_resource` reservation on demolish/upgrade.
+- `tryReserve(manager, userId, resourceKey, amount)` — atomic conditional decrement (locks the row). Used at BUILD/UPGRADE time to consume `requirement_resource`, and per-turn in `ProductionActionService` to consume `production_requirement_resource_amount`.
 - `createRowsForNewResource`/`createRowsForNewUser` — same fan-out pattern as `UserGoodsService`.
-- All mutating methods take an explicit `EntityManager` so they participate in the same transaction as the BUILD/REMOVE/UPGRADE action handler or turn-phase service calling them; `defaultManager` is used by non-transactional callers (e.g. the `/resources/mine` read, `UsersService`'s projection).
-- Called from `action-executor.service.ts` (Build/Remove/UpgradeActionHandler) and `action-scheduler.service.ts` (`transferProvinceResourceFootprint`, invoked on conquest from both `resolveArmyConflicts` and `syncProvinceOwnershipWithArmies`).
+- All mutating methods take an explicit `EntityManager` so they participate in the same transaction as the BUILD/REMOVE/UPGRADE action handler or turn-phase service calling them.
+- Called from `action-executor.service.ts` (Build/Remove/UpgradeActionHandler, plus the new `requirement_good` checks via `UserGoodsService`) and `action-scheduler.service.ts` (`transferProvinceResourceFootprint`, invoked on conquest from both `resolveArmyConflicts` and `syncProvinceOwnershipWithArmies` — transfers `requirement_resource`/`requirement_good` reservations only; per-turn production isn't transferred, it's derived fresh from whoever owns the building next turn).
 
 ## File Structure
 
@@ -256,7 +256,9 @@ api/data/           resources.json, goods.json, provinces.json, buildings.json, 
 | `seed:techs`       | Seed tech tree                                   |
 | `seed:troop-types` | Seed troop type definitions                      |
 | `balance:report`   | Generate combat balance analysis                 |
-| `reset:game`       | Reset game data (`reset:game:prod` for prod)     |
+| `reset:game`       | Reset game data                                  |
+
+> All scripts above (except `migration:generate`/`migration:create`, which are dev-only tooling) route through `api/scripts/run-env.js`, which reads `NODE_ENV` and picks `ts-node` against `src/` (dev) or plain `node` against compiled `dist/` (prod) — no separate `:prod` script names. See [DOCKER.md](DOCKER.md#post-build-setup).
 
 ## None
 - For creating migrations use `typeorm -- migration:create` command, don’t create migrations manually.

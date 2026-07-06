@@ -15,10 +15,12 @@
 6. **Cleanup** — mark actions completed/failed, write execution log
 7. **Post-processing integrity** (each step in its own transaction, runs after cleanup):
    - Disband armies with < 100 troops (`ARMY_MIN_SIZE`)
-   - Resolve multi-faction battles in same province — on conquest, also transfers the
-     province's MINE/FORESTRY resource capacity and any `requirement_resource`
-     reservations from the losing owner's `UserResource` ledger to the winner's
-   - Sync province ownership with army presence — same resource-footprint transfer
+   - Resolve multi-faction battles in same province — on conquest, also transfers
+     any `requirement_resource`/`requirement_good` reservations held by the
+     province's buildings from the losing owner's ledger to the winner's
+     (per-turn resource/goods *production* isn't transferred — it's simply
+     derived fresh next turn from whoever then owns the building)
+   - Sync province ownership with army presence — same reservation transfer
      applies here too
 8. **SSE broadcast** — clients auto-reload
 
@@ -35,13 +37,10 @@ During execution, API returns 503 Service Unavailable on all endpoints except an
 | **Research Pts** | CAPITAL + LIBRARY buildings             | Tech research                      |
 
 ### Income Calculation
-- Each building type has base `income` value
-- MINE income is `UserResource.quantity × Resource.plain_income`, summed across a
-  user's resource ledger (seeded plain_income: stone=75, iron=125, gold=300,
-  wood/grain/fish=0), editable via the admin panel's Resources tab — see
-  [DATABASE.md](DATABASE.md#userresource). This replaced a per-turn scan of every
-  province's buildings; the ledger is now maintained incrementally as MINE/FORESTRY
-  buildings are built, demolished, or a province changes hands via conquest
+- Each building type has a flat base `income` value, including MINE — money income
+  no longer reads the resource ledger at all (`Resource.plain_income` is unused
+  for income; see [DATABASE.md](DATABASE.md#userresource) for why that mechanic
+  was reverted)
 - Research modifiers apply (e.g., `economy.trade_routes` → +20% income)
 - Upkeep modifiers apply (e.g., `guild.merchant_guilds` → -15% upkeep)
 
@@ -50,18 +49,21 @@ During execution, API returns 503 Service Unavailable on all endpoints except an
 - **Army upkeep:** `flat_upkeep` (100) + per-unit costs (unit.count / 100 * troopType.upkeep_per_100)
 - **Paladins:** upkeep paid in piety instead of money
 
-### Goods Production
-Buildings can also produce **Goods** (a separate catalog from Resources — see [DATABASE.md](DATABASE.md#good)) each turn, stocked in the owner's `UserGood` ledger:
-- Requires `isProduction = true` and `production_good_id` set (which good)
-- **Gate, not a spend (optional):** if `production_requirement_resource` is set, production only happens on turns where the owner's `UserResource.quantity` for it is > 0 (e.g. ARMORY → iron → Weapons, FORESTRY → wood → Lumber, FARM/GARDEN → grain → Food). The resource is never consumed by this check. If left null, the building produces unconditionally — CAPITAL → Food (25/turn) has no gate
-- **Credit amount:** `production_amount` (default 1) units of the good, added to `UserGood.quantity` per building per turn
-- No spend/trade logic for goods yet — `GET /goods/mine` (used by the web-map TopBar) is currently the only consumer
-- Caveat in the current seed data: nothing grants **grain** production capacity (only MINE grants iron/gold/stone, FORESTRY grants wood — see [DATABASE.md](DATABASE.md#userresource)), so FARM/GARDEN's Food gate never actually opens today. CAPITAL's ungated 25/turn is the only Food source until that's addressed
+### Resource & Goods Production
+Two-pass turn mechanic (`ProductionActionService`) — see [DATABASE.md](DATABASE.md#goods--resource-production-turn-logic) for the full seed-data table:
+
+1. **Resource production (unconditional):** any building with `resource_production_amount` set credits that amount of `province.resource.key` into the owner's `UserResource` stockpile. This is what MINE and FORESTRY actually do each turn (25/turn each in current seed data) — it replaced an earlier "+1 static capacity at build time" model, so the stockpile now genuinely accumulates and depletes over time.
+2. **Goods production:** requires `isProduction = true` and `production_good_id` set.
+   - **Input (optional):** if `production_requirement_resource` is set, atomically reserve (spend) `production_requirement_resource_amount` of it from `UserResource` — production is skipped for the turn if that fails (e.g. ARMORY spends 25 iron/turn to make 25 Weapons). If null, production is unconditional (CAPITAL → 25 Food/turn, no input).
+   - **Output:** `production_amount` units of the good credited to `UserGood`.
+- Resource production always completes before goods production runs, so this turn's mined resources are available to this turn's manufacturing regardless of building order.
+- No spend/trade logic for goods yet — `GET /goods/mine` (used by the web-map TopBar) is currently the only consumer.
+- BARN (grain provinces only, 25 grain/turn) closes the loop for GARDEN/FARM's 1 grain input — before BARN existed, nothing granted grain capacity and that input could never be satisfied. CAPITAL's unconditional 25 Food/turn remains a Food source regardless.
 
 ## Buildings
 
 ### Building Types
-CAPITAL, CAPITOL, FORT, CASTLE, BARRACKS, ARMORY, FARM, GARDEN, MINE, FORESTRY, LIBRARY, TEMPLE, CATHEDRAL, ROAD, TRADE_HOUSE, BAZAAR, MARKET
+CAPITAL, CAPITOL, FORT, CASTLE, BARRACKS, ARMORY, FARM, GARDEN, MINE, FORESTRY, SAWMILL, BRICKYARD, BARN, LIBRARY, TEMPLE, CATHEDRAL, ROAD, TRADE_HOUSE, BAZAAR, MARKET
 
 ### Building Rules
 All building validation rules are stored in the DB (editable via admin panel), not hardcoded:
@@ -69,12 +71,13 @@ All building validation rules are stored in the DB (editable via admin panel), n
 - **Building cap** per province based on landscape type + research unlocks
 - **`buildable`** — whether players can construct this building (CAPITAL/CAPITOL = false)
 - **`destructible`** — whether players can demolish this building (CAPITAL = false). Demolition costs 100 money
-- **`unique_per_province`** — only one allowed per province (MINE, FORT, CASTLE = true)
-- **`allowed_province_resources`** — province must have matching resource_type. MINE=['iron','gold','stone'], FORESTRY=['wood'], FARM=['grain']. Null = buildable anywhere
-- **`requirement_resource`** + **`requirement_resource_amount`** — user resource reserved from the `UserResource` ledger on build/upgrade, and released back on demolish/upgrade-away. ARMORY requires 1 iron, FORT/CASTLE require 1 stone. `UserResource.quantity` = MINE/FORESTRY production capacity minus what's currently reserved (see [DATABASE.md](DATABASE.md#userresource))
+- **`unique_per_province`** — only one allowed per province (MINE, BRICKYARD, FORESTRY, SAWMILL, ARMORY, BARN, FARM, FORT, CASTLE = true)
+- **`allowed_province_resources`** — province must have matching resource_type. MINE=['iron','gold','stone'], BRICKYARD=['stone'], FORESTRY/SAWMILL=['wood'], BARN/FARM=['grain']. Null = buildable anywhere
+- **`requirement_resource`** + **`requirement_resource_amount`** — one-time raw-resource cost reserved from the `UserResource` stockpile at build/upgrade time, released back on demolish/upgrade-away. ARMORY requires 1 iron, FORT/CASTLE require 1 stone
+- **`requirement_good_id`** + **`requirement_good_amount`** — same mechanic, but a one-time cost paid in goods (`UserGood`) instead of raw resources. BARRACKS requires 25 Weapons, FORT requires 100 Weapons (in addition to its 1 stone), SAWMILL requires 25 Bricks. "Basic" buildings (MINE, FORESTRY, BRICKYARD, BARN) have no goods cost — money only
 - **`requirement_tech`** — tech keys that must be researched first
 - **`requirement_building`** — building type prerequisite (for upgrades)
-- **Upgrade chains:** e.g., GARDEN → FARM, FORT → CASTLE
+- **Upgrade chains:** GARDEN → FARM, FORT → CASTLE, FORESTRY → SAWMILL (requires 25 Bricks)
 
 ### Defense Buildings
 FORT, CAPITOL, CAPITAL, CASTLE, CATHEDRAL — each adds a numeric `modifier` to defense power in combat.

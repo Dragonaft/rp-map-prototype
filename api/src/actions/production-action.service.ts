@@ -5,11 +5,23 @@ import { UserResourcesService } from '../resources/user-resources.service';
 import { UserGoodsService } from '../goods/user-goods.service';
 
 /**
- * Runs once per scheduled queue tick alongside income; credits good production
- * for buildings with isProduction=true. If production_requirement_resource is
- * set, the building only produces on turns where the owner currently holds any
- * of that resource (a gate, not a spend — see user-resources.service.ts);
- * if it's null, the building produces unconditionally (e.g. CAPITAL).
+ * Runs once per scheduled queue tick alongside income, in two passes:
+ *
+ * 1. Resource production — buildings with resource_production_amount set
+ *    (MINE/FORESTRY) credit that amount of the province's resource
+ *    (province.resource.key) into the owner's UserResource stockpile.
+ *    Unconditional — this is what feeds the stockpile in the first place.
+ *
+ * 2. Goods production — buildings with isProduction+production_good_id set
+ *    atomically reserve production_requirement_resource_amount of
+ *    production_requirement_resource (if set) from that same stockpile;
+ *    production for that building is skipped this turn if the reservation
+ *    fails. On success, production_amount of the good is credited to the
+ *    owner's UserGood ledger.
+ *
+ * Pass 1 always completes before pass 2 starts, so this turn's resource
+ * production is available to this turn's goods manufacturing regardless of
+ * building iteration order.
  */
 @Injectable()
 export class ProductionActionService {
@@ -24,25 +36,38 @@ export class ProductionActionService {
     const { users, provincesByUser } = state;
     if (users.length === 0) return;
 
-    const resourceQuantities = await this.userResourcesService.getQuantitiesForUsers(
-      manager, users.map((u) => u.id),
-    );
+    for (const user of users) {
+      const userProvinces = provincesByUser.get(user.id) ?? [];
+      for (const province of userProvinces) {
+        const resourceKey = province.resource?.key;
+        if (!resourceKey) continue;
+
+        for (const building of province.buildings ?? []) {
+          if (building.resource_production_amount) {
+            await this.userResourcesService.adjustQuantity(
+              manager, user.id, resourceKey, building.resource_production_amount,
+            );
+          }
+        }
+      }
+    }
 
     for (const user of users) {
       const userProvinces = provincesByUser.get(user.id) ?? [];
-      const userResources = resourceQuantities.get(user.id);
-
       for (const province of userProvinces) {
         for (const building of province.buildings ?? []) {
           if (!building.isProduction || !building.production_good_id) continue;
 
           if (building.production_requirement_resource) {
-            const available = userResources?.get(building.production_requirement_resource) ?? 0;
-            if (available <= 0) continue;
+            const amount = building.production_requirement_resource_amount ?? 1;
+            const { ok } = await this.userResourcesService.tryReserve(
+              manager, user.id, building.production_requirement_resource, amount,
+            );
+            if (!ok) continue;
           }
 
-          const amount = building.production_amount ?? 1;
-          await this.userGoodsService.adjustQuantity(manager, user.id, building.production_good_id, amount);
+          const producedAmount = building.production_amount ?? 1;
+          await this.userGoodsService.adjustQuantity(manager, user.id, building.production_good_id, producedAmount);
         }
       }
     }

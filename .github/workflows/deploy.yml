@@ -145,17 +145,17 @@ jobs:
             docker compose up -d --wait
 
             echo "==> Running database migrations"
-            docker compose exec -T api npm run migration:run:prod
+            docker compose exec -T api npm run migration:run
 
             if [ "$RESET" = "true" ]; then
               echo "==> provinces.json changed (or forced): FULL MAP RESET"
-              docker compose exec -T api npm run seed:resources:prod
-              docker compose exec -T api npm run import:provinces:prod
-              docker compose exec -T api npm run reset:game:prod
-              docker compose exec -T api npm run seed:goods:prod
-              docker compose exec -T api npm run seed:buildings:prod
-              docker compose exec -T api npm run seed:techs:prod
-              docker compose exec -T api npm run seed:troop-types:prod
+              docker compose exec -T api npm run seed:resources
+              docker compose exec -T api npm run import:provinces
+              docker compose exec -T api npm run reset:game
+              docker compose exec -T api npm run seed:goods
+              docker compose exec -T api npm run seed:buildings
+              docker compose exec -T api npm run seed:techs
+              docker compose exec -T api npm run seed:troop-types
             else
               echo "==> provinces.json unchanged: migrations + container update only"
             fi

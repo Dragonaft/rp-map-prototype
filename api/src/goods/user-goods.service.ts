@@ -42,14 +42,8 @@ export class UserGoodsService {
     await this.userGoodRepo.save(rows);
   }
 
-  /**
-   * Unconditional grant/release, clamped at 0. Used to credit turn production
-   * into a user's stockpile of a specific good (looked up by id, not key —
-   * Good has no natural key like Resource does).
-   */
-  async adjustQuantity(
-    manager: EntityManager, userId: string, goodId: string, delta: number,
-  ): Promise<void> {
+  /** Locates (or lazily creates) a user's ledger row for a good id, locked for update within the given transaction. */
+  private async lockRow(manager: EntityManager, userId: string, goodId: string): Promise<UserGood> {
     let row = await manager.findOne(UserGood, {
       where: { user_id: userId, good_id: goodId },
       lock: { mode: 'pessimistic_write' },
@@ -59,7 +53,34 @@ export class UserGoodsService {
         user_id: userId, good_id: goodId, quantity: 0,
       }));
     }
+    return row;
+  }
+
+  /**
+   * Unconditional grant/release, clamped at 0. Used to credit turn production
+   * into a user's stockpile of a specific good (looked up by id, not key —
+   * Good has no natural key like Resource does).
+   */
+  async adjustQuantity(
+    manager: EntityManager, userId: string, goodId: string, delta: number,
+  ): Promise<void> {
+    const row = await this.lockRow(manager, userId, goodId);
     row.quantity = Math.max(0, row.quantity + delta);
     await manager.save(UserGood, row);
+  }
+
+  /** Atomic conditional decrement: reserves `amount` only if available, otherwise leaves the ledger untouched. */
+  async tryReserve(
+    manager: EntityManager, userId: string, goodId: string, amount: number,
+  ): Promise<{ ok: boolean; available: number }> {
+    const row = await this.lockRow(manager, userId, goodId);
+    if (row.quantity < amount) {
+      return { ok: false, available: row.quantity };
+    }
+
+    const available = row.quantity;
+    row.quantity = available - amount;
+    await manager.save(UserGood, row);
+    return { ok: true, available };
   }
 }

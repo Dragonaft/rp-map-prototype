@@ -101,7 +101,7 @@ export class UsersService {
       for (const b of p.buildings ?? []) {
         switch (b.type) {
           case BuildingTypes.MINE:
-            // Money from mines now comes from the resource ledger, added below.
+            incomeTotal += parseIncome(b.income);
             break;
           case BuildingTypes.FORESTRY:
             incomeTotal += parseIncome(b.income);
@@ -123,8 +123,6 @@ export class UsersService {
         }
       }
     }
-
-    incomeTotal += await this.userResourcesService.sumIncomeForUser(this.userResourcesService.defaultManager, id);
 
     const incomeCtx = { incomeTotal, barracksCount, farmGardenIncome, provinceCount: provinces.length, capitalCount };
     for (const techKey of completedResearch) {

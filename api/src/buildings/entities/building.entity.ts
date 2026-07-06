@@ -102,4 +102,32 @@ export class Building extends BaseEntity {
   @Expose({ name: 'productionAmount' })
   public production_amount: number | null;
 
+  /** Per-turn amount of the province's resource (province.resource.key) credited to the owner's UserResource stockpile — MINE/FORESTRY. */
+  @Column({ nullable: true })
+  @Expose({ name: 'resourceProductionAmount' })
+  public resource_production_amount: number | null;
+
+  /** Per-turn amount of production_requirement_resource consumed (via tryReserve) to produce production_amount of the good. Production skips the turn if unavailable. */
+  @Column({ nullable: true })
+  @Expose({ name: 'productionRequirementResourceAmount' })
+  public production_requirement_resource_amount: number | null;
+
+  @Column({ name: 'requirement_good_id', nullable: true })
+  @Exclude()
+  public requirement_good_id: string | null;
+
+  @ManyToOne(() => Good, { nullable: true })
+  @JoinColumn({ name: 'requirement_good_id' })
+  @Exclude()
+  public requirementGoodEntity?: Good | null;
+
+  @Expose({ name: 'requirementGood' })
+  get requirementGood(): string | null {
+    return this.requirement_good_id;
+  }
+
+  @Column({ nullable: true })
+  @Expose({ name: 'requirementGoodAmount' })
+  public requirement_good_amount: number | null;
+
 }

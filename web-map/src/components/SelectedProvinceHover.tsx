@@ -42,6 +42,14 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     [myResources],
   );
 
+  // Player's goods ledger (GET /goods/mine), keyed by good id — Good has no
+  // natural key like Resource does.
+  const myGoods = useAppSelector((state: RootState) => state.goods.mine);
+  const myGoodsById = useMemo(
+    () => Object.fromEntries(myGoods.map(h => [h.good_id, h.quantity])),
+    [myGoods],
+  );
+
   const [isOpenBuildMenu, setIsOpenBuildMenu] = useState(false);
   const [buildingsState, setBuildingsState] = useState<Building[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<ProvinceBuilding | null>(null);
@@ -317,6 +325,20 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     return used;
   }, [actions, buildings]);
 
+  const pendingGoodUsage = useMemo(() => {
+    const used: Record<string, number> = {};
+    const templateById = new Map((buildings ?? []).map(b => [b.id, b]));
+    for (const action of actions) {
+      if (action.actionType !== ActionType.BUILD) continue;
+      const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
+      const template = templateById.get(String(bid));
+      if (template?.requirementGood && template?.requirementGoodAmount) {
+        used[template.requirementGood] = (used[template.requirementGood] ?? 0) + template.requirementGoodAmount;
+      }
+    }
+    return used;
+  }, [actions, buildings]);
+
   const pendingCreateArmyActions = useMemo(() => {
     if (!selectedProvince) return [];
     return actions.filter(
@@ -556,6 +578,8 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         techs={techs}
         userResourcesByKey={myResourcesByKey}
         pendingResourceUsage={pendingResourceUsage}
+        userGoodsById={myGoodsById}
+        pendingGoodUsage={pendingGoodUsage}
         builtTypesInProvince={new Set(builtInProvince.map(b => b.type))}
         onBuild={(id) => { void handleBuildAction(id); setIsOpenBuildMenu(false); }}
       />

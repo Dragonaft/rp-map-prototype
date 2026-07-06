@@ -16,6 +16,9 @@ interface Props {
   /** Player's resource ledger (GET /resources/mine), keyed by resource key — already nets out everything built. */
   userResourcesByKey: Record<string, number>;
   pendingResourceUsage: Record<string, number>;
+  /** Player's goods ledger (GET /goods/mine), keyed by good id — Good has no natural key like Resource does. */
+  userGoodsById: Record<string, number>;
+  pendingGoodUsage: Record<string, number>;
   builtTypesInProvince: Set<string>;
   onBuild: (buildingId: string) => void;
 }
@@ -32,6 +35,8 @@ export const BuildMenuModal: React.FC<Props> = ({
   techs,
   userResourcesByKey,
   pendingResourceUsage,
+  userGoodsById,
+  pendingGoodUsage,
   builtTypesInProvince,
   onBuild,
 }) => {
@@ -60,6 +65,14 @@ export const BuildMenuModal: React.FC<Props> = ({
             : Infinity;
           const resourceInsufficient = resourceCost ? resourceAvailable < resourceAmount : false;
 
+          const goodCost = building.requirementGood;
+          const goodAmount = building.requirementGoodAmount ?? 1;
+          const totalGoodUsed = goodCost ? (pendingGoodUsage[goodCost] ?? 0) : 0;
+          const goodAvailable = goodCost
+            ? (userGoodsById[goodCost] ?? 0) - totalGoodUsed
+            : Infinity;
+          const goodInsufficient = goodCost ? goodAvailable < goodAmount : false;
+
           const uniqueAlreadyBuilt = building.uniquePerProvince && builtTypesInProvince.has(building.type);
 
           const disabledReason = resourceMismatch
@@ -68,9 +81,11 @@ export const BuildMenuModal: React.FC<Props> = ({
               ? `Only one ${building.name} allowed per province`
               : resourceInsufficient
                 ? `Not enough ${resourceCost}: ${(resourceCost && userResourcesByKey[resourceCost]) ?? 0} available, ${totalResourceUsed} queued, ${Math.max(0, resourceAvailable)} free`
-                : missingTechName
-                  ? `Missing required technology: ${missingTechName}`
-                  : null;
+                : goodInsufficient
+                  ? `Not enough of the required good: ${(goodCost && userGoodsById[goodCost]) ?? 0} available, ${totalGoodUsed} queued, ${Math.max(0, goodAvailable)} free`
+                  : missingTechName
+                    ? `Missing required technology: ${missingTechName}`
+                    : null;
 
           return (
             <Tooltip key={building.id} title={
@@ -93,6 +108,7 @@ export const BuildMenuModal: React.FC<Props> = ({
                     pendingBuildTypes.has(building.type) ||
                     resourceMismatch ||
                     resourceInsufficient ||
+                    goodInsufficient ||
                     uniqueAlreadyBuilt ||
                     !!missingTechKey
                   }

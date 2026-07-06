@@ -10,13 +10,13 @@ import { IncomeActionService } from './income-action.service';
 import { ProductionActionService } from './production-action.service';
 import { UserStateLoaderService } from './user-state-loader.service';
 import { UserResourcesService } from '../resources/user-resources.service';
+import { UserGoodsService } from '../goods/user-goods.service';
 import { ActionsLog, ExecutedAction } from './entities/actions-log.entity';
 import { ExecutionLock } from './entities/execution-lock.entity';
 import { ActionQueue, ActionStatus } from './entities/action-queue.entity';
 import { Army } from '../armies/entities/army.entity';
 import { ArmyUnit } from '../armies/entities/army-unit.entity';
 import { Province } from '../provinces/entities/province.entity';
-import { BuildingTypes } from '../buildings/types/building.types';
 import {
   ARMY_MIN_SIZE,
   CASUALTY_FLOOR,
@@ -49,6 +49,7 @@ export class ActionSchedulerService {
     private readonly userStateLoader: UserStateLoaderService,
     private readonly actionExecutionState: ActionExecutionStateService,
     private readonly userResourcesService: UserResourcesService,
+    private readonly userGoodsService: UserGoodsService,
     private readonly dataSource: DataSource,
   ) {
     // Create unique instance ID (hostname + process ID)
@@ -56,23 +57,25 @@ export class ActionSchedulerService {
   }
 
   /**
-   * Moves a conquered province's resource footprint between ledgers: MINE/FORESTRY
-   * production capacity, and any requirement_resource reservations held by its
-   * buildings. Called whenever province.user_id changes ownership.
+   * Moves a conquered province's requirement_resource/requirement_good reservations
+   * between ledgers (the one-time BUILD costs its buildings hold). Per-turn
+   * resource/goods production isn't transferred here — it's derived fresh each
+   * turn from whoever currently owns the building. Called whenever
+   * province.user_id changes ownership.
    */
   private async transferProvinceResourceFootprint(
     manager: EntityManager, province: Province, fromUserId: string | null, toUserId: string,
   ): Promise<void> {
-    const resourceKey = province.resource?.key;
     for (const building of province.buildings ?? []) {
-      if (resourceKey && (building.type === BuildingTypes.MINE || building.type === BuildingTypes.FORESTRY)) {
-        if (fromUserId) await this.userResourcesService.adjustQuantity(manager, fromUserId, resourceKey, -1);
-        await this.userResourcesService.adjustQuantity(manager, toUserId, resourceKey, 1);
-      }
       if (building.requirement_resource) {
         const amount = building.requirement_resource_amount ?? 1;
         if (fromUserId) await this.userResourcesService.adjustQuantity(manager, fromUserId, building.requirement_resource, amount);
         await this.userResourcesService.adjustQuantity(manager, toUserId, building.requirement_resource, -amount);
+      }
+      if (building.requirement_good_id) {
+        const amount = building.requirement_good_amount ?? 1;
+        if (fromUserId) await this.userGoodsService.adjustQuantity(manager, fromUserId, building.requirement_good_id, amount);
+        await this.userGoodsService.adjustQuantity(manager, toUserId, building.requirement_good_id, -amount);
       }
     }
   }

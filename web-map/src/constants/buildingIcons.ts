@@ -16,6 +16,9 @@ export const BUILDING_ICONS: Record<string, string> = {
   CATHEDRAL: '🕌',
   TRADE_HOUSE: '🏦',
   CASTLE: '🏯',
+  SAWMILL: '🪚',
+  BRICKYARD: '🏭',
+  BARN: '🌾',
 };
 
 export const LANDSCAPE_ICONS: Record<string, string> = {
