@@ -35,7 +35,7 @@ Seven tabs in the dashboard, each managing one entity via MUI DataGrid with inli
 - Create via modal (key + name + description + branch required)
 
 ### Troop Types Tab
-- Fields: key (unique), name, description, category, cost_per_100, attack, defense, upkeep_per_100, tech_requirement, building_requirement
+- Fields: key (unique), name, description, category, cost_per_100, attack, defense, upkeep_per_100, tech_requirement, building_requirement, required_goods (dropdown sourced from Goods tab), goods_amount (goods consumed per 100 troops recruited, one-time — same mechanic as a Building's requirement_good)
 
 ### Resources Tab
 - Fields: key (unique), name, type (plain/consumable), plain_income

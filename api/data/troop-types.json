@@ -9,7 +9,9 @@
     "defense": 0.3,
     "upkeep_per_100": 100,
     "tech_requirement": null,
-    "building_requirement": null
+    "building_requirement": null,
+    "required_goods_name": null,
+    "goods_amount": null
   },
   {
     "key": "infantry",
@@ -21,7 +23,9 @@
     "defense": 1.2,
     "upkeep_per_100": 100,
     "tech_requirement": "military.sword_training",
-    "building_requirement": null
+    "building_requirement": null,
+    "required_goods_name": null,
+    "goods_amount": null
   },
   {
     "key": "archers",
@@ -33,7 +37,9 @@
     "defense": 0.7,
     "upkeep_per_100": 125,
     "tech_requirement": "military.ranged_units",
-    "building_requirement": null
+    "building_requirement": null,
+    "required_goods_name": null,
+    "goods_amount": null
   },
   {
     "key": "pikemen",
@@ -45,7 +51,9 @@
     "defense": 1.8,
     "upkeep_per_100": 120,
     "tech_requirement": "military.pikemen",
-    "building_requirement": null
+    "building_requirement": null,
+    "required_goods_name": null,
+    "goods_amount": null
   },
   {
     "key": "knights",
@@ -57,7 +65,9 @@
     "defense": 1.5,
     "upkeep_per_100": 200,
     "tech_requirement": "military.heavy_cavalry",
-    "building_requirement": "ARMORY"
+    "building_requirement": "ARMORY",
+    "required_goods_name": "Weapons",
+    "goods_amount": 100
   },
   {
     "key": "noble_knights",
@@ -69,7 +79,9 @@
     "defense": 2.0,
     "upkeep_per_100": 250,
     "tech_requirement": "noble.knights",
-    "building_requirement": "FORT"
+    "building_requirement": "FORT",
+    "required_goods_name": null,
+    "goods_amount": null
   },
   {
     "key": "paladins",
@@ -81,7 +93,9 @@
     "defense": 2.5,
     "upkeep_per_100": 250,
     "tech_requirement": "holy.warriors_of_god",
-    "building_requirement": "TEMPLE"
+    "building_requirement": "TEMPLE",
+    "required_goods_name": null,
+    "goods_amount": null
   },
   {
     "key": "mercenaries",
@@ -93,6 +107,8 @@
     "defense": 1.8,
     "upkeep_per_100": 300,
     "tech_requirement": "guild.merchant_guilds",
-    "building_requirement": "TRADE_HOUSE"
+    "building_requirement": "TRADE_HOUSE",
+    "required_goods_name": null,
+    "goods_amount": null
   }
 ]

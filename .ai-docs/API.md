@@ -250,11 +250,11 @@ api/data/           resources.json, goods.json, provinces.json, buildings.json, 
 | `migration:run`    | Run pending migrations                           |
 | `migration:fresh`  | Drop schema + re-run all migrations              |
 | `seed:resources`   | Seed resource definitions (run before `import:provinces`) |
-| `seed:goods`       | Seed good definitions (run before `seed:buildings`) |
+| `seed:goods`       | Seed good definitions (run before `seed:buildings` and `seed:troop-types`) |
 | `import:provinces` | Import provinces.json into DB                    |
 | `seed:buildings`   | Seed building definitions (resolves `production_good_name` — run after `seed:goods`) |
 | `seed:techs`       | Seed tech tree                                   |
-| `seed:troop-types` | Seed troop type definitions                      |
+| `seed:troop-types` | Seed troop type definitions (resolves `required_goods_name` — run after `seed:goods`) |
 | `balance:report`   | Generate combat balance analysis                 |
 | `reset:game`       | Reset game data                                  |
 

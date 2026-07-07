@@ -5,7 +5,7 @@ import {
 } from '@mui/x-data-grid';
 import {
   Box, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, Alert, Snackbar,
+  TextField, Select, MenuItem, FormControl, InputLabel, Alert, Snackbar,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -20,10 +20,12 @@ const EMPTY_NEW_TROOP_TYPE = {
   key: '', name: '', description: '', category: 'INFANTRY',
   cost_per_100: 0, attack: 1, defense: 1, upkeep_per_100: 100,
   tech_requirement: '', building_requirement: '',
+  required_goods: '', goods_amount: 0,
 };
 
 export const TroopTypesTab = () => {
   const [rows, setRows] = useState<any[]>([]);
+  const [goods, setGoods] = useState<{ id: string; name: string }[]>([]);
   const [rowModesModel, setRowModesModel] = useState<GridRowModesModel>({});
   const [addOpen, setAddOpen] = useState(false);
   const [newTroopType, setNewTroopType] = useState({ ...EMPTY_NEW_TROOP_TYPE });
@@ -31,7 +33,10 @@ export const TroopTypesTab = () => {
 
   useEffect(() => {
     adminApi.getTroopTypes().then((res) => setRows(res.data));
+    adminApi.getGoods().then((res) => setGoods(res.data));
   }, []);
+
+  const GOOD_OPTIONS = [{ value: '', label: '(none)' }, ...goods.map((g) => ({ value: g.id, label: g.name }))];
 
   const handleSaveClick = (id: GridRowId) => () =>
     setRowModesModel({ ...rowModesModel, [id]: { mode: GridRowModes.View } });
@@ -65,7 +70,12 @@ export const TroopTypesTab = () => {
 
   const handleAddTroopType = async () => {
     try {
-      const res = await adminApi.createTroopType(newTroopType);
+      const payload = {
+        ...newTroopType,
+        required_goods: newTroopType.required_goods || null,
+        goods_amount: newTroopType.goods_amount || null,
+      };
+      const res = await adminApi.createTroopType(payload);
       setRows((prev) => [...prev, res.data]);
       setAddOpen(false);
       setNewTroopType({ ...EMPTY_NEW_TROOP_TYPE });
@@ -88,6 +98,8 @@ export const TroopTypesTab = () => {
     { field: 'upkeep_per_100', headerName: 'Upkeep/100', type: 'number', width: 100, editable: true },
     { field: 'tech_requirement', headerName: 'Tech Req.', width: 160, editable: true },
     { field: 'building_requirement', headerName: 'Building Req.', width: 140, editable: true },
+    { field: 'required_goods', headerName: 'Req. Goods', width: 150, editable: true, type: 'singleSelect', valueOptions: GOOD_OPTIONS },
+    { field: 'goods_amount', headerName: 'Goods Amount/100', type: 'number', width: 140, editable: true },
     {
       field: 'actions',
       type: 'actions',
@@ -144,6 +156,13 @@ export const TroopTypesTab = () => {
           <TextField label="Upkeep / 100" type="number" value={newTroopType.upkeep_per_100} onChange={(e) => setNewTroopType((p) => ({ ...p, upkeep_per_100: Number(e.target.value) }))} />
           <TextField label="Tech Requirement" value={newTroopType.tech_requirement} onChange={(e) => setNewTroopType((p) => ({ ...p, tech_requirement: e.target.value }))} helperText="Tech key, e.g. military.archery" />
           <TextField label="Building Requirement" value={newTroopType.building_requirement} onChange={(e) => setNewTroopType((p) => ({ ...p, building_requirement: e.target.value }))} helperText="Building type, e.g. BARRACKS" />
+          <FormControl>
+            <InputLabel>Req. Goods</InputLabel>
+            <Select label="Req. Goods" value={newTroopType.required_goods} onChange={(e) => setNewTroopType((p) => ({ ...p, required_goods: e.target.value }))}>
+              {GOOD_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField label="Goods Amount / 100" type="number" value={newTroopType.goods_amount} onChange={(e) => setNewTroopType((p) => ({ ...p, goods_amount: Number(e.target.value) }))} helperText="Units of Req. Goods consumed per 100 troops recruited" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>

@@ -98,6 +98,14 @@ FORT, CAPITOL, CAPITAL, CASTLE, CATHEDRAL — each adds a numeric `modifier` to 
 | SPECIAL  | Paladins | BARRACKS + holy class (piety upkeep) |
 | PEASANT  | Militia  | No requirements |
 
+### Recruitment Cost
+Recruiting troops (ARMY_CREATE/ARMY_RECRUIT) can require up to three things, all
+scaled per 100 troops and checked/paid atomically in the same transaction —
+recruitment fails outright if any one of them can't be met:
+- **Money or piety** (`cost_per_100`) — piety for HOLY-locked troops (Paladins), money for everyone else
+- **Draft pool** (`user.troops`) — skipped for troops in `NO_POOL_TROOPS` (Mercenaries, hired directly with money)
+- **Goods** (`TroopType.required_goods` + `goods_amount`) — an optional one-time reservation from the recruiting player's `UserGood` ledger (same `tryReserve` mechanic as a Building's `requirement_good`), e.g. Knights need 100 Weapons per 100 troops. Null `required_goods` = no goods needed (e.g. Peasants). Not refunded when troops are later removed or the army disbanded, same as the money cost
+
 ### Movement
 - **One move per army per turn** (enforced both at queue time and in the executor)
 - **Adjacent:** always allowed to neighboring provinces

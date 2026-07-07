@@ -3,6 +3,7 @@ import * as path from 'path';
 import { AppDataSource as AppDataSourceDev } from '../db/data-source';
 import { AppDataSource as AppDataSourceProd } from '../db/data-source.prod';
 import { TroopType, TroopCategory } from '../armies/entities/troop-type.entity';
+import { Good } from '../goods/entities/good.entity';
 import { colors, logger } from '../utils/logger';
 
 const env = process.env.NODE_ENV;
@@ -25,6 +26,9 @@ interface TroopTypeSeedRow {
   upkeep_per_100: number;
   tech_requirement: string | null;
   building_requirement: string | null;
+  /** Good.name to resolve to required_goods at seed time — one-time cost per 100 troops, like cost_per_100 but paid in goods. */
+  required_goods_name?: string | null;
+  goods_amount?: number | null;
 }
 
 const VALID_CATEGORIES = new Set<string>(Object.values(TroopCategory));
@@ -111,10 +115,24 @@ async function seedTroopTypes() {
   }
 
   const repo = AppDataSource.getRepository(TroopType);
+  const goodRepo = AppDataSource.getRepository(Good);
   let created = 0;
   let updated = 0;
 
   for (const row of rows) {
+    let required_goods: string | null = null;
+    if (row.required_goods_name) {
+      const good = await goodRepo.findOne({ where: { name: row.required_goods_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.key}: required_goods_name "${row.required_goods_name}" not found — run seed:goods before seed:troop-types`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      required_goods = good.id;
+    }
+
     const patch = {
       name: row.name,
       description: row.description,
@@ -125,6 +143,8 @@ async function seedTroopTypes() {
       upkeep_per_100: row.upkeep_per_100,
       tech_requirement: row.tech_requirement ?? null,
       building_requirement: row.building_requirement ?? null,
+      required_goods,
+      goods_amount: row.goods_amount ?? null,
     };
 
     const existing = await repo.findOne({ where: { key: row.key } });

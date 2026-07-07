@@ -9,19 +9,22 @@ import { armiesApi } from '../api/armies';
 const PIETY_TROOPS = new Set(['paladins']);
 const MONEY_TROOPS = new Set(['mercenaries']);
 
-function calcMaxAdd(troopType: TroopType, userTroops: number, userMoney: number, userPiety: number): number {
+function calcMaxAdd(troopType: TroopType, userTroops: number, userMoney: number, userPiety: number, goodsAvailable: number): number {
+  let max: number;
   if (MONEY_TROOPS.has(troopType.key)) {
-    if (!troopType.cost_per_100) return 0;
-    return Math.floor(userMoney * 10 / troopType.cost_per_100) * 10;
+    max = troopType.cost_per_100 ? Math.floor(userMoney * 10 / troopType.cost_per_100) * 10 : 0;
+  } else if (PIETY_TROOPS.has(troopType.key)) {
+    max = troopType.cost_per_100 ? Math.floor(userPiety * 10 / troopType.cost_per_100) * 10 : userTroops;
+  } else {
+    max = userTroops;
   }
-  if (PIETY_TROOPS.has(troopType.key)) {
-    if (!troopType.cost_per_100) return userTroops;
-    return Math.floor(userPiety * 10 / troopType.cost_per_100) * 10;
+  if (troopType.required_goods && troopType.goods_amount) {
+    max = Math.min(max, Math.floor(goodsAvailable * 10 / troopType.goods_amount) * 10);
   }
-  return userTroops;
+  return max;
 }
 
-const TroopTooltipContent: React.FC<{ troopType: TroopType }> = ({ troopType }) => (
+const TroopTooltipContent: React.FC<{ troopType: TroopType; goodName?: string }> = ({ troopType, goodName }) => (
   <div style={{ fontSize: '0.9rem' }}>
     <div style={{ marginBottom: 2 }} className="font-bold">{troopType.name}</div>
     {troopType.description && <div style={{ marginBottom: 2 }} className="mb-1 text-gray-300">{troopType.description}</div>}
@@ -33,6 +36,9 @@ const TroopTooltipContent: React.FC<{ troopType: TroopType }> = ({ troopType }) 
         PIETY_TROOPS.has(troopType.key) ? 'piety' : 'gold'
       }` : 'Free'}
     </div>
+    {troopType.required_goods && troopType.goods_amount && (
+      <div style={{ marginBottom: 2 }}>Goods per 100: {troopType.goods_amount} {goodName ?? 'goods'}</div>
+    )}
     <div style={{ marginBottom: 2 }}>Upkeep per 100: {troopType.upkeep_per_100}</div>
   </div>
 );
@@ -49,6 +55,11 @@ export const CreateArmyModal: React.FC<Props> = ({ open, provinceId, onClose, on
   const user = useAppSelector((state: RootState) => state.user);
   const troopTypes = useAppSelector((state: RootState) => state.armies.troopTypes);
   const provinces = useAppSelector((state: RootState) => state.provinces.provinces);
+  const myGoods = useAppSelector((state: RootState) => state.goods.mine);
+  const goodsById = useMemo(
+    () => new Map(myGoods.map((g) => [g.good_id, g])),
+    [myGoods],
+  );
 
   const [armyName, setArmyName] = useState('');
   const [selectedCounts, setSelectedCounts] = useState<Record<string, number>>({});
@@ -135,13 +146,14 @@ export const CreateArmyModal: React.FC<Props> = ({ open, provinceId, onClose, on
             {troopTypes.map((tt) => {
               const buildingReason = getBuildingDisabledReason(tt);
               const disabled = !!buildingReason;
-              const maxAdd = calcMaxAdd(tt, user.troops, user.money, user.piety);
+              const goodHolding = tt.required_goods ? goodsById.get(tt.required_goods) : undefined;
+              const maxAdd = calcMaxAdd(tt, user.troops, user.money, user.piety, goodHolding?.quantity ?? 0);
               const count = selectedCounts[tt.key] ?? 0;
 
               return (
                 <Tooltip
                   key={tt.key}
-                  title={<TroopTooltipContent troopType={tt} />}
+                  title={<TroopTooltipContent troopType={tt} goodName={goodHolding?.good.name} />}
                   placement="left"
                   arrow
                 >

@@ -133,8 +133,9 @@ run via `docker compose exec` or locally:
 docker compose exec api npm run migration:run
 
 # Seed data (order matters: resources before import:provinces — it resolves
-# each province's resource_type key against that table; goods before buildings —
-# it resolves each production_good_name against that table)
+# each province's resource_type key against that table; goods before buildings
+# and troop-types — they resolve production_good_name/required_goods_name
+# against that table)
 docker compose exec api npm run seed:resources
 docker compose exec api npm run seed:goods
 docker compose exec api npm run seed:buildings

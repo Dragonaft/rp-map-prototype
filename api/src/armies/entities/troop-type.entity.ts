@@ -1,5 +1,6 @@
-import { BaseEntity, Column, Entity, OneToMany, PrimaryColumn } from 'typeorm';
+import { BaseEntity, Column, Entity, JoinColumn, ManyToOne, OneToMany, PrimaryColumn } from 'typeorm';
 import { ArmyUnit } from './army-unit.entity';
+import { Good } from '../../goods/entities/good.entity';
 
 export enum TroopCategory {
   INFANTRY = 'INFANTRY',
@@ -43,6 +44,16 @@ export class TroopType extends BaseEntity {
 
   @Column({ nullable: true })
   public building_requirement: string | null;
+
+  @Column({ nullable: true })
+  public required_goods: string | null;
+
+  @ManyToOne(() => Good, { nullable: true })
+  @JoinColumn({ name: 'required_goods' })
+  public requiredGoodsEntity?: Good | null;
+
+  @Column({ nullable: true })
+  public goods_amount: number | null;
 
   @OneToMany(() => ArmyUnit, (unit) => unit.troopType)
   public units: ArmyUnit[];

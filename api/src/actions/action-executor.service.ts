@@ -542,6 +542,7 @@ const executeRecruitment = async (
   userId: string,
   army: Army,
   recruits: RecruitEntry[],
+  userGoodsService: UserGoodsService,
 ): Promise<void> => {
   const user = await manager.findOne(User, {
     where: { id: userId },
@@ -622,6 +623,20 @@ const executeRecruitment = async (
       }
     }
 
+    // Goods cost (one-time, scaled per 100 troops like cost_per_100 — not refunded on disband/removal)
+    if (troopType.required_goods && troopType.goods_amount) {
+      const requiredAmount = Math.ceil((entry.count / 100) * troopType.goods_amount);
+      const { ok, available } = await userGoodsService.tryReserve(
+        manager, userId, troopType.required_goods, requiredAmount,
+      );
+      if (!ok) {
+        const good = await manager.findOne(Good, { where: { id: troopType.required_goods } });
+        throw new Error(
+          `Not enough ${good?.name ?? 'goods'} to recruit ${entry.count} ${troopType.name} (need ${requiredAmount}, have ${available})`,
+        );
+      }
+    }
+
     // Add/update unit in army
     let unit = army.units.find((u) => u.troopType.key === entry.troop_type_key);
     if (!unit) {
@@ -698,6 +713,7 @@ export class ArmyCreateHandler implements ActionHandler {
     private readonly armyRepo: Repository<Army>,
     @InjectRepository(Province)
     private readonly provinceRepo: Repository<Province>,
+    private readonly userGoodsService: UserGoodsService,
   ) {}
 
   handle = async (action: ActionQueue): Promise<void> => {
@@ -733,7 +749,7 @@ export class ArmyCreateHandler implements ActionHandler {
       const savedArmy = await manager.save(Army, army);
       savedArmy.units = [];
 
-      await executeRecruitment(manager, action.userId, savedArmy, recruits);
+      await executeRecruitment(manager, action.userId, savedArmy, recruits, this.userGoodsService);
 
       const total = armyTotalTroops(savedArmy);
       if (total < ARMY_MIN_SIZE) {
@@ -754,6 +770,7 @@ export class ArmyRecruitHandler implements ActionHandler {
     private readonly armyRepo: Repository<Army>,
     @InjectRepository(Province)
     private readonly provinceRepo: Repository<Province>,
+    private readonly userGoodsService: UserGoodsService,
   ) {}
 
   handle = async (action: ActionQueue): Promise<void> => {
@@ -785,7 +802,7 @@ export class ArmyRecruitHandler implements ActionHandler {
       const hasRecruitBuilding = (province.provinceBuildings ?? []).some(pb => pb.building?.can_recruit);
       if (!hasRecruitBuilding) throw new Error('Province must have a recruitment building to recruit troops here');
 
-      await executeRecruitment(manager, action.userId, army, recruits);
+      await executeRecruitment(manager, action.userId, army, recruits, this.userGoodsService);
       await manager.save(ArmyUnit, army.units);
     });
   }

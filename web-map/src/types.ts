@@ -200,6 +200,10 @@ export interface TroopType {
   upkeep_per_100: number;
   tech_requirement: string | null;
   building_requirement: string | null;
+  /** Good id, resolved against goods.mine for name/quantity. Null = no goods needed (money/pool only). */
+  required_goods: string | null;
+  /** Units of required_goods consumed per 100 troops recruited, one-time (not refunded on disband/removal). */
+  goods_amount: number | null;
 }
 
 export interface ArmyUnit {
