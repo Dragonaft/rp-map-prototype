@@ -30,6 +30,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const provinceCentersById = useAppSelector((state: RootState) => state.provinces.provinceCentersById);
   const provinceBBoxById = useAppSelector((state: RootState) => state.provinces.provinceBBoxById);
   const mapWidth  = useAppSelector((state: RootState) => state.provinces.mapWidth);
+  const mapHeight = useAppSelector((state: RootState) => state.provinces.mapHeight);
   const armies = useAppSelector((state: RootState) => state.armies.armies);
   const currentUserId = useAppSelector((state: RootState) => state.user.id);
   const currentUserMoney = useAppSelector((state: RootState) => state.user.money);
@@ -46,6 +47,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
   const hasDraggedRef = useRef(false);
   const svgRef = useRef<SVGSVGElement>(null);
+  const hasCenteredCameraRef = useRef(false);
 
   // Modal state
   const [modalState, setModalState] = useState<{
@@ -348,6 +350,62 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     }
     return result;
   }, [provinces, provinceBBoxById, viewBox, mapWidth, tileIndices]);
+
+  // ── Keep viewBox aspect ratio matched to the rendered element ─────────────
+  // The viewBox starts as a fixed 800x600 (4:3) box. Without this, the SVG's
+  // default preserveAspectRatio="xMidYMid meet" scales that box to fit inside
+  // the actual container while preserving its aspect ratio, pillarboxing
+  // whenever the screen isn't 4:3 (i.e. almost always). Re-deriving height
+  // from the current width + the element's real aspect ratio keeps content
+  // scaled uniformly (no distortion) while eliminating the letterbox bars.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || loading) return;
+
+    const syncAspectRatio = (clientWidth: number, clientHeight: number) => {
+      if (clientWidth <= 0 || clientHeight <= 0) return;
+      setViewBox(prev => {
+        const targetHeight = prev.width / (clientWidth / clientHeight);
+        if (Math.abs(targetHeight - prev.height) < 0.5) return prev;
+        const centerY = prev.y + prev.height / 2;
+        return { ...prev, height: targetHeight, y: centerY - targetHeight / 2 };
+      });
+    };
+
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0];
+      if (!entry) return;
+      syncAspectRatio(entry.contentRect.width, entry.contentRect.height);
+    });
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, [loading]);
+
+  // ── Initial camera position (once, on first load) ─────────────────────────
+  // Point at the centroid of the player's own provinces if they have any;
+  // otherwise fall back to the center of the map (new/unclaimed player).
+  // Guarded to run exactly once so it doesn't fight the user's own panning
+  // on later re-renders (e.g. after claiming a starting province mid-session).
+  useEffect(() => {
+    if (hasCenteredCameraRef.current) return;
+    if (loading || !currentUserId || !provinces.length) return;
+
+    hasCenteredCameraRef.current = true;
+
+    const ownedCenters = provinces
+      .filter(p => p.userId === currentUserId)
+      .map(p => provinceCentersById[p.id])
+      .filter((c): c is { x: number; y: number } => !!c);
+
+    const center = ownedCenters.length
+      ? {
+          x: ownedCenters.reduce((sum, c) => sum + c.x, 0) / ownedCenters.length,
+          y: ownedCenters.reduce((sum, c) => sum + c.y, 0) / ownedCenters.length,
+        }
+      : { x: mapWidth / 2, y: mapHeight / 2 };
+
+    setViewBox(prev => ({ ...prev, x: center.x - prev.width / 2, y: center.y - prev.height / 2 }));
+  }, [loading, currentUserId, provinces, provinceCentersById, mapWidth, mapHeight]);
 
   // ── Wheel zoom ────────────────────────────────────────────────────────────
   useEffect(() => {
