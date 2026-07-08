@@ -8,24 +8,32 @@
 
 ### Execution Order
 1. **Distributed lock** acquired (prevents multi-instance race)
-2. **Income phase** — credit resources from buildings
-3. **Production phase** — credit goods from production buildings (see [Goods Production](#goods-production))
-4. **Upkeep phase** — deduct building + army maintenance costs
-5. **Action execution** — process queued actions in `order` ASC, then `createdAt` ASC
-6. **Cleanup** — mark actions completed/failed, write execution log
-7. **Post-processing integrity** (each step in its own transaction, runs after cleanup):
+2. **Income phase** — credit resources from buildings (skips occupied provinces)
+3. **Production phase** — credit goods from production buildings (see [Goods Production](#goods-production); skips occupied provinces)
+4. **Upkeep phase** — deduct building + army maintenance costs (skips occupied provinces' building upkeep)
+5. **Recurring trade settlement** — re-applies every accepted `recurring` trade treaty's transfer articles; a side that can't pay skips that turn
+6. **Action execution** — process queued actions in `order` ASC, then `createdAt` ASC
+7. **Cleanup** — mark actions completed/failed, write execution log
+8. **Post-processing integrity** (each step in its own transaction, runs after cleanup):
    - Disband armies with < 100 troops (`ARMY_MIN_SIZE`)
-   - Resolve multi-faction battles in same province — on conquest, also transfers
-     any `requirement_resource`/`requirement_good` reservations held by the
+   - Resolve multi-faction battles in same province — only **hostile** attacker
+     groups engage (allies/troops-pass co-locate peacefully); the winner gains
+     control via `OccupationService.applyControlResult` (occupy, not annex, a
+     province with a different legal owner), which also transfers any
+     `requirement_resource`/`requirement_good` reservations held by the
      province's buildings from the losing owner's ledger to the winner's
      (per-turn resource/goods *production* isn't transferred — it's simply
      derived fresh next turn from whoever then owns the building)
-   - Sync province ownership with army presence — same reservation transfer
-     applies here too
-8. **SSE broadcast** — clients auto-reload
+   - Sync province control with army presence — same `applyControlResult`
+     path, skipped for peaceful (allied/passage) co-location
+9. **Diplomacy tick** — ages every occupied province by one turn (auto-cores
+   at `OCCUPATION_CORE_THRESHOLD`), decays `PEACE` relations to `NEUTRAL`
+   after `PEACE_DURATION_TURNS`, and auto-rejects pending treaty proposals
+   older than `TREATY_EXPIRY_TURNS`. See [Diplomacy & Occupation](#diplomacy--occupation).
+10. **SSE broadcast** — clients auto-reload
 
 ### 503 Gate
-During execution, API returns 503 Service Unavailable on all endpoints except an exact-match whitelist of five paths: `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`. (`/auth/me` is **not** whitelisted.)
+During execution, API returns 503 Service Unavailable on all endpoints except an exact-match whitelist of five paths: `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`. (`/auth/me` is **not** whitelisted.) `/diplomacy/*` is **not** whitelisted either — treaty/war actions are blocked during turn processing like everything else.
 
 ## Resources
 
@@ -78,6 +86,9 @@ All building validation rules are stored in the DB (editable via admin panel), n
 - **`requirement_tech`** — tech keys that must be researched first
 - **`requirement_building`** — building type prerequisite (for upgrades)
 - **Upgrade chains:** GARDEN → FARM, FORT → CASTLE, FORESTRY → SAWMILL (requires 25 Bricks)
+- **Occupied provinces** — BUILD/UPGRADE/REMOVE all reject with `province.occupier_id` set, for
+  the legal owner *and* the occupier alike (occupier never gets build rights). See
+  [Diplomacy & Occupation](#diplomacy--occupation)
 
 ### Defense Buildings
 FORT, CAPITOL, CAPITAL, CASTLE, CATHEDRAL — each adds a numeric `modifier` to defense power in combat.
@@ -106,6 +117,12 @@ recruitment fails outright if any one of them can't be met:
 - **Draft pool** (`user.troops`) — skipped for troops in `NO_POOL_TROOPS` (Mercenaries, hired directly with money)
 - **Goods** (`TroopType.required_goods` + `goods_amount`) — an optional one-time reservation from the recruiting player's `UserGood` ledger (same `tryReserve` mechanic as a Building's `requirement_good`), e.g. Knights need 100 Weapons per 100 troops. Null `required_goods` = no goods needed (e.g. Peasants). Not refunded when troops are later removed or the army disbanded, same as the money cost
 
+Province control requirement: `(province.user_id === caller && !province.occupier_id) ||
+province.occupier_id === caller` — i.e. the legal owner may recruit only while
+**not** occupied, and an **occupier** may recruit at any `can_recruit` building
+in a province they occupy (the fort-use carve-out from
+[Diplomacy & Occupation](#diplomacy--occupation)).
+
 ### Movement
 - **One move per army per turn** (enforced both at queue time and in the executor)
 - **Adjacent:** always allowed to neighboring provinces
@@ -113,6 +130,11 @@ recruitment fails outright if any one of them can't be met:
   - Every intermediate province must have ROAD building
   - Every intermediate province must be owned by the moving player
 - Armies may move onto and fight on **water** provinces, but water can never be owned
+- **Diplomatic gate on entering another player's territory** (see
+  [Diplomacy & Occupation](#diplomacy--occupation)): an ally or a troops-pass
+  grantee always enters peacefully (no combat, no occupation change); absent
+  passage, entry is only allowed while hostile (`NEUTRAL`/`WAR`) — a signed
+  `PEACE` with no passage rejects the move outright
 
 ### Visibility (Fog of War)
 - Own armies: always visible with full unit composition, regardless of location
@@ -135,7 +157,9 @@ Final Defense = Defense Power * max(Building Modifier, 1.0)
 **Attacker wins** (attackPower > defenderPower):
 - Attacker casualty rate = `defenderPower / (attackerPower + defenderPower)`
 - Defender loses ALL armies
-- Attacker takes province
+- Attacker gains **control** of the province via `OccupationService.applyControlResult` —
+  empty land is claimed outright, but a province with a different legal owner is
+  **occupied**, not annexed. See [Diplomacy & Occupation](#diplomacy--occupation)
 - If attacker < 100 troops after casualties → army disbanded
 
 **Defender wins** (defenderPower >= attackerPower):
@@ -150,11 +174,96 @@ When 2+ users have armies in the same province (resolved in post-processing,
 skipped on water provinces — this catches co-located armies that didn't fight
 during a move; `resolveArmyConflicts` triggers when `userIds.size > 1`):
 1. Province owner is initial defender (if no owner army present, the
-   lowest-sorted user id takes provisional ownership and defends)
-2. Attackers engage in a **deterministic order** — strongest total attack power
+   lowest-sorted user id takes provisional **defender**, without changing
+   legal ownership)
+2. Only armies **hostile** to the defender count as attackers — an ally's or
+   troops-pass grantee's army co-locates peacefully and is ignored here
+3. Attackers engage in a **deterministic order** — strongest total attack power
    first, ties broken by user id
-3. Each attacker fights the defender sequentially; the winner becomes the new
-   defender for the next attacker
+4. Each attacker fights the defender sequentially; the winner becomes the new
+   defender for the next attacker and gains control via `applyControlResult`
+   (occupy, not annex, if the province belongs to someone else)
+
+## Diplomacy & Occupation
+
+Real-time REST (`/diplomacy/*`, [API.md](API.md)), not queued actions — treaty offers must persist
+across turns awaiting a reply. Core services: `DiplomacyService` (relations/wars/passage),
+`OccupationService` (province control), `TreatyService` (propose/accept/peace/trade) in `api/src/diplomacy/`.
+
+### Diplomatic States
+Per unordered player pair, stored lazily in `DiplomaticRelation` (absent row = `NEUTRAL`):
+- **NEUTRAL** (default) — attacks allowed
+- **WAR** — attacks allowed; tied to an explicit `War` entity (see below)
+- **PEACE** — enforced truce, attacks blocked; decays to `NEUTRAL` after `PEACE_DURATION_TURNS` (4 turns)
+- **ALLIANCE** — attacks blocked, mutual passage, mutual defense (call-to-arms); breaking an alliance
+  sets the pair to `NEUTRAL` (not peace)
+
+### Wars
+Every hostility (a `POST /diplomacy/declare-war`, or a NEUTRAL-relation attack that lands a hit) creates
+or joins an explicit `War` with an **attacker leader** and **defender leader** plus a `WarParticipant`
+list split into `attacker`/`defender` sides. You cannot declare war on an ally (must break the alliance
+first) or during an active `PEACE` truce.
+
+**Call-to-arms:** when X attacks Y, each of Y's allies is called to the **defender** side (auto `WAR`
+with X). An ally that is *also* allied to X breaks that alliance first (and evacuates any
+now-illegally-parked armies on both sides) before joining Y's side. Concrete example: U1 is allied to
+both U2 and U3 (U2/U3 not allied to each other); U2 attacks U3 → U1 breaks its alliance with U2 and
+joins U3's side.
+
+### Occupation (not instant conquest)
+Winning military control of a province (`OccupationService.applyControlResult`, called from
+`ArmyMoveHandler` and the scheduler's `resolveArmyConflicts`/`syncProvinceOwnershipWithArmies`) decides:
+- **Empty land** (`user_id` null) → direct claim, no occupation
+- **Your own core, currently occupied by someone else** → retake: occupation cleared
+- **Someone else's core province** → **occupy**: `Province.occupier_id` set, `occupation_turns` reset to
+  0, `user_id` (legal owner) **unchanged**. Escalates the pair to `WAR` if it wasn't already.
+
+While occupied:
+- The **occupier** cannot build/demolish/upgrade, but **can recruit and defend at the province's fort**
+  (any building with `can_recruit`) — see the ARMY_CREATE/ARMY_RECRUIT guards in
+  [API.md](API.md#action-types-enum)
+- The **legal owner** is cut off: cannot build there either, and the province is skipped entirely by
+  income/production/upkeep (nobody earns from it) — see `income-action.service.ts`,
+  `production-action.service.ts`, `upkeep-action.service.ts` (`if (province.occupier_id) continue`)
+- A province **auto-cores** to the occupier (legal ownership transfers, occupation clears) after
+  `OCCUPATION_CORE_THRESHOLD` (10) turns, ticked every turn in the scheduler's diplomacy phase, or
+  immediately via a peace treaty's `cede_province` article
+
+### Treaties
+`Treaty` entity, propose → accept/reject (war is the only unilateral/instant diplomatic action). Every
+treaty has a player-supplied `name` and is `public` (viewable by any player via
+`GET /diplomacy/treaties/public/:userId`, the web client's "Player Treaties" button) or `private`.
+Pending proposals older than `TREATY_EXPIRY_TURNS` (4 turns) auto-reject.
+
+- **Peace** (`peace_scope: leader | separate`) — ends a war. Demanded/ceded provinces (`cede_province`
+  articles) must be **contiguous** to the receiving party's existing territory (EU4-style; BFS over
+  `neighbor_ids`, chained through other ceded provinces in the same treaty) — no random enclaves. No
+  warscore: any contiguous demand is allowed, plus optional money/resource tribute articles.
+  - **Leader peace** (attacker leader ↔ defender leader): accepting **ends the whole war** — every
+    opposing pair across both sides goes to `PEACE`, any occupied-but-not-ceded provinces between them
+    return to their owner, and non-leader allies receive a **view-only** copy of the settled treaty
+    (`Treaty.view_only = true`, cannot accept/reject).
+  - **Separate peace** (attacker leader ↔ a non-leader enemy ally): may cede **only that ally's occupied
+    provinces** (`province.user_id === receiver && province.occupier_id === proposer`). Accepting makes
+    that ally **leave the war** and **break its alliance** with its side leader, going to `PEACE` with
+    the attacker — the leaders' war continues.
+- **Alliance** — sets the pair to `ALLIANCE` (`set_state` article). Rejected while at `WAR`.
+- **Trade** — money/resource/goods transfer articles. Money can be sent to **anyone, anytime**
+  (`POST /diplomacy/send-money`, no treaty needed). Goods/resources require the pair to be
+  **trade-connected** (`DiplomacyService.tradeConnected`): a shared border, or a chain of bordering
+  intermediates who have each granted troops-pass to one of the two traders. `recurring: true` re-applies
+  the transfer articles every turn (`TreatyService.processRecurringTrades`, called from the scheduler's
+  economy transaction); a side that can't pay simply skips that turn.
+- **Troops Pass** (`grant_pass` article, `{from, to}`) — directional: `from` lets `to`'s armies enter
+  its territory without occupying/war. Alliance implies both directions implicitly (checked via state,
+  not via the pass flags).
+- **Article** — pure Markdown text (`note`), no mechanical effect. RP-only.
+
+Any signed `alliance` or `troops_pass` treaty can be cancelled by either party at any time
+(`POST /diplomacy/treaties/:id/cancel-signed`) — alliance cancellation sets the pair to `NEUTRAL`.
+Cancelling either kind calls `DiplomacyService.evacuateForeignArmies`: every foreign army on the
+canceller's territory that isn't at war with them teleports to its owner's nearest fort/capital-tier
+province, else nearest owned province, else stays put if the owner holds no provinces at all.
 
 ## Tech Tree
 

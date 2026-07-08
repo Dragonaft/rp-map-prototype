@@ -8,6 +8,7 @@ import techsReducer from "./slices/techsSlice.ts";
 import armiesReducer from "./slices/armiesSlice.ts";
 import resourcesReducer from "./slices/resourcesSlice.ts";
 import goodsReducer from "./slices/goodsSlice.ts";
+import diplomacyReducer from "./slices/diplomacySlice.ts";
 
 export const store = configureStore({
   reducer: {
@@ -20,6 +21,7 @@ export const store = configureStore({
     armies: armiesReducer,
     resources: resourcesReducer,
     goods: goodsReducer,
+    diplomacy: diplomacyReducer,
   },
   devTools: process.env.NODE_ENV !== 'production',
 });

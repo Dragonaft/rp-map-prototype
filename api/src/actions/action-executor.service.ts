@@ -16,6 +16,8 @@ import { Army } from '../armies/entities/army.entity';
 import { ArmyUnit } from '../armies/entities/army-unit.entity';
 import { TroopType } from '../armies/entities/troop-type.entity';
 import { UserClasses } from "../users/types/users.types";
+import { DiplomacyService } from '../diplomacy/diplomacy.service';
+import { OccupationService } from '../diplomacy/occupation.service';
 import {
   ARMY_MIN_SIZE,
   CASUALTY_FLOOR,
@@ -85,6 +87,10 @@ export class BuildActionHandler implements ActionHandler {
 
       if (province.user_id !== action.userId) {
         throw new Error('User does not own this province');
+      }
+
+      if (province.occupier_id) {
+        throw new Error('Cannot build on an occupied province');
       }
 
       const buildingTemplate = await manager.findOne(Building, {
@@ -229,6 +235,10 @@ export class RemoveActionHandler implements ActionHandler {
         throw new Error('User does not own this province');
       }
 
+      if (province.occupier_id) {
+        throw new Error('Cannot build on an occupied province');
+      }
+
       // Target the specific building instance, not just the first of its type.
       const pb = province.provinceBuildings?.find((pb) => pb.id === provinceBuildingId);
       if (!pb) {
@@ -309,6 +319,10 @@ export class UpgradeActionHandler implements ActionHandler {
 
       if (province.user_id !== action.userId) {
         throw new Error('User does not own this province');
+      }
+
+      if (province.occupier_id) {
+        throw new Error('Cannot build on an occupied province');
       }
 
       // Target the specific building instance to upgrade.
@@ -733,7 +747,9 @@ export class ArmyCreateHandler implements ActionHandler {
         lock: { mode: 'pessimistic_write' },
       });
       if (!province) throw new Error('Province not found');
-      if (province.user_id !== action.userId) throw new Error('User does not own this province');
+      const canRecruitHere = (province.user_id === action.userId && !province.occupier_id)
+        || province.occupier_id === action.userId;
+      if (!canRecruitHere) throw new Error('User does not control this province');
 
       const hasRecruitBuilding = (province.provinceBuildings ?? []).some(pb => pb.building?.can_recruit);
       if (!hasRecruitBuilding) throw new Error('Province must have a recruitment building to create an army here');
@@ -796,8 +812,10 @@ export class ArmyRecruitHandler implements ActionHandler {
         where: { id: army.province_id },
         relations: ['provinceBuildings', 'provinceBuildings.building'],
       });
-      if (!province || province.user_id !== action.userId) {
-        throw new Error('Army must be stationed in an owned province to recruit');
+      const canRecruitHere = province
+        && ((province.user_id === action.userId && !province.occupier_id) || province.occupier_id === action.userId);
+      if (!canRecruitHere) {
+        throw new Error('Army must be stationed in a controlled province to recruit');
       }
       const hasRecruitBuilding = (province.provinceBuildings ?? []).some(pb => pb.building?.can_recruit);
       if (!hasRecruitBuilding) throw new Error('Province must have a recruitment building to recruit troops here');
@@ -817,6 +835,8 @@ export class ArmyMoveHandler implements ActionHandler {
     private readonly armyRepo: Repository<Army>,
     @InjectRepository(Province)
     private readonly provinceRepo: Repository<Province>,
+    private readonly diplomacyService: DiplomacyService,
+    private readonly occupationService: OccupationService,
   ) {}
 
   handle = async (action: ActionQueue, ctx?: ExecutionContext): Promise<void> => {
@@ -882,21 +902,51 @@ export class ArmyMoveHandler implements ActionHandler {
         return;
       }
 
+      // ── Diplomatic gate ──────────────────────────────────────────────────
+      // Entering another player's territory: an ally or troops-pass grantee
+      // may always walk through peacefully (no combat, no occupation). Absent
+      // passage, entry is only allowed while hostile (NEUTRAL/WAR) — a signed
+      // PEACE with no passage blocks the move outright.
+      let peacefulEntry = false;
+      if (toProvince.user_id) {
+        const passage = await this.diplomacyService.hasPassage(manager, action.userId, toProvince.user_id);
+        if (passage) {
+          peacefulEntry = true;
+        } else {
+          const hostile = await this.diplomacyService.isHostile(manager, action.userId, toProvince.user_id);
+          if (!hostile) {
+            throw new Error('Cannot enter this province while at peace — no troops-pass agreement in place');
+          }
+        }
+      }
+
+      if (peacefulEntry) {
+        army.province_id = toProvinceId;
+        await manager.save(Army, army);
+        return;
+      }
+
       // ── Combat ───────────────────────────────────────────────────────────
       const defenderArmies = await manager.find(Army, {
         where: { province_id: toProvinceId },
         relations: ['units', 'units.troopType'],
         lock: { mode: 'pessimistic_write' },
       });
-      const enemyArmies = defenderArmies.filter((a) => a.user_id !== action.userId);
+      const enemyArmies: Army[] = [];
+      for (const defender of defenderArmies) {
+        if (defender.user_id === action.userId) continue;
+        if (await this.diplomacyService.isHostile(manager, action.userId, defender.user_id)) {
+          enemyArmies.push(defender);
+        }
+      }
 
-      // Uncontested: no enemy armies and province is unowned or empty
+      // Uncontested: no hostile armies present (empty land, or the owner's
+      // defenses have already been driven off).
       if (enemyArmies.length === 0) {
         army.province_id = toProvinceId;
         const isWater = toProvince.type?.toLowerCase() === 'water';
-        if (!isWater && !toProvince.user_id) {
-          toProvince.user_id = action.userId;
-          await manager.save(Province, toProvince);
+        if (!isWater) {
+          await this.occupationService.applyControlResult(manager, toProvince, action.userId);
         }
         await manager.save(Army, army);
         return;
@@ -938,8 +988,7 @@ export class ArmyMoveHandler implements ActionHandler {
         } else {
           const isWater = toProvince.type?.toLowerCase() === 'water';
           if (!isWater) {
-            toProvince.user_id = action.userId;
-            await manager.save(Province, toProvince);
+            await this.occupationService.applyControlResult(manager, toProvince, action.userId);
           }
           army.province_id = toProvinceId;
           await manager.save(ArmyUnit, army.units);

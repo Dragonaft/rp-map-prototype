@@ -13,6 +13,7 @@ import { ArmiesModule } from './armies/armies.module';
 import { AdminModule } from './admin/admin.module';
 import { ResourcesModule } from './resources/resources.module';
 import { GoodsModule } from './goods/goods.module';
+import { DiplomacyModule } from './diplomacy/diplomacy.module';
 import { Province } from './provinces/entities/province.entity';
 import { User } from './users/entities/user.entity';
 import { Building } from './buildings/entities/building.entity';
@@ -28,6 +29,10 @@ import { Resource } from './resources/entities/resource.entity';
 import { Good } from './goods/entities/good.entity';
 import { UserGood } from './goods/entities/user-good.entity';
 import { UserResource } from './resources/entities/user-resource.entity';
+import { DiplomaticRelation } from './diplomacy/entities/diplomatic-relation.entity';
+import { War } from './diplomacy/entities/war.entity';
+import { WarParticipant } from './diplomacy/entities/war-participant.entity';
+import { Treaty } from './diplomacy/entities/treaty.entity';
 
 @Module({
   imports: [
@@ -44,6 +49,7 @@ import { UserResource } from './resources/entities/user-resource.entity';
       entities: [
         Province, User, Building, ProvinceBuilding, ActionQueue, ActionsLog, ExecutionLock, Tech,
         Army, ArmyUnit, TroopType, Resource, Good, UserGood, UserResource,
+        DiplomaticRelation, War, WarParticipant, Treaty,
       ],
       synchronize: false,
     }),
@@ -57,6 +63,7 @@ import { UserResource } from './resources/entities/user-resource.entity';
     AdminModule,
     ResourcesModule,
     GoodsModule,
+    DiplomacyModule,
   ],
   controllers: [AppController],
   providers: [AppService],

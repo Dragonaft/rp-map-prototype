@@ -111,7 +111,7 @@ export class ProvincesService {
     const [provinces, user, reserved, enemyArmies] = await Promise.all([
       this.provinceRepository
         .createQueryBuilder('p')
-        .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.neighbor_ids'])
+        .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.neighbor_ids', 'p.occupier_id', 'p.occupation_turns'])
         .leftJoinAndSelect('p.provinceBuildings', 'pb')
         .leftJoinAndSelect('pb.building', 'building')
         .getMany(),
@@ -159,6 +159,8 @@ export class ProvincesService {
           .filter((pb) => pb.building && (isOwner || pb.building.visible))
           .map((pb) => ({ ...instanceToPlain(pb.building), instanceId: pb.id })),
         buildingCap: computeBuildingCap(p.landscape, completedResearch),
+        occupierId: p.occupier_id ?? null,
+        occupationTurns: p.occupation_turns ?? 0,
       };
     });
   }

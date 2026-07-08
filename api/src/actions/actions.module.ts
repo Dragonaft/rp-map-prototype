@@ -37,6 +37,7 @@ import { UserStateLoaderService } from './user-state-loader.service';
 import { TechsModule } from '../techs/techs.module';
 import { ResourcesModule } from '../resources/resources.module';
 import { GoodsModule } from '../goods/goods.module';
+import { DiplomacyModule } from '../diplomacy/diplomacy.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { GoodsModule } from '../goods/goods.module';
     TechsModule,
     ResourcesModule,
     GoodsModule,
+    DiplomacyModule,
   ],
   controllers: [ActionsController, ActionExecutionStatusController],
   providers: [

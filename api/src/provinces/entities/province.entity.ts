@@ -60,6 +60,30 @@ export class Province extends BaseEntity {
     return this.user_id;
   }
 
+  /** Military controller when the province is occupied (not the legal owner). Null = not occupied. */
+  @Column({ nullable: true })
+  @Exclude()
+  public occupier_id: string | null;
+
+  @ManyToOne(() => User)
+  @JoinColumn({ name: 'occupier_id' })
+  @Exclude()
+  public occupier?: User | null;
+
+  @Expose({ name: 'occupierId' })
+  get occupierId(): string | null {
+    return this.occupier_id;
+  }
+
+  @Column({ default: 0 })
+  @Exclude()
+  public occupation_turns: number;
+
+  @Expose({ name: 'occupationTurns' })
+  get occupationTurns(): number {
+    return this.occupation_turns;
+  }
+
   @Column({ nullable: true })
   @Exclude()
   public local_troops: number;

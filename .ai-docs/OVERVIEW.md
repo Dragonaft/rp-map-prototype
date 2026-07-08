@@ -60,12 +60,15 @@ Cron fires (13:00 & 20:00 Kyiv time prod; every 2min AND 5min dev)
   │
   ├─ Acquire distributed lock (ExecutionLock entity)
   ├─ Income phase: credit money/troops/piety/research from buildings
+  ├─ Production phase: credit goods from production buildings
   ├─ Upkeep phase: deduct building + army costs
+  ├─ Recurring trade: settle accepted recurring trade treaties
   ├─ Action execution: process queued actions in order
   ├─ Post-processing:
   │   ├─ Disband armies < 100 troops
-  │   ├─ Resolve multi-faction combat in same province
-  │   └─ Sync province ownership with army presence
+  │   ├─ Resolve multi-faction combat in same province (occupies, not annexes)
+  │   └─ Sync province control with army presence (diplomacy-gated)
+  ├─ Diplomacy tick: occupation counters, treaty expiry (4 turns), peace-truce decay (4 turns)
   ├─ Cleanup executed actions, write log
   └─ SSE broadcast → frontends auto-reload
 ```
@@ -84,6 +87,8 @@ During execution, the API returns **503** on most endpoints (ActionExecutionBloc
 | Income logic             | `api/src/actions/income-action.service.ts`        |
 | Upkeep logic             | `api/src/actions/upkeep-action.service.ts`        |
 | Research effect modifiers| `api/src/techs/research-effects.ts`               |
+| Diplomacy/wars/treaties  | `api/src/diplomacy/diplomacy.service.ts`, `treaty.service.ts` |
+| Occupation control logic | `api/src/diplomacy/occupation.service.ts`         |
 | Map rendering            | `web-map/src/components/MapView.tsx`              |
 | Province rendering       | `web-map/src/components/ProvinceShape.tsx`        |
 | Redux store              | `web-map/src/store/store.ts`                      |

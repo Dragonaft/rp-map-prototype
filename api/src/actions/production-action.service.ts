@@ -39,6 +39,7 @@ export class ProductionActionService {
     for (const user of users) {
       const userProvinces = provincesByUser.get(user.id) ?? [];
       for (const province of userProvinces) {
+        if (province.occupier_id) continue; // occupied: nobody produces from it
         const resourceKey = province.resource?.key;
         if (!resourceKey) continue;
 
@@ -55,6 +56,7 @@ export class ProductionActionService {
     for (const user of users) {
       const userProvinces = provincesByUser.get(user.id) ?? [];
       for (const province of userProvinces) {
+        if (province.occupier_id) continue; // occupied: nobody produces from it
         for (const building of province.buildings ?? []) {
           if (!building.isProduction || !building.production_good_id) continue;
 

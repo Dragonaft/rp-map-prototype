@@ -5,13 +5,13 @@
 - **ORM:** TypeORM 0.3 (NestJS integration via `@nestjs/typeorm`)
 - **Database:** MySQL 8
 - **Config:** `api/src/db/data-source.ts` (dev), `data-source.prod.ts` (prod; compiled to `dist/db/data-source.prod.js`)
-- **Migrations:** `api/src/db/migrations/` (29 migration files)
+- **Migrations:** `api/src/db/migrations/` (34 migration files)
 
 ## Entity Relationship Diagram
 
 ```
 User (1) ──── (*) Province ──── (*:1) Resource
-  │                 │
+  │                 │        └── (*:1) User (occupier_id, nullable — military controller, not the owner)
   │                 └── (1) ─ (*) ProvinceBuilding (*:1) ──── Building (*:1) ──── Good
   │                                                                (*:1) ──── Good  (requirement_good, separate FK)
   │
@@ -21,7 +21,13 @@ User (1) ──── (*) Province ──── (*:1) Resource
   │
   ├── (1) ──── (*) UserGood (*:1) ──── Good
   │
-  └── (1) ──── (*) UserResource (*:1) ──── Resource
+  ├── (1) ──── (*) UserResource (*:1) ──── Resource
+  │
+  ├── (*) DiplomaticRelation (user_a_id/user_b_id, one row per unordered pair)
+  │
+  ├── (*) War (attacker_leader_id/defender_leader_id) ── (1) ── (*) WarParticipant (*:1) ── User
+  │
+  └── (*) Treaty (proposer_id/receiver_id)
 
 User (1) ──── (*) ActionQueue
 
@@ -58,12 +64,19 @@ ExecutionLock (standalone, distributed locking)
 | polygon        | text          | SVG path string (M, H, V, L, Z commands) |
 | resource_id    | uuid (FK)     | → Resource, nullable. Entity exposes a `resourceType` getter returning `resource.key` for API/frontend compatibility |
 | region_id      | varchar       | Map identifier, e.g. "prov-3-7" (no DB unique constraint) |
-| user_id        | uuid (FK)     | Owner, nullable |
+| user_id        | uuid (FK)     | Legal/core owner, nullable. **Unchanged by mere occupation** — see `occupier_id` |
+| occupier_id    | uuid (FK)     | → User, nullable. Military controller when the province is occupied (not the legal owner); `ON DELETE SET NULL`. Null = not occupied |
+| occupation_turns | int         | Default 0. Turns spent occupied; auto-cores to `occupier_id` at `OCCUPATION_CORE_THRESHOLD` (10) — see [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation) |
 | local_troops   | int           | Garrison count (visible only to owner) |
 | neighbor_ids   | simple-json   | Array of adjacent province IDs (nullable) |
 | provinceBuildings | OneToMany  | → ProvinceBuilding (the `buildings` getter maps these) |
 
 > Note: `enemyHere` is a transient `@Expose` field (not persisted), used to flag enemy presence in API responses.
+> Note: `GET /provinces/state` (`ProvincesService.getState`) hand-builds its response via an explicit
+> query-builder `.select()` rather than returning full entities — `occupier_id`/`occupation_turns` (and
+> any future new column) must be added there explicitly, or they silently won't reach the client even
+> though they're on the entity. `GET /provinces` (`getAll`) returns full entities and doesn't have this
+> trap.
 
 ### Building
 | Column                      | Type         | Notes |
@@ -170,7 +183,7 @@ Per-player **manufacturing stockpile** — raw materials mined/harvested each tu
 > - `tryReserve` — atomic conditional decrement (locks the row, checks availability, decrements or fails). Used for (a) the one-time `requirement_resource` cost at BUILD/UPGRADE time, and (b) the per-turn `production_requirement_resource_amount` spend in `ProductionActionService` — production for that building is skipped for the turn if the reservation fails.
 > - `createRowsForNewResource`/`createRowsForNewUser` — fan-out pattern shared with `UserGoodsService`, keeping every (user, resource) pair populated.
 > - **Production (the stockpile's only income):** `ProductionActionService`'s first pass credits `Building.resource_production_amount` (e.g. 25) of `province.resource.key` into `UserResource` each turn for every building that has it set — MINE and FORESTRY. This replaced an earlier "+1 static capacity at build time" model; quantity is now a real, growing/shrinking number.
-> - Conquest: `ActionSchedulerService.transferProvinceResourceFootprint` moves a captured building's `requirement_resource` reservation from the losing owner's ledger to the winner's (called from `resolveArmyConflicts` and `syncProvinceOwnershipWithArmies`). Per-turn *production* isn't transferred at the moment of conquest — it's simply derived fresh next turn from whoever then owns the building.
+> - Conquest: `OccupationService.transferProvinceResourceFootprint` moves a captured building's `requirement_resource` reservation from the losing legal owner's ledger to the winner's, called by both `applyControlResult` (occupation/claim/retake) and `coreProvince` (auto-core or peace cession). Per-turn *production* isn't transferred at the moment of conquest — it's simply derived fresh next turn from whoever then owns the building (and is skipped entirely while a province is occupied — see [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation)).
 > - **Why money income no longer reads this table:** an earlier version computed MINE's money as `quantity × resource.plain_income`. Once mines started producing an accumulating stockpile instead of a static count, that formula would make money grow every turn a stockpile went unspent — a runaway loop, not a balance knob. MINE's income is a flat `Building.income` value now, like every other building.
 
 ### Good
@@ -257,6 +270,81 @@ Seed data (`api/data/buildings.json`):
 | lockedAt  | timestamp | When acquired |
 | lockedBy  | varchar   | Instance identifier (nullable) |
 | updatedAt | timestamp | Auto-updated |
+
+### DiplomaticRelation
+One row per unordered player pair, created lazily on first non-neutral event — see
+[GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation). Absence of a row means `NEUTRAL`.
+
+| Column      | Type      | Notes |
+|-------------|-----------|-------|
+| id          | uuid (PK) | |
+| user_a_id   | uuid (FK) | → User, `ON DELETE CASCADE`. Stored canonically sorted (`user_a_id < user_b_id`) so a pair never gets two rows |
+| user_b_id   | uuid (FK) | → User, `ON DELETE CASCADE` |
+| state       | varchar   | `neutral` (default) \| `war` \| `peace` \| `alliance` (not a DB enum) |
+| peace_turns | int       | Default 0. Turns spent in `peace`; decays the state to `neutral` at `PEACE_DURATION_TURNS` (4) |
+| has_trade   | boolean   | Default false. Set by an accepted `trade_agreement` article — no mechanical effect yet, just a signable flag |
+| pass_a_to_b | boolean   | Default false. `user_a_id` has granted troops-pass to `user_b_id` |
+| pass_b_to_a | boolean   | Default false. `user_b_id` has granted troops-pass to `user_a_id` |
+
+> Unique constraint on `(user_a_id, user_b_id)`. `ALLIANCE` implies passage both ways regardless of these
+> flags (`DiplomacyService.hasPassage` checks `state === 'alliance'` first).
+
+### War
+| Column              | Type      | Notes |
+|---------------------|-----------|-------|
+| id                  | uuid (PK) | |
+| attacker_leader_id  | uuid (FK) | → User, `ON DELETE CASCADE` |
+| defender_leader_id  | uuid (FK) | → User, `ON DELETE CASCADE` |
+| status              | varchar   | `active` (default) \| `ended` (not a DB enum) |
+| createdAt           | timestamp | |
+
+### WarParticipant
+Join entity: which side of which war each player is on.
+
+| Column    | Type      | Notes |
+|-----------|-----------|-------|
+| id        | uuid (PK) | |
+| war_id    | uuid (FK) | → War, `ON DELETE CASCADE` |
+| user_id   | uuid (FK) | → User, `ON DELETE CASCADE` |
+| side      | varchar   | `attacker` \| `defender` (not a DB enum) |
+| is_leader | boolean   | Default false. Exactly one leader per side per war (the pair that started it, or was made leader by `DiplomacyService.startWar`) |
+
+> Unique constraint on `(war_id, user_id)`.
+
+### Treaty
+Every proposed treaty, pending or resolved — accepted rows are never cleaned up, forming the permanent
+treaty log surfaced in the web client's Treaties tab.
+
+| Column        | Type      | Notes |
+|---------------|-----------|-------|
+| id            | uuid (PK) | |
+| name          | varchar   | Player-supplied display name |
+| proposer_id   | uuid (FK) | → User, `ON DELETE CASCADE` |
+| receiver_id   | uuid (FK) | → User, `ON DELETE CASCADE` |
+| kind          | varchar   | `peace` \| `alliance` \| `trade` \| `troops_pass` \| `article` (not a DB enum) |
+| peace_scope   | varchar   | `leader` \| `separate`, nullable — only set for `kind = peace` |
+| visibility    | varchar   | `private` (default) \| `public`. Public + `accepted` treaties are visible to any player via `GET /diplomacy/treaties/public/:userId` |
+| recurring     | boolean   | Default false. Only meaningful for `kind = trade` — re-applies the transfer articles every turn |
+| status        | varchar   | `pending` (default) \| `accepted` \| `rejected` \| `cancelled` (not a DB enum) |
+| articles      | json      | Array of clause objects (see below) |
+| note          | text      | Nullable. Markdown/message text; required for `kind = article` |
+| pending_turns | int       | Default 0. Turns spent pending; auto-rejects at `TREATY_EXPIRY_TURNS` (4) |
+| view_only     | boolean   | Default false. True for the read-only copies of a settled **leader peace** sent to non-leader allies — they can view but not accept/reject |
+| createdAt     | timestamp | |
+| resolved_at   | timestamp | Nullable. Set when accepted/rejected/cancelled |
+
+> Indexes on `(receiver_id, status)` (inbox queries) and `proposer_id`.
+
+**Article shapes** (`articles` json array; each carries `from`/`to` where relevant so a deal can be
+bidirectional; amounts are unbounded — no warscore/cost limits):
+- `{ type: 'cede_province', provinceId, from, to }` — legal ownership transfer via `OccupationService.coreProvince` on accept
+- `{ type: 'money_tribute', amount, from, to }`
+- `{ type: 'resource_tribute', resourceKey, amount, from, to }` — via `UserResourcesService`
+- `{ type: 'goods_tribute', goodId, amount, from, to }` — via `UserGoodsService`
+- `{ type: 'set_state', state }` — sets the `DiplomaticRelation.state` between proposer and receiver (e.g. `alliance`)
+- `{ type: 'grant_pass', from, to }` — sets the directional `pass_*_to_*` flag
+- `{ type: 'trade_agreement' }` — sets `has_trade = true`
+- `{ type: 'text', markdown }` — pure RP text, no mechanical effect
 
 ## Seed Data
 

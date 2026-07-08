@@ -1,11 +1,13 @@
-import { AppBar, Button, Menu, MenuItem, Toolbar, Tooltip } from "@mui/material";
+import { AppBar, Badge, Button, Menu, MenuItem, Toolbar, Tooltip } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { useMutation } from "../hooks/useApi.ts";
 import { authApi } from "../api/auth.ts";
 import { useMemo, useState } from "react";
 import { TechsModal } from "./Modals/TechsModal.tsx";
 import { ProfileModal } from "./Modals/ProfileModal.tsx";
-import { ActionType, ProvinceBuilding, UserClasses } from "../types.ts";
+import { NotificationsModal } from "./Modals/NotificationsModal.tsx";
+import { DiplomacyModal } from "./Modals/DiplomacyModal.tsx";
+import { ActionType, ProvinceBuilding, TreatyStatus, UserClasses } from "../types.ts";
 import { MAP_MODE_OPTIONS } from "../utils/mapModes.ts";
 import { setMapMode } from "../store/slices/provincesSlice.ts";
 import { RESOURCE_ICONS } from "../constants/buildingIcons.ts";
@@ -18,10 +20,18 @@ export const TopBar = () => {
   const provinces = useAppSelector(state => state.provinces.provinces);
   const myResources = useAppSelector(state => state.resources.mine);
   const myGoods = useAppSelector(state => state.goods.mine);
+  const treaties = useAppSelector(state => state.diplomacy.treaties);
   const mapMode = useAppSelector(state => state.provinces.mapMode);
   const { mutate } = useMutation(authApi.logout);
   const [openTechModal, setOpenTechModal] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
+  const [openNotificationsModal, setOpenNotificationsModal] = useState(false);
+  const [openDiplomacyModal, setOpenDiplomacyModal] = useState(false);
+
+  const pendingTreatyCount = useMemo(
+    () => treaties.filter(t => t.status === TreatyStatus.PENDING && t.receiver_id === user.id && !t.view_only).length,
+    [treaties, user.id],
+  );
   const [mapModeAnchorEl, setMapModeAnchorEl] = useState<HTMLElement | null>(null);
   const activeMapModeLabel = MAP_MODE_OPTIONS.find(option => option.value === mapMode)?.label ?? 'Normal';
 
@@ -88,6 +98,13 @@ export const TopBar = () => {
               onClick={() => setOpenTechModal(true)}
             >
               Research
+            </Button>
+            <Button
+              className="flex items-center gap-2 px-4 py-2 bg-inverse-primary border rounded hover:bg-on-primary-fixed-variant transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+              onClick={() => setOpenDiplomacyModal(true)}
+            >
+              <span className="material-symbols-outlined text-sm" data-icon="handshake">handshake</span>
+              Diplomacy
             </Button>
             <Button
               id="map-mode-button"
@@ -213,6 +230,14 @@ export const TopBar = () => {
             </div>
             <Button
               className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+              onClick={() => setOpenNotificationsModal(true)}
+            >
+              <Badge badgeContent={pendingTreatyCount} color="error">
+                <span className="material-symbols-outlined text-sm" data-icon="notifications">notifications</span>
+              </Badge>
+            </Button>
+            <Button
+              className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
               onClick={() => setOpenProfileModal(true)}
             >
               <span className="material-symbols-outlined text-sm" data-icon="manage_accounts">manage_accounts</span>
@@ -235,6 +260,14 @@ export const TopBar = () => {
       <ProfileModal
         open={openProfileModal}
         onClose={() => setOpenProfileModal(false)}
+      />
+      <NotificationsModal
+        open={openNotificationsModal}
+        onClose={() => setOpenNotificationsModal(false)}
+      />
+      <DiplomacyModal
+        open={openDiplomacyModal}
+        onClose={() => setOpenDiplomacyModal(false)}
       />
     </AppBar>
   )

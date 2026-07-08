@@ -11,6 +11,8 @@ import { Resource } from '../resources/entities/resource.entity';
 import { Good } from '../goods/entities/good.entity';
 import { UserGoodsService } from '../goods/user-goods.service';
 import { UserResourcesService } from '../resources/user-resources.service';
+import { DiplomaticRelation } from '../diplomacy/entities/diplomatic-relation.entity';
+import { War } from '../diplomacy/entities/war.entity';
 
 @Injectable()
 export class AdminService {
@@ -22,6 +24,8 @@ export class AdminService {
     @InjectRepository(TroopType) private readonly troopTypeRepo: Repository<TroopType>,
     @InjectRepository(Resource) private readonly resourceRepo: Repository<Resource>,
     @InjectRepository(Good) private readonly goodRepo: Repository<Good>,
+    @InjectRepository(DiplomaticRelation) private readonly diplomaticRelationRepo: Repository<DiplomaticRelation>,
+    @InjectRepository(War) private readonly warRepo: Repository<War>,
     private readonly userGoodsService: UserGoodsService,
     private readonly userResourcesService: UserResourcesService,
   ) {}
@@ -212,5 +216,53 @@ export class AdminService {
     const good = await this.goodRepo.findOne({ where: { id } });
     if (!good) throw new NotFoundException(`Good ${id} not found`);
     await this.goodRepo.remove(good);
+  }
+
+  // --- Diplomatic Relations ---
+
+  findAllDiplomaticRelations() {
+    return this.diplomaticRelationRepo.find();
+  }
+
+  async createDiplomaticRelation(dto: Record<string, any>) {
+    const relation = this.diplomaticRelationRepo.create(dto);
+    return this.diplomaticRelationRepo.save(relation);
+  }
+
+  async updateDiplomaticRelation(id: string, dto: Record<string, any>) {
+    const relation = await this.diplomaticRelationRepo.findOne({ where: { id } });
+    if (!relation) throw new NotFoundException(`DiplomaticRelation ${id} not found`);
+    Object.assign(relation, dto);
+    return this.diplomaticRelationRepo.save(relation);
+  }
+
+  async deleteDiplomaticRelation(id: string) {
+    const relation = await this.diplomaticRelationRepo.findOne({ where: { id } });
+    if (!relation) throw new NotFoundException(`DiplomaticRelation ${id} not found`);
+    await this.diplomaticRelationRepo.remove(relation);
+  }
+
+  // --- Wars ---
+
+  findAllWars() {
+    return this.warRepo.find({ relations: ['participants'] });
+  }
+
+  async createWar(dto: Record<string, any>) {
+    const war = this.warRepo.create(dto);
+    return this.warRepo.save(war);
+  }
+
+  async updateWar(id: string, dto: Record<string, any>) {
+    const war = await this.warRepo.findOne({ where: { id } });
+    if (!war) throw new NotFoundException(`War ${id} not found`);
+    Object.assign(war, dto);
+    return this.warRepo.save(war);
+  }
+
+  async deleteWar(id: string) {
+    const war = await this.warRepo.findOne({ where: { id } });
+    if (!war) throw new NotFoundException(`War ${id} not found`);
+    await this.warRepo.remove(war);
   }
 }

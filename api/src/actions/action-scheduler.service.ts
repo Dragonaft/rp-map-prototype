@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, In, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Not, Repository } from 'typeorm';
 import { ActionsService } from './actions.service';
 import { ActionExecutionStateService } from './action-execution-state.service';
 import { ActionExecutorService, ExecutionContext } from './action-executor.service';
@@ -9,8 +9,10 @@ import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
 import { ProductionActionService } from './production-action.service';
 import { UserStateLoaderService } from './user-state-loader.service';
-import { UserResourcesService } from '../resources/user-resources.service';
-import { UserGoodsService } from '../goods/user-goods.service';
+import { DiplomacyService } from '../diplomacy/diplomacy.service';
+import { OccupationService } from '../diplomacy/occupation.service';
+import { TreatyService } from '../diplomacy/treaty.service';
+import { OCCUPATION_CORE_THRESHOLD } from '../diplomacy/types/diplomacy.types';
 import { ActionsLog, ExecutedAction } from './entities/actions-log.entity';
 import { ExecutionLock } from './entities/execution-lock.entity';
 import { ActionQueue, ActionStatus } from './entities/action-queue.entity';
@@ -48,36 +50,13 @@ export class ActionSchedulerService {
     private readonly productionAction: ProductionActionService,
     private readonly userStateLoader: UserStateLoaderService,
     private readonly actionExecutionState: ActionExecutionStateService,
-    private readonly userResourcesService: UserResourcesService,
-    private readonly userGoodsService: UserGoodsService,
+    private readonly diplomacyService: DiplomacyService,
+    private readonly occupationService: OccupationService,
+    private readonly treatyService: TreatyService,
     private readonly dataSource: DataSource,
   ) {
     // Create unique instance ID (hostname + process ID)
     this.instanceId = `${os.hostname()}-${process.pid}`;
-  }
-
-  /**
-   * Moves a conquered province's requirement_resource/requirement_good reservations
-   * between ledgers (the one-time BUILD costs its buildings hold). Per-turn
-   * resource/goods production isn't transferred here — it's derived fresh each
-   * turn from whoever currently owns the building. Called whenever
-   * province.user_id changes ownership.
-   */
-  private async transferProvinceResourceFootprint(
-    manager: EntityManager, province: Province, fromUserId: string | null, toUserId: string,
-  ): Promise<void> {
-    for (const building of province.buildings ?? []) {
-      if (building.requirement_resource) {
-        const amount = building.requirement_resource_amount ?? 1;
-        if (fromUserId) await this.userResourcesService.adjustQuantity(manager, fromUserId, building.requirement_resource, amount);
-        await this.userResourcesService.adjustQuantity(manager, toUserId, building.requirement_resource, -amount);
-      }
-      if (building.requirement_good_id) {
-        const amount = building.requirement_good_amount ?? 1;
-        if (fromUserId) await this.userGoodsService.adjustQuantity(manager, fromUserId, building.requirement_good_id, amount);
-        await this.userGoodsService.adjustQuantity(manager, toUserId, building.requirement_good_id, -amount);
-      }
-    }
   }
 
   // TODO: Create custom cron setup
@@ -147,6 +126,7 @@ export class ActionSchedulerService {
         await this.incomeAction.execute(state, manager);
         await this.productionAction.execute(state, manager);
         await this.upkeepAction.execute(state, manager);
+        await this.treatyService.processRecurringTrades(manager);
       });
     } catch (error) {
       this.logger.error('Income/upkeep phase failed; continuing with queued actions', error);
@@ -265,6 +245,12 @@ export class ActionSchedulerService {
       await this.disbandWeakArmies();
       await this.resolveArmyConflicts();
       await this.syncProvinceOwnershipWithArmies();
+
+      // Diplomacy tick: ownership is now final for the turn, so occupation
+      // counters, peace-truce decay, and stale-proposal expiry all run here.
+      await this.tickOccupations();
+      await this.dataSource.transaction((manager) => this.diplomacyService.tickPeaceDecay(manager));
+      await this.dataSource.transaction((manager) => this.treatyService.tickPendingExpiry(manager));
 
     } catch (error) {
       this.logger.error(`Error during scheduled action execution for ${timetable}:`, error);
@@ -392,31 +378,33 @@ export class ActionSchedulerService {
             `Province ${provinceId}: ${userIds.size} users' armies detected – resolving combat`,
           );
 
-          // Determine defender: user who owns the province
-          const originalOwnerId = province.user_id;
+          // Determine defender: user who owns the province. This only picks
+          // who *defends* this pass — it never changes province.user_id;
+          // legal ownership only ever changes via OccupationService.
           let defenderUserId = province.user_id;
 
           // If no army belongs to the province owner, the first user (sorted for
-          // determinism) takes provisional ownership and defends.
+          // determinism) takes provisional defense.
           if (!defenderUserId || !armiesInProvince.some((a) => a.user_id === defenderUserId)) {
             defenderUserId = [...userIds].sort()[0];
-            province.user_id = defenderUserId;
-            await manager.save(Province, province);
-            await this.transferProvinceResourceFootprint(manager, province, originalOwnerId, defenderUserId);
             this.logger.warn(
-              `Province ${provinceId}: no owner army present, assigned to user ${defenderUserId}`,
+              `Province ${provinceId}: no owner army present, user ${defenderUserId} defends provisionally`,
             );
           }
 
-          // Split into defender armies and attacker armies
+          // Split into defender armies and attacker armies — only armies
+          // hostile to the defender attack; allies/troops-pass grantees
+          // co-locate peacefully and are ignored here.
           let defenderArmies = armiesInProvince.filter((a) => a.user_id === defenderUserId);
           const attackerGroups = new Map<string, Army[]>();
           for (const army of armiesInProvince) {
             if (army.user_id === defenderUserId) continue;
+            if (!(await this.diplomacyService.isHostile(manager, army.user_id, defenderUserId))) continue;
             const group = attackerGroups.get(army.user_id) ?? [];
             group.push(army);
             attackerGroups.set(army.user_id, group);
           }
+          if (attackerGroups.size === 0) continue; // everyone present is at peace/allied — nothing to resolve
 
           // Deterministic, fair engagement order: strongest attacker strikes
           // first, ties broken by user id. Without this the order is whatever
@@ -468,10 +456,8 @@ export class ActionSchedulerService {
                 }
               }
 
-              // Transfer province ownership
-              province.user_id = attackerUserId;
-              await manager.save(Province, province);
-              await this.transferProvinceResourceFootprint(manager, province, defenderUserId, attackerUserId);
+              // Claim / occupy the province per the standard control-result rules.
+              await this.occupationService.applyControlResult(manager, province, attackerUserId);
               defenderArmies = survivingAttackers;
 
               this.logger.log(
@@ -532,8 +518,10 @@ export class ActionSchedulerService {
   }
 
   /**
-   * After all actions are processed, verify that every non-water province
-   * with an army on it is owned by that army's user.
+   * Safety net after all actions/conflicts are processed: any non-water
+   * province with a *hostile* army on it (relative to the province's current
+   * owner/occupier) should be under that army's control. Armies present
+   * peacefully (own territory, ally, or troops-pass) never trigger a change.
    */
   private async syncProvinceOwnershipWithArmies(): Promise<void> {
     try {
@@ -555,16 +543,18 @@ export class ActionSchedulerService {
           const province = provinceMap.get(army.province_id);
           if (!province || province.type === 'water') continue;
 
-          if (province.user_id !== army.user_id) {
-            const previousOwnerId = province.user_id;
-            province.user_id = army.user_id;
-            await manager.save(Province, province);
-            await this.transferProvinceResourceFootprint(manager, province, previousOwnerId, army.user_id);
-            updated++;
-            this.logger.warn(
-              `Province ${province.id} ownership corrected to user ${army.user_id} (army ${army.id})`,
-            );
+          const controllerId = province.occupier_id ?? province.user_id;
+          if (controllerId === army.user_id) continue;
+
+          if (controllerId && !(await this.diplomacyService.isHostile(manager, army.user_id, controllerId))) {
+            continue; // peaceful co-location (ally / troops-pass) — not a control change
           }
+
+          await this.occupationService.applyControlResult(manager, province, army.user_id);
+          updated++;
+          this.logger.warn(
+            `Province ${province.id} control corrected to user ${army.user_id} (army ${army.id})`,
+          );
         }
 
         if (updated > 0) {
@@ -573,6 +563,30 @@ export class ActionSchedulerService {
       });
     } catch (error) {
       this.logger.error('Error during province ownership sync:', error);
+    }
+  }
+
+  /** Every occupied province ages by one turn; occupations reaching OCCUPATION_CORE_THRESHOLD auto-core to the occupier. */
+  private async tickOccupations(): Promise<void> {
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        const occupied = await manager.find(Province, {
+          where: { occupier_id: Not(IsNull()) },
+          relations: ['provinceBuildings', 'provinceBuildings.building'],
+        });
+
+        for (const province of occupied) {
+          province.occupation_turns += 1;
+          if (province.occupation_turns >= OCCUPATION_CORE_THRESHOLD) {
+            await this.occupationService.coreProvince(manager, province, province.occupier_id);
+            this.logger.log(`Province ${province.id} auto-cored to occupier ${province.occupier_id}`);
+          } else {
+            await manager.save(Province, province);
+          }
+        }
+      });
+    } catch (error) {
+      this.logger.error('Error during occupation tick:', error);
     }
   }
 

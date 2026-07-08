@@ -29,6 +29,7 @@ AppModule
 ├── ActionsModule       Action queue, executor, scheduler, income, upkeep
 ├── ResourcesModule     Resource definitions + per-user UserResource capacity ledger (drives build gating + MINE income)
 ├── GoodsModule         Good definitions + per-user UserGood inventory ledger — economy rework, step 3
+├── DiplomacyModule     Diplomatic states, wars, treaties, province occupation
 └── AdminModule         Admin CRUD for all entities
 ```
 
@@ -84,6 +85,25 @@ AppModule
 |--------|------|------|-------------|
 | GET    | /    | JWT  | Available techs (filtered by user class + completed research) |
 
+### Diplomacy (`/diplomacy`)
+Real-time REST, **not** queued actions — treaty offers must persist across turns awaiting a reply, and the
+existing 503 turn-gate already prevents races with turn execution. See
+[GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation) for the full state/treaty/occupation model.
+
+| Method | Path                          | Auth | Description |
+|--------|-------------------------------|------|-------------|
+| GET    | /relations                    | JWT  | Caller's diplomatic state with every other player (missing row ⇒ `neutral`) |
+| GET    | /wars                         | JWT  | Wars the caller participates in (with side/leader info) |
+| GET    | /treaties                     | JWT  | Caller's treaties: pending in/out + accepted/rejected log |
+| GET    | /treaties/public/:userId      | JWT  | Another player's `public`, `accepted` treaties |
+| POST   | /declare-war                  | JWT  | `{targetUserId}` — instant; rejected if allied or already at peace/war |
+| POST   | /send-money                   | JWT  | `{targetUserId, amount}` — direct gift, no connectivity/treaty required |
+| POST   | /treaties                     | JWT  | `{name, receiverId, kind, peaceScope?, visibility, recurring?, articles, note?}` — propose (pending) |
+| POST   | /treaties/:id/accept          | JWT  | Receiver accepts; re-validates and applies all articles atomically |
+| POST   | /treaties/:id/reject          | JWT  | Receiver rejects a pending proposal |
+| DELETE | /treaties/:id                 | JWT  | Proposer cancels their own pending proposal |
+| POST   | /treaties/:id/cancel-signed   | JWT  | Either signatory cancels an accepted `alliance`/`troops_pass` treaty |
+
 ### Armies (`/armies`)
 | Method | Path         | Auth | Description |
 |--------|--------------|------|-------------|
@@ -138,6 +158,16 @@ AppModule
 | POST   | /goods         | Admin | Create good |
 | PATCH  | /goods/:id     | Admin | Update good |
 | DELETE | /goods/:id     | Admin | Delete good |
+| GET    | /diplomacy-relations     | Admin | List diplomatic relations |
+| POST   | /diplomacy-relations     | Admin | Create diplomatic relation |
+| PATCH  | /diplomacy-relations/:id | Admin | Update diplomatic relation |
+| DELETE | /diplomacy-relations/:id | Admin | Delete diplomatic relation |
+| GET    | /wars          | Admin | List wars (with participants) |
+| POST   | /wars          | Admin | Create war |
+| PATCH  | /wars/:id      | Admin | Update war |
+| DELETE | /wars/:id      | Admin | Delete war |
+
+> No admin-panel UI tab exists for these yet — only the REST endpoints (for direct inspection/editing).
 
 ## Action Types (Enum)
 
@@ -152,7 +182,7 @@ by `ActionsService.validateActionPayload` (see Key Services).
 | RESEARCH          | tech_key                                                   |
 | COLONIZE          | province_id (land-province check enforced by executor, not at queue time) |
 | ARMY_CREATE       | province_id, name?, units: [{ troop_type_key, count }]     |
-| ARMY_MOVE         | army_id, to_province_id (one move per army per turn)      |
+| ARMY_MOVE         | army_id, to_province_id (one move per army per turn; diplomacy-gated — see [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation)) |
 | ARMY_RECRUIT      | army_id, units: [{ troop_type_key, count }]               |
 | ARMY_MERGE        | source_army_id, target_army_id (must differ)             |
 | ARMY_DISBAND      | army_id                                                    |
@@ -178,10 +208,21 @@ be integers in `[1, 1_000_000]`.
 - Production: two separate crons, `0 13 * * *` and `0 20 * * *` (Europe/Kyiv) — i.e. 13:00 and 20:00
 - Dev: two fast crons, every 2 minutes (`*/2 * * * *`) and every 5 minutes (`*/5 * * * *`), both gated by `isFastDevCronEnabled()` (disabled if `DISABLE_FAST_ACTION_CRON=true` or `NODE_ENV=production`)
 - Acquires distributed `ExecutionLock` before processing
-- Phases: income → production → upkeep → action execution → cleanup (mark actions completed/failed) → post-processing integrity checks
+- Phases: income → production → upkeep → recurring-trade settlement → action
+  execution → cleanup (mark actions completed/failed) → post-processing
+  integrity checks → diplomacy tick
 - Post-processing (disband weak armies, resolve multi-faction combat, sync
-  province ownership) each runs in its own transaction. Multi-faction combat
-  engages attackers in a deterministic order (strongest attack power first).
+  province control) each runs in its own transaction. Multi-faction combat
+  only engages **hostile** attacker groups (allies/troops-pass grantees
+  co-locate peacefully) and calls `OccupationService.applyControlResult`
+  instead of writing `province.user_id` directly — see
+  [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation). Attackers
+  engage in a deterministic order (strongest attack power first).
+- Diplomacy tick (`tickOccupations`, `DiplomacyService.tickPeaceDecay`,
+  `TreatyService.tickPendingExpiry`): ages every occupied province by one
+  turn (auto-cores at `OCCUPATION_CORE_THRESHOLD`), decays `PEACE` relations
+  to `NEUTRAL` after `PEACE_DURATION_TURNS`, and auto-rejects pending treaty
+  proposals older than `TREATY_EXPIRY_TURNS`.
 
 ### ActionExecutionBlockMiddleware
 - Returns **503** during turn execution on all routes except an exact-match whitelist of five paths: `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout` (note: `/auth/me` is **not** whitelisted and is blocked during processing)
@@ -211,7 +252,20 @@ be integers in `[1, 1_000_000]`.
 - `tryReserve(manager, userId, resourceKey, amount)` — atomic conditional decrement (locks the row). Used at BUILD/UPGRADE time to consume `requirement_resource`, and per-turn in `ProductionActionService` to consume `production_requirement_resource_amount`.
 - `createRowsForNewResource`/`createRowsForNewUser` — same fan-out pattern as `UserGoodsService`.
 - All mutating methods take an explicit `EntityManager` so they participate in the same transaction as the BUILD/REMOVE/UPGRADE action handler or turn-phase service calling them.
-- Called from `action-executor.service.ts` (Build/Remove/UpgradeActionHandler, plus the new `requirement_good` checks via `UserGoodsService`) and `action-scheduler.service.ts` (`transferProvinceResourceFootprint`, invoked on conquest from both `resolveArmyConflicts` and `syncProvinceOwnershipWithArmies` — transfers `requirement_resource`/`requirement_good` reservations only; per-turn production isn't transferred, it's derived fresh from whoever owns the building next turn).
+- Called from `action-executor.service.ts` (Build/Remove/UpgradeActionHandler, plus the new `requirement_good` checks via `UserGoodsService`) and `OccupationService.transferProvinceResourceFootprint` (invoked by both `applyControlResult` and `coreProvince` on every legal-ownership change — transfers `requirement_resource`/`requirement_good` reservations only; per-turn production isn't transferred, it's derived fresh from whoever owns the building next turn).
+
+### DiplomacyService
+- Relation/war/passage/trade-connectivity logic. Key methods: `getState`/`isHostile` (hostile = `neutral|war`), `hasPassage(mover, owner)` (alliance OR a granted `troops_pass`), `startWar`/`ensureWarBetween`/`callAllies` (call-to-arms: an attacked player's allies join their side against the aggressor; an ally that was *also* allied to the aggressor breaks that alliance first), `leaveWar`/`endWar`, `evacuateForeignArmies` (teleports non-hostile foreign armies to their owner's nearest fort/capital-tier province, else nearest owned province, else leaves them in place — used when a troops-pass/alliance is cancelled), `tradeConnected` (BFS over the player-border graph; intermediates must have granted passage to one of the two traders), `tickPeaceDecay`.
+- All mutating methods take an explicit `EntityManager`, same convention as `UserResourcesService`/`UserGoodsService`.
+
+### OccupationService
+- `applyControlResult(manager, province, winnerId)` — the single place that decides claim / retake / occupy whenever a player wins military control of a province (empty land → direct claim; own core, occupied → retake; someone else's core → occupy + `ensureWarBetween`). Called from `ArmyMoveHandler` (uncontested move + attacker-wins) and from the scheduler's `resolveArmyConflicts`/`syncProvinceOwnershipWithArmies`.
+- `coreProvince(manager, province, newOwnerId)` — legal ownership transfer (10-turn auto-core tick, or a peace treaty's `cede_province` article); calls `transferProvinceResourceFootprint`.
+- `clearOccupation` — returns a province to its owner without an ownership change (peace non-cession, friendly retake).
+
+### TreatyService
+- `proposeTreaty`/`acceptTreaty`/`rejectTreaty`/`cancelPendingProposal`/`cancelSignedTreaty`/`declareWar`/`sendMoney` — see [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation) for the full treaty-kind/validation matrix.
+- `processRecurringTrades` (called each turn from the economy transaction) and `tickPendingExpiry` (called from the diplomacy tick) are the two turn-driven entry points; everything else is invoked directly from `DiplomacyController`.
 
 ## File Structure
 
@@ -231,6 +285,9 @@ api/src/
 │                   entities (resource, user-resource), types (plain/consumable)
 ├── goods/          controller, service (Good), user-goods.service (UserGood ledger),
 │                   entities (good, user-good)
+├── diplomacy/      controller, diplomacy.service (relations/wars/passage), occupation.service
+│                   (province control), treaty.service (propose/accept/peace/trade),
+│                   entities (diplomatic-relation, war, war-participant, treaty), dto/, types/
 ├── admin/          controller, service
 ├── db/             data-source.ts, data-source.prod.ts, migrations/
 ├── utils/          logger.ts, parseIncome.ts

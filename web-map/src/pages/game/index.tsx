@@ -23,6 +23,8 @@ import { resourcesApi } from "../../api/resources.ts";
 import { setResources, setMyResources } from "../../store/slices/resourcesSlice.ts";
 import { goodsApi } from "../../api/goods.ts";
 import { setMyGoods } from "../../store/slices/goodsSlice.ts";
+import { diplomacyApi } from "../../api/diplomacy.ts";
+import { setRelations, setTreaties, setWars } from "../../store/slices/diplomacySlice.ts";
 
 
 const style = {
@@ -77,6 +79,12 @@ export const GamePage: React.FC = () => {
   const { data: myResourcesData } = useQuery(fetchMyResources, []);
   const fetchMyGoods = useCallback(() => goodsApi.getMine(), []);
   const { data: myGoodsData } = useQuery(fetchMyGoods, []);
+  const fetchRelations = useCallback(() => diplomacyApi.getRelations(), []);
+  const { data: relationsData } = useQuery(fetchRelations, []);
+  const fetchWars = useCallback(() => diplomacyApi.getWars(), []);
+  const { data: warsData } = useQuery(fetchWars, []);
+  const fetchTreaties = useCallback(() => diplomacyApi.getTreaties(), []);
+  const { data: treatiesData } = useQuery(fetchTreaties, []);
 
   useEffect(() => {
     if (!userData) return;
@@ -133,6 +141,21 @@ export const GamePage: React.FC = () => {
     if (!myGoodsData) return;
     dispatch(setMyGoods(myGoodsData));
   }, [myGoodsData, dispatch]);
+
+  useEffect(() => {
+    if (!relationsData) return;
+    dispatch(setRelations(relationsData));
+  }, [relationsData, dispatch]);
+
+  useEffect(() => {
+    if (!warsData) return;
+    dispatch(setWars(warsData));
+  }, [warsData, dispatch]);
+
+  useEffect(() => {
+    if (!treatiesData) return;
+    dispatch(setTreaties(treatiesData));
+  }, [treatiesData, dispatch]);
 
   // Prevent browser zoom when Ctrl+wheel anywhere on the page
   useEffect(() => {

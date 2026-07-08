@@ -15,6 +15,10 @@ import { BuildMenuModal } from "./Modals/BuildMenuModal.tsx";
 import { BuildingActionsModal } from "./Modals/BuildingActionsModal.tsx";
 import { CancelActionModal } from "./Modals/CancelActionModal.tsx";
 import { DeleteBuildingModal } from "./Modals/DeleteBuildingModal.tsx";
+import { PlayerTreatiesModal } from "./Modals/PlayerTreatiesModal.tsx";
+
+/** Must match OCCUPATION_CORE_THRESHOLD in api/src/diplomacy/types/diplomacy.types.ts */
+const OCCUPATION_CORE_THRESHOLD = 10;
 
 interface Props {
   onSelectArmy?: (armyId: string | null) => void;
@@ -33,6 +37,11 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
   const { mutate } = useMutation(provincesApi.setupUser);
 
   const isUserOwner = user.id === selectedProvince?.userId;
+  const isOccupied = !!selectedProvince?.occupierId;
+  const isOccupier = user.id === selectedProvince?.occupierId;
+  // Owner is cut off from building while occupied; the occupier never gains build rights either.
+  const canBuildHere = isUserOwner && !isOccupied;
+  const [openPlayerTreaties, setOpenPlayerTreaties] = useState(false);
 
   // Player's resource ledger (GET /resources/mine), keyed by resource key for
   // quick lookup — already nets out everything currently built.
@@ -310,6 +319,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     () => (selectedProvince?.buildings ?? []).some(b => b.canRecruit),
     [selectedProvince?.buildings],
   );
+  const canRecruitHere = (isUserOwner && !isOccupied) || isOccupier;
 
   const pendingResourceUsage = useMemo(() => {
     const used: Record<string, number> = {};
@@ -384,13 +394,24 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         </div>
       )}
 
-      {/* Non-owner view */}
-      {!user.isNew && !isUserOwner && (
+      {/* Non-owner, non-occupier view */}
+      {!user.isNew && !isUserOwner && !isOccupier && (
         <div className="flex flex-col gap-2">
           <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
           <p className="mb-0 mt-1">Landscape: {selectedProvince.landscape}</p>
           <p className="mb-0 mt-1">Resource: {selectedProvince.resourceType}</p>
           {provinceOwner && <p className="mb-0 mt-1">Owner: {provinceOwner.countryName}</p>}
+          {isOccupied && (
+            <p className="mb-0 mt-1 text-xs bg-red-900/60 border border-red-500 rounded px-2 py-1.5 text-red-200">
+              Occupied by {otherUsers.find(u => u.id === selectedProvince.occupierId)?.countryName ?? 'another player'}
+              {' '}— cores in {Math.max(0, OCCUPATION_CORE_THRESHOLD - selectedProvince.occupationTurns)} turn(s)
+            </p>
+          )}
+          {selectedProvince.userId && (
+            <Button size="small" variant="outlined" onClick={() => setOpenPlayerTreaties(true)}>
+              Player Treaties
+            </Button>
+          )}
           {builtInProvince.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {builtInProvince.map((b) => (
@@ -455,6 +476,60 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         </div>
       )}
 
+      {/* Occupier view — you control this province militarily but don't own
+          it; you can recruit/defend at its fort but cannot build. */}
+      {!user.isNew && isOccupier && (
+        <div className="flex flex-col gap-2">
+          <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
+          <p className="mb-0 mt-1">Landscape: {selectedProvince.landscape}</p>
+          <p className="mb-0 mt-1">Resource: {selectedProvince.resourceType}</p>
+          {provinceOwner && <p className="mb-0 mt-1">Core owner: {provinceOwner.countryName}</p>}
+          <p className="mb-0 mt-1 text-xs bg-amber-900/60 border border-amber-500 rounded px-2 py-1.5 text-amber-200">
+            Occupied by you — cores to you in {Math.max(0, OCCUPATION_CORE_THRESHOLD - selectedProvince.occupationTurns)} turn(s)
+          </p>
+          {builtInProvince.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {builtInProvince.map((b) => (
+                <div
+                  key={b.instanceId}
+                  className="w-10 h-10 text-lg border border-gray-400 rounded bg-gray-200/40 flex items-center justify-center cursor-default"
+                  title={b.name}
+                >
+                  {BUILDING_ICONS[b.type] ?? '🏗️'}
+                </div>
+              ))}
+            </div>
+          )}
+          {armiesInProvince.length > 0 && (
+            <div className="flex flex-col gap-1 mt-2">
+              <h3 className="text-xs font-bold uppercase text-gray-600 tracking-wide">Armies</h3>
+              {armiesInProvince.map((army) => {
+                const total = armyTotalTroops(army);
+                const isSelected = selectedArmyId === army.id;
+                return (
+                  <button
+                    key={army.id}
+                    className={`w-full text-left text-xs px-2 py-1.5 rounded border flex items-center justify-between transition-colors ${
+                      isSelected ? 'bg-blue-200 border-blue-500' : 'bg-gray-200 border-gray-400 hover:bg-gray-300'
+                    }`}
+                    onClick={() => onSelectArmy?.(isSelected ? null : army.id)}
+                    title="Click to manage army"
+                  >
+                    <span className="font-medium truncate">{army.name ?? 'Unnamed Army'}</span>
+                    <span className="font-bold tabular-nums ml-2 shrink-0">{total}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {canRecruitHere && hasRecruitBuilding && (
+            <Button variant="contained" color="primary" size="small" onClick={() => onCreateArmy?.()}>
+              Create Army
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Owner view */}
       {!user.isNew && isUserOwner && (
         <div className="flex flex-col gap-2">
@@ -463,28 +538,36 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
               <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
               <p>Landscape: {selectedProvince.landscape}</p>
               <p>Resource: {selectedProvince.resourceType}</p>
+              {isOccupied && (
+                <p className="mb-0 mt-1 text-xs bg-red-900/60 border border-red-500 rounded px-2 py-1.5 text-red-200">
+                  Occupied by {otherUsers.find(u => u.id === selectedProvince.occupierId)?.countryName ?? 'another player'}
+                  {' '}— cores to them in {Math.max(0, OCCUPATION_CORE_THRESHOLD - selectedProvince.occupationTurns)} turn(s). You cannot build here until it's retaken.
+                </p>
+              )}
               <div className="flex flex-wrap gap-1 mt-2">
                 {builtInProvince.map((b) => {
                   const hasPendingRemove = pendingRemoveBuildingIds.has(b.instanceId);
                   const hasPendingUpgrade = pendingUpgradeBuildingIds.has(b.instanceId);
                   let slotClass = 'border-gray-600 bg-gray-200 hover:bg-red-100 cursor-pointer';
-                  if (!b.destructible) {
+                  if (!canBuildHere || !b.destructible) {
                     slotClass = 'border-gray-600 bg-gray-200 cursor-default';
                   } else if (hasPendingRemove) {
                     slotClass = 'border-red-500 bg-red-200/50 hover:bg-red-300/50 cursor-pointer';
                   } else if (hasPendingUpgrade) {
                     slotClass = 'border-blue-500 bg-blue-200/50 hover:bg-blue-300/50 cursor-pointer';
                   }
-                  const title = hasPendingRemove
-                    ? 'Queued for removal — click to cancel'
-                    : hasPendingUpgrade
-                      ? 'Queued for upgrade — click to cancel'
-                      : b.name;
+                  const title = !canBuildHere
+                    ? 'Occupied — cannot manage buildings'
+                    : hasPendingRemove
+                      ? 'Queued for removal — click to cancel'
+                      : hasPendingUpgrade
+                        ? 'Queued for upgrade — click to cancel'
+                        : b.name;
                   return (
                     <button
                       key={b.instanceId}
                       className={`w-10 h-10 text-lg border rounded flex items-center justify-center ${slotClass}`}
-                      onClick={() => handleBuiltBuildingClick(b)}
+                      onClick={() => canBuildHere && handleBuiltBuildingClick(b)}
                       title={title}
                     >
                       {BUILDING_ICONS[b.type] ?? '🏗️'}
@@ -501,7 +584,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
                     {BUILDING_ICONS[a.type] ?? '🏗️'}
                   </button>
                 ))}
-                {Array.from({ length: emptySlotCount }).map((_, i) => (
+                {canBuildHere && Array.from({ length: emptySlotCount }).map((_, i) => (
                   <button
                     key={`empty-${i}`}
                     className="w-10 h-10 text-lg border border-dashed border-gray-500 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
@@ -555,7 +638,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
               </div>
             )}
 
-            {hasRecruitBuilding && (
+            {canRecruitHere && hasRecruitBuilding && (
               <div className="flex flex-col gap-2 mt-2">
                 <Button variant="contained" color="primary" size="small" onClick={() => onCreateArmy?.()}>
                   Create Army
@@ -608,6 +691,15 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         isDeleting={isDeleting}
         onConfirm={handleDeleteAction}
       />
+
+      {selectedProvince.userId && (
+        <PlayerTreatiesModal
+          open={openPlayerTreaties}
+          onClose={() => setOpenPlayerTreaties(false)}
+          userId={selectedProvince.userId}
+          userName={provinceOwner?.countryName ?? 'This player'}
+        />
+      )}
     </div>
   );
 };

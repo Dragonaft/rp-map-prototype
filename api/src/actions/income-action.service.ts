@@ -25,6 +25,7 @@ export class IncomeActionService {
       let pietyCount = 0;
 
       for (const province of userProvinces) {
+        if (province.occupier_id) continue; // occupied: nobody earns from it
         if (!province.buildings?.length) continue;
         for (const b of province.buildings) {
           switch (b.type) {

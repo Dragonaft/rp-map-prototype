@@ -47,6 +47,7 @@ export class UpkeepActionService {
       // Building upkeep (FORT, BARRACKS, ARMORY)
       let buildingUpkeep = 0;
       for (const province of userProvinces) {
+        if (province.occupier_id) continue; // occupied: owner gets no benefit, pays no upkeep either
         if (!province.buildings?.length) continue;
         for (const b of province.buildings) {
           if (ARMY_UPKEEP_BUILDINGS.has(b.type)) {

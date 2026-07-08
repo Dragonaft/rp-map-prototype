@@ -174,4 +174,50 @@ export class AdminController {
   deleteGood(@Param('id') id: string) {
     return this.adminService.deleteGood(id);
   }
+
+  // --- Diplomatic Relations ---
+
+  @Get('diplomacy-relations')
+  getDiplomaticRelations() {
+    return this.adminService.findAllDiplomaticRelations();
+  }
+
+  @Post('diplomacy-relations')
+  createDiplomaticRelation(@Body() body: Record<string, any>) {
+    return this.adminService.createDiplomaticRelation(body);
+  }
+
+  @Patch('diplomacy-relations/:id')
+  updateDiplomaticRelation(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateDiplomaticRelation(id, body);
+  }
+
+  @Delete('diplomacy-relations/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteDiplomaticRelation(@Param('id') id: string) {
+    return this.adminService.deleteDiplomaticRelation(id);
+  }
+
+  // --- Wars ---
+
+  @Get('wars')
+  getWars() {
+    return this.adminService.findAllWars();
+  }
+
+  @Post('wars')
+  createWar(@Body() body: Record<string, any>) {
+    return this.adminService.createWar(body);
+  }
+
+  @Patch('wars/:id')
+  updateWar(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateWar(id, body);
+  }
+
+  @Delete('wars/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteWar(@Param('id') id: string) {
+    return this.adminService.deleteWar(id);
+  }
 }

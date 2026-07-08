@@ -41,6 +41,7 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 | `otherUsers` | otherUsers[] (id, countryName, color)                            |
 | `resources`  | resources[] (catalog, `/resources`), mine[] (`UserResourceHolding[]`, `/resources/mine`) |
 | `goods`      | mine[] (`UserGoodHolding[]`, `/goods/mine`)                       |
+| `diplomacy`  | relations[] (`DiplomaticRelation[]`, `/diplomacy/relations`), wars[] (`/diplomacy/wars`), treaties[] (`/diplomacy/treaties`) |
 
 > Player resource/good holdings are no longer embedded in the `user` slice — they're fetched separately as ledger rows (`resource`/`good` + `quantity`) and displayed in `TopBar.tsx`, mirroring each other.
 
@@ -56,7 +57,7 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 - `withCredentials: true` (httpOnly cookies)
 - 401 interceptor: queues failed requests, calls `/auth/refresh`, retries all
 
-**API modules:** auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts, resources.ts, goods.ts
+**API modules:** auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts, resources.ts, goods.ts, diplomacy.ts
 
 **SSE:** `/actions/execution-stream` — listened in `useActionExecutionReload` hook for auto-reload when turn completes.
 
@@ -79,6 +80,10 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 - Emoji icons rendered as `<text>`: landscape, resource, buildings
 - Troop count badge (white rect), enemy indicator (red rect)
 - Pending deploy label (green "+")
+- **Occupied provinces**: base fill stays the legal owner's color; a second `<path>` with the same
+  polygon is overlaid using an inline per-province `<pattern>` (`occupied-stripes-{id}`, diagonal lines
+  via `patternTransform="rotate(45)"`) filled in the **occupier's** color. Computed from
+  `province.occupierId` the same way `provinceOwnerColor` is computed from `province.userId`
 
 ### Road Rendering
 - Dashed lines center-to-center between road-equipped provinces
@@ -98,10 +103,10 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 
 ```
 GamePage
-├── TopBar              Resources display, tech tree button, profile, logout
+├── TopBar              Resources display, tech tree button, notifications bell, diplomacy, profile, logout
 ├── MapView             SVG map canvas (pan/zoom/wrap)
-│   └── ProvinceShape   Individual province rendering
-├── SelectedProvinceHover  Right panel (build, deploy, setup, colonize)
+│   └── ProvinceShape   Individual province rendering (incl. occupied-province stripes)
+├── SelectedProvinceHover  Right panel (build, deploy, setup, colonize, occupation state, player treaties)
 ├── ArmyBlock           Army detail panel (recruit, edit, disband)
 ├── CreateArmyModal     New army creation
 ├── TroopMovementModal  Army move target selection
@@ -111,7 +116,12 @@ GamePage
     ├── CancelActionModal      Confirm action cancellation
     ├── DeleteBuildingModal    Demolish confirmation
     ├── ProfileModal           Edit country name/color
-    └── TechsModal             Tech tree research UI (renders TechTree)
+    ├── TechsModal             Tech tree research UI (renders TechTree)
+    ├── NotificationsModal     Bell dropdown: Treaties (pending + log) / News / System tabs
+    ├── DiplomacyModal         Player list + relation state + propose/declare-war/send-money hub
+    ├── TreatyNegotiationModal Vic3-style article builder (alliance/trade/troops_pass/article)
+    ├── PeaceNegotiationModal  EU4-style peace proposal (province checklist + tribute, contiguity-checked)
+    └── PlayerTreatiesModal    Read-only view of another player's public accepted treaties
 ```
 
 (`ProtectedRoute` wraps the game page for auth; `TechTree.tsx` is the tech-tree
@@ -152,11 +162,11 @@ graph rendered inside `TechsModal`.)
 ```
 web-map/src/
 ├── api/              config.ts, auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts,
-│                     resources.ts, goods.ts
+│                     resources.ts, goods.ts, diplomacy.ts
 ├── components/       MapView, ProvinceShape, SelectedProvinceHover, ArmyBlock, TopBar, TechTree, modals
 ├── pages/            game/index.tsx, auth/login/LoginPage.tsx, auth/register/RegisterPage.tsx
 ├── store/            store.ts, hooks.ts, slices/ (user, provinces, armies, buildings, techs, actions, otherUsers,
-│                     resources, goods)
+│                     resources, goods, diplomacy)
 ├── context/          AuthContext.tsx, SnackbarContext.tsx
 ├── hooks/            useApi.ts, useActionExecutionReload.ts
 ├── constants/        buildingIcons.ts

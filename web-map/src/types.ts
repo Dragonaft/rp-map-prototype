@@ -120,6 +120,9 @@ export interface ProvinceStateData {
   enemyHere?: boolean;
   buildings?: ProvinceBuilding[];
   buildingCap: number | null;
+  /** Military controller when occupied (not the legal owner). Null = not occupied. */
+  occupierId: string | null;
+  occupationTurns: number;
 }
 
 export interface Province {
@@ -135,6 +138,8 @@ export interface Province {
   buildings?: ProvinceBuilding[];
   neighbors?: string[] | null;
   buildingCap: number;
+  occupierId: string | null;
+  occupationTurns: number;
 }
 
 export enum UserClasses {
@@ -282,5 +287,100 @@ export interface ActionData {
   troopCount?: number;
   upgradeLevel?: number;
   [key: string]: any; // Flexible for future action types
+}
+
+// ── Diplomacy ────────────────────────────────────────────────────────────
+
+export enum DiplomaticState {
+  NEUTRAL = 'neutral',
+  WAR = 'war',
+  PEACE = 'peace',
+  ALLIANCE = 'alliance',
+}
+
+export enum TreatyKind {
+  PEACE = 'peace',
+  ALLIANCE = 'alliance',
+  TRADE = 'trade',
+  TROOPS_PASS = 'troops_pass',
+  ARTICLE = 'article',
+}
+
+export enum TreatyVisibility {
+  PUBLIC = 'public',
+  PRIVATE = 'private',
+}
+
+export enum TreatyStatus {
+  PENDING = 'pending',
+  ACCEPTED = 'accepted',
+  REJECTED = 'rejected',
+  CANCELLED = 'cancelled',
+}
+
+export enum PeaceScope {
+  LEADER = 'leader',
+  SEPARATE = 'separate',
+}
+
+export enum WarSide {
+  ATTACKER = 'attacker',
+  DEFENDER = 'defender',
+}
+
+export type TreatyArticle =
+  | { type: 'cede_province'; provinceId: string; from: string; to: string }
+  | { type: 'money_tribute'; amount: number; from: string; to: string }
+  | { type: 'resource_tribute'; resourceKey: string; amount: number; from: string; to: string }
+  | { type: 'goods_tribute'; goodId: string; amount: number; from: string; to: string }
+  | { type: 'set_state'; state: DiplomaticState }
+  | { type: 'grant_pass'; from: string; to: string }
+  | { type: 'trade_agreement' }
+  | { type: 'text'; markdown: string };
+
+/** Normalized, per-other-player view returned by GET /diplomacy/relations. */
+export interface DiplomaticRelation {
+  otherUserId: string;
+  state: DiplomaticState;
+  hasTrade: boolean;
+  /** True if the other player has granted troops-pass to me. */
+  passToOther: boolean;
+  /** True if I have granted troops-pass to the other player. */
+  passFromOther: boolean;
+}
+
+export interface WarParticipant {
+  id: string;
+  war_id: string;
+  user_id: string;
+  side: WarSide;
+  is_leader: boolean;
+}
+
+export interface War {
+  id: string;
+  attacker_leader_id: string;
+  defender_leader_id: string;
+  status: 'active' | 'ended';
+  participants: WarParticipant[];
+  createdAt: string;
+}
+
+export interface Treaty {
+  id: string;
+  name: string;
+  proposer_id: string;
+  receiver_id: string;
+  kind: TreatyKind;
+  peace_scope: PeaceScope | null;
+  visibility: TreatyVisibility;
+  recurring: boolean;
+  status: TreatyStatus;
+  articles: TreatyArticle[];
+  note: string | null;
+  pending_turns: number;
+  view_only: boolean;
+  createdAt: string;
+  resolved_at: string | null;
 }
 

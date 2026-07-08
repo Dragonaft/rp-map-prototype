@@ -69,6 +69,15 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     return otherUsers.find(u => u.id === province.userId)?.color ?? null;
   }, [province.userId, currentUserId, currentUserColor, otherUsers]);
 
+  // Occupied provinces keep the legal owner's color as background (above) and
+  // get a diagonal-stripe overlay in the occupier's color (below).
+  const occupierColor = useMemo(() => {
+    if (!province.occupierId) return null;
+    if (province.occupierId === currentUserId) return currentUserColor;
+    return otherUsers.find(u => u.id === province.occupierId)?.color ?? null;
+  }, [province.occupierId, currentUserId, currentUserColor, otherUsers]);
+  const occupiedStripesPatternId = `occupied-stripes-${province.id}`;
+
   // Color of the player whose army is stationed here (falls back to province owner).
   const enemyArmyOwnerColor = useMemo(() => {
     if (enemyArmyOwnerId) {
@@ -190,6 +199,29 @@ const ProvinceShapeComponent: React.FC<Props> = ({
         onContextMenu={handleRightClick}
         style={{ cursor: 'pointer', transition: 'fill 0.2s, stroke 0.2s, stroke-width 0.2s' }}
       />
+
+      {/* Occupied overlay: legal owner's color stays as the background (above);
+          diagonal stripes in the occupier's color are painted on top. */}
+      {!isWater && occupierColor && (
+        <>
+          <defs>
+            <pattern
+              id={occupiedStripesPatternId}
+              patternUnits="userSpaceOnUse"
+              width="8" height="8"
+              patternTransform="rotate(45)"
+            >
+              <rect width="8" height="8" fill="transparent" />
+              <line x1="0" y1="0" x2="0" y2="8" stroke={occupierColor} strokeWidth="4" />
+            </pattern>
+          </defs>
+          <path
+            d={province.polygon}
+            fill={`url(#${occupiedStripesPatternId})`}
+            pointerEvents="none"
+          />
+        </>
+      )}
 
       {/* Landscape icon — top-left corner */}
       {!isWater && landscapeIcon && (
