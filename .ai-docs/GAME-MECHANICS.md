@@ -248,15 +248,17 @@ Pending proposals older than `TREATY_EXPIRY_TURNS` (4 turns) auto-reject.
     that ally **leave the war** and **break its alliance** with its side leader, going to `PEACE` with
     the attacker — the leaders' war continues.
 - **Alliance** — sets the pair to `ALLIANCE` (`set_state` article). Rejected while at `WAR`.
-- **Trade** — money/resource/goods transfer articles. Money can be sent to **anyone, anytime**
-  (`POST /diplomacy/send-money`, no treaty needed). Goods/resources require the pair to be
-  **trade-connected** (`DiplomacyService.tradeConnected`): a shared border, or a chain of bordering
-  intermediates who have each granted troops-pass to one of the two traders. `recurring: true` re-applies
-  the transfer articles every turn (`TreatyService.processRecurringTrades`, called from the scheduler's
-  economy transaction); a side that can't pay simply skips that turn.
+- **Trade** — money/resource/goods transfer articles. Money can be sent to anyone
+  (`POST /diplomacy/send-money`, no treaty needed) **except an enemy currently at `WAR`** with you.
+  Goods/resources additionally require the pair to be **trade-connected**
+  (`DiplomacyService.tradeConnected`): a shared border, or a chain of bordering intermediates who have
+  each granted troops-pass to one of the two traders. `recurring: true` re-applies the transfer articles
+  every turn (`TreatyService.processRecurringTrades`, called from the scheduler's economy transaction); a
+  side that can't pay simply skips that turn. Proposing a `trade` treaty is itself rejected while at `WAR`
+  with the receiver, same as alliance.
 - **Troops Pass** (`grant_pass` article, `{from, to}`) — directional: `from` lets `to`'s armies enter
   its territory without occupying/war. Alliance implies both directions implicitly (checked via state,
-  not via the pass flags).
+  not via the pass flags). Rejected while at `WAR` with the receiver, same as trade/alliance.
 - **Article** — pure Markdown text (`note`), no mechanical effect. RP-only.
 
 Any signed `alliance` or `troops_pass` treaty can be cancelled by either party at any time

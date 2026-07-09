@@ -97,7 +97,7 @@ existing 503 turn-gate already prevents races with turn execution. See
 | GET    | /treaties                     | JWT  | Caller's treaties: pending in/out + accepted/rejected log |
 | GET    | /treaties/public/:userId      | JWT  | Another player's `public`, `accepted` treaties |
 | POST   | /declare-war                  | JWT  | `{targetUserId}` — instant; rejected if allied or already at peace/war |
-| POST   | /send-money                   | JWT  | `{targetUserId, amount}` — direct gift, no connectivity/treaty required |
+| POST   | /send-money                   | JWT  | `{targetUserId, amount}` — direct gift, no connectivity/treaty required; rejected if the pair is at `WAR` |
 | POST   | /treaties                     | JWT  | `{name, receiverId, kind, peaceScope?, visibility, recurring?, articles, note?}` — propose (pending) |
 | POST   | /treaties/:id/accept          | JWT  | Receiver accepts; re-validates and applies all articles atomically |
 | POST   | /treaties/:id/reject          | JWT  | Receiver rejects a pending proposal |

@@ -24,6 +24,7 @@ const STATE_BADGE_CLASSES: Record<DiplomaticState, string> = {
 
 export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
   const dispatch = useAppDispatch();
+  const currentUserId = useAppSelector((state) => state.user.id);
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
   const relations = useAppSelector((state) => state.diplomacy.relations);
   const [negotiation, setNegotiation] = useState<{ receiverId: string; receiverName: string; kind: TreatyKind.ALLIANCE | TreatyKind.TRADE | TreatyKind.TROOPS_PASS | TreatyKind.ARTICLE } | null>(null);
@@ -40,11 +41,18 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
     return map;
   }, [relations]);
 
+  // GET /users (the source of otherUsers) returns every account, including our own —
+  // exclude ourselves here since we can't propose treaties/war/money to ourselves anyway.
+  const othersExcludingSelf = useMemo(
+    () => otherUsers.filter((u) => u.id !== currentUserId),
+    [otherUsers, currentUserId],
+  );
+
   const filteredUsers = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    if (!query) return otherUsers;
-    return otherUsers.filter((u) => u.countryName.toLowerCase().includes(query));
-  }, [otherUsers, searchQuery]);
+    if (!query) return othersExcludingSelf;
+    return othersExcludingSelf.filter((u) => u.countryName.toLowerCase().includes(query));
+  }, [othersExcludingSelf, searchQuery]);
 
   const refresh = async () => {
     const [relations, wars, treaties] = await Promise.all([
@@ -146,7 +154,7 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
             <div className="flex flex-col gap-8 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
               {filteredUsers.length === 0 && (
                 <div className="font-headline text-xs uppercase tracking-widest text-on-surface-variant text-center py-8">
-                  {otherUsers.length === 0 ? 'No other players yet' : 'No matching entities'}
+                  {othersExcludingSelf.length === 0 ? 'No other players yet' : 'No matching entities'}
                 </div>
               )}
               {filteredUsers.map((other) => {
@@ -190,7 +198,10 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
                           onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.ALLIANCE })}
                         />
                       )}
-                      {state !== DiplomaticState.ALLIANCE && (
+                      {/* Trade, troops pass, and money all require the pair not be at war — DESIGN.md/GAME-MECHANICS.md's
+                          "money can be sent to anyone, anytime" was revised: sending money, trading, and passage all
+                          now require making peace first, matching the alliance restriction just above. */}
+                      {state !== DiplomaticState.ALLIANCE && state !== DiplomaticState.WAR && (
                         <ActionButton
                           label="Propose Troops Pass"
                           colorClass="border-primary text-primary hover:bg-primary/10"
@@ -198,24 +209,28 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
                           onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.TROOPS_PASS })}
                         />
                       )}
-                      <ActionButton
-                        label="Propose Trade"
-                        colorClass="border-secondary text-secondary hover:bg-secondary/10"
-                        disabled={busy}
-                        onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.TRADE })}
-                      />
+                      {state !== DiplomaticState.WAR && (
+                        <ActionButton
+                          label="Propose Trade"
+                          colorClass="border-secondary text-secondary hover:bg-secondary/10"
+                          disabled={busy}
+                          onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.TRADE })}
+                        />
+                      )}
                       <ActionButton
                         label="Propose Article"
                         colorClass="border-primary text-primary hover:bg-primary/10"
                         disabled={busy}
                         onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.ARTICLE })}
                       />
-                      <ActionButton
-                        label="Send Money"
-                        colorClass="border-primary text-primary hover:bg-primary/10"
-                        disabled={busy}
-                        onClick={() => setMoneyTarget({ id: other.id, name: other.countryName })}
-                      />
+                      {state !== DiplomaticState.WAR && (
+                        <ActionButton
+                          label="Send Money"
+                          colorClass="border-primary text-primary hover:bg-primary/10"
+                          disabled={busy}
+                          onClick={() => setMoneyTarget({ id: other.id, name: other.countryName })}
+                        />
+                      )}
                       <button
                         onClick={() => setTreatiesOf({ id: other.id, name: other.countryName })}
                         className="bg-transparent col-span-full border border-primary text-primary py-1.5 font-headline text-[11px] tracking-[0.2em] uppercase hover:bg-primary/10 transition-all rounded-sm cursor-pointer"

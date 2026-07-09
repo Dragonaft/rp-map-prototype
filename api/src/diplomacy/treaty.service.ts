@@ -80,6 +80,10 @@ export class TreatyService {
         break;
       }
       case TreatyKind.TRADE: {
+        const tradeState = await this.diplomacyService.getState(manager, proposerId, receiverId);
+        if (tradeState === DiplomaticState.WAR) {
+          throw new Error('Cannot propose a trade while at war — make peace first');
+        }
         for (const article of articles) {
           if (article.type === 'resource_tribute' || article.type === 'goods_tribute') {
             const connected = await this.diplomacyService.tradeConnected(manager, proposerId, receiverId);
@@ -93,6 +97,10 @@ export class TreatyService {
       case TreatyKind.TROOPS_PASS: {
         if (!articles.some((a) => a.type === 'grant_pass')) {
           throw new Error('A troops-pass treaty needs a grant_pass article');
+        }
+        const passState = await this.diplomacyService.getState(manager, proposerId, receiverId);
+        if (passState === DiplomaticState.WAR) {
+          throw new Error('Cannot propose troops pass while at war — make peace first');
         }
         break;
       }
@@ -275,6 +283,10 @@ export class TreatyService {
 
   async sendMoney(manager: EntityManager, fromUserId: string, toUserId: string, amount: number): Promise<void> {
     if (fromUserId === toUserId) throw new Error('Cannot send money to yourself');
+    const state = await this.diplomacyService.getState(manager, fromUserId, toUserId);
+    if (state === DiplomaticState.WAR) {
+      throw new Error('Cannot send money while at war — make peace first');
+    }
     const fromUser = await manager.findOne(User, { where: { id: fromUserId }, lock: { mode: 'pessimistic_write' } });
     if (!fromUser || (fromUser.money ?? 0) < amount) throw new Error('Insufficient funds');
     const toUser = await manager.findOne(User, { where: { id: toUserId }, lock: { mode: 'pessimistic_write' } });
