@@ -30,6 +30,7 @@ AppModule
 ├── ResourcesModule     Resource definitions + per-user UserResource capacity ledger (drives build gating + MINE income)
 ├── GoodsModule         Good definitions + per-user UserGood inventory ledger — economy rework, step 3
 ├── DiplomacyModule     Diplomatic states, wars, treaties, province occupation
+├── NotificationsModule Per-user durable notifications (action failures, admin broadcasts)
 └── AdminModule         Admin CRUD for all entities
 ```
 
@@ -104,6 +105,21 @@ existing 503 turn-gate already prevents races with turn execution. See
 | DELETE | /treaties/:id                 | JWT  | Proposer cancels their own pending proposal |
 | POST   | /treaties/:id/cancel-signed   | JWT  | Either signatory cancels an accepted `alliance`/`troops_pass` treaty |
 
+### Notifications (`/notifications`)
+Durable, per-user notifications — the only place a non-admin player can ever see *why* a queued action
+failed, since `ActionQueue` rows (including `failureReason`) are deleted by the scheduler's same-turn
+cleanup before the client's next fetch.
+
+| Method | Path              | Auth | Description |
+|--------|-------------------|------|-------------|
+| GET    | /                 | JWT  | Caller's notifications, newest first (max 200) |
+| POST   | /mark-read        | JWT  | `{type?}` — marks caller's notifications read, optionally scoped to one `type` |
+
+Three `type` values: `action_failed` (auto-created by the scheduler on any action failure — see
+`ActionSchedulerService.notifyActionFailed`), `system` (reserved, unused so far), `admin` (created via
+the admin broadcast endpoint below). The web client splits the feed by type: `action_failed`/`system` →
+Notifications Center's "System Logs" tab, `admin` → "News" tab.
+
 ### Armies (`/armies`)
 | Method | Path         | Auth | Description |
 |--------|--------------|------|-------------|
@@ -166,8 +182,9 @@ existing 503 turn-gate already prevents races with turn execution. See
 | POST   | /wars          | Admin | Create war |
 | PATCH  | /wars/:id      | Admin | Update war |
 | DELETE | /wars/:id      | Admin | Delete war |
+| POST   | /notifications/broadcast | Admin | `{title, message, severity?}` — fans one `Notification` row out to every registered user (admin-panel's Notifications tab) |
 
-> No admin-panel UI tab exists for these yet — only the REST endpoints (for direct inspection/editing).
+> No admin-panel UI tab exists for diplomacy-relations/wars yet — only the REST endpoints (for direct inspection/editing).
 
 ## Action Types (Enum)
 
@@ -211,6 +228,10 @@ be integers in `[1, 1_000_000]`.
 - Phases: income → production → upkeep → recurring-trade settlement → action
   execution → cleanup (mark actions completed/failed) → post-processing
   integrity checks → diplomacy tick
+- Every action failure (either handler returning `{success:false}` or a thrown exception) calls
+  `notifyActionFailed`, creating an `action_failed` `Notification` via `NotificationsService` — this is
+  the only durable, player-visible record of *why* an action failed, since cleanup (next bullet) deletes
+  the `ActionQueue` row (including its `failureReason`) before the client's next poll ever sees it
 - Post-processing (disband weak armies, resolve multi-faction combat, sync
   province control) each runs in its own transaction. Multi-faction combat
   only engages **hostile** attacker groups (allies/troops-pass grantees
@@ -267,6 +288,12 @@ be integers in `[1, 1_000_000]`.
 - `proposeTreaty`/`acceptTreaty`/`rejectTreaty`/`cancelPendingProposal`/`cancelSignedTreaty`/`declareWar`/`sendMoney` — see [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation) for the full treaty-kind/validation matrix.
 - `processRecurringTrades` (called each turn from the economy transaction) and `tickPendingExpiry` (called from the diplomacy tick) are the two turn-driven entry points; everything else is invoked directly from `DiplomacyController`.
 
+### NotificationsService
+- `createForUser(userId, type, title, message, severity)` — single-row insert. Called by `ActionSchedulerService.notifyActionFailed` (`type: action_failed`, `severity: error`) on every action failure.
+- `broadcastToAll(title, message, severity)` — fans one row out to every registered user, same one-row-per-user pattern as `UserGoodsService.createRowsForNewGood`. Called from `AdminService.broadcastNotification` (`POST /admin/notifications/broadcast`, `type: admin`).
+- `getMine(userId)` — newest-first, capped at 200 rows. `markAllRead(userId, type?)` — marks read, optionally scoped to one `type` so marking "System Logs" seen doesn't also clear an unread "News" broadcast.
+- `type` values: `action_failed`, `system` (reserved, unused so far), `admin`. Not a DB enum — plain `varchar`, matching this codebase's usual convention for kind-like fields.
+
 ## File Structure
 
 ```
@@ -288,6 +315,7 @@ api/src/
 ├── diplomacy/      controller, diplomacy.service (relations/wars/passage), occupation.service
 │                   (province control), treaty.service (propose/accept/peace/trade),
 │                   entities (diplomatic-relation, war, war-participant, treaty), dto/, types/
+├── notifications/  controller, service, entity (notification) — per-user durable notifications
 ├── admin/          controller, service
 ├── db/             data-source.ts, data-source.prod.ts, migrations/
 ├── utils/          logger.ts, parseIncome.ts

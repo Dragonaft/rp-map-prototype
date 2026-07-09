@@ -366,6 +366,29 @@ export interface War {
   createdAt: string;
 }
 
+export enum NotificationType {
+  ACTION_FAILED = 'action_failed',
+  SYSTEM = 'system',
+  ADMIN = 'admin',
+}
+
+export enum NotificationSeverity {
+  INFO = 'info',
+  WARNING = 'warning',
+  ERROR = 'error',
+}
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  severity: NotificationSeverity;
+  title: string;
+  message: string;
+  is_read: boolean;
+  createdAt: string;
+}
+
 export interface Treaty {
   id: string;
   name: string;

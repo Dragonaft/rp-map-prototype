@@ -25,6 +25,8 @@ import { goodsApi } from "../../api/goods.ts";
 import { setMyGoods } from "../../store/slices/goodsSlice.ts";
 import { diplomacyApi } from "../../api/diplomacy.ts";
 import { setRelations, setTreaties, setWars } from "../../store/slices/diplomacySlice.ts";
+import { notificationsApi } from "../../api/notifications.ts";
+import { setNotifications } from "../../store/slices/notificationsSlice.ts";
 
 
 const style = {
@@ -85,6 +87,8 @@ export const GamePage: React.FC = () => {
   const { data: warsData } = useQuery(fetchWars, []);
   const fetchTreaties = useCallback(() => diplomacyApi.getTreaties(), []);
   const { data: treatiesData } = useQuery(fetchTreaties, []);
+  const fetchNotifications = useCallback(() => notificationsApi.getMine(), []);
+  const { data: notificationsData } = useQuery(fetchNotifications, []);
 
   useEffect(() => {
     if (!userData) return;
@@ -156,6 +160,11 @@ export const GamePage: React.FC = () => {
     if (!treatiesData) return;
     dispatch(setTreaties(treatiesData));
   }, [treatiesData, dispatch]);
+
+  useEffect(() => {
+    if (!notificationsData) return;
+    dispatch(setNotifications(notificationsData));
+  }, [notificationsData, dispatch]);
 
   // Prevent browser zoom when Ctrl+wheel anywhere on the page
   useEffect(() => {

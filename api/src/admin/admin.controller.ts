@@ -220,4 +220,11 @@ export class AdminController {
   deleteWar(@Param('id') id: string) {
     return this.adminService.deleteWar(id);
   }
+
+  // --- Notifications ---
+
+  @Post('notifications/broadcast')
+  broadcastNotification(@Body() body: { title: string; message: string; severity?: string }) {
+    return this.adminService.broadcastNotification(body.title, body.message, body.severity as any);
+  }
 }

@@ -42,4 +42,8 @@ export const adminApi = {
   createGood: (data: Record<string, any>) => apiClient.post('/admin/goods', data),
   updateGood: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/goods/${id}`, data),
   deleteGood: (id: string) => apiClient.delete(`/admin/goods/${id}`),
+
+  // Notifications
+  broadcastNotification: (data: { title: string; message: string; severity: string }) =>
+    apiClient.post('/admin/notifications/broadcast', data),
 };

@@ -15,7 +15,9 @@
 
 ## Features
 
-Seven tabs in the dashboard, each managing one entity via MUI DataGrid with inline row editing:
+Eight tabs in the dashboard — seven manage one entity each via MUI DataGrid with inline row editing;
+Notifications is a compose-and-send utility instead (broadcast rows fan out per-user, so there's no
+single browsable list to grid-edit):
 
 ### Users Tab
 - Fields: login, password, country_name, color, money, troops, piety, research_points, is_new, completed_research, class (guild/holy/noble), role (ADMIN/MODERATOR/PLAYER)
@@ -48,12 +50,18 @@ Seven tabs in the dashboard, each managing one entity via MUI DataGrid with inli
 - Create via modal (name required)
 - First step of the economy rework (follows the resource rework); not yet wired into any building/trade logic
 
+### Notifications Tab
+- Fields: title, message (multiline), severity (info/warning/error)
+- "Send to All Players" fans a `Notification` row out to every registered user (`POST
+  /admin/notifications/broadcast`); reports how many players it was sent to. Shows up for players in the
+  Notifications Center's News tab (see [WEB-MAP.md](WEB-MAP.md))
+
 ## API Communication
 
 - Base URL: `VITE_API_BASE_URL` (default `http://localhost:3000`, Docker: `/api`)
 - `withCredentials: true`
 - 401 interceptor with token refresh queue (identical pattern to web-map)
-- Endpoints: `/admin/users`, `/admin/buildings`, `/admin/armies`, `/admin/techs`, `/admin/troop-types`, `/admin/resources`, `/admin/goods` (GET, POST, PATCH, DELETE)
+- Endpoints: `/admin/users`, `/admin/buildings`, `/admin/armies`, `/admin/techs`, `/admin/troop-types`, `/admin/resources`, `/admin/goods` (GET, POST, PATCH, DELETE), `/admin/notifications/broadcast` (POST only)
 
 ## Auth Flow
 

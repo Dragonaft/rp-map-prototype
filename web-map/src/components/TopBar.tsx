@@ -21,6 +21,7 @@ export const TopBar = () => {
   const myResources = useAppSelector(state => state.resources.mine);
   const myGoods = useAppSelector(state => state.goods.mine);
   const treaties = useAppSelector(state => state.diplomacy.treaties);
+  const notifications = useAppSelector(state => state.notifications.mine);
   const mapMode = useAppSelector(state => state.provinces.mapMode);
   const { mutate } = useMutation(authApi.logout);
   const [openTechModal, setOpenTechModal] = useState(false);
@@ -31,6 +32,10 @@ export const TopBar = () => {
   const pendingTreatyCount = useMemo(
     () => treaties.filter(t => t.status === TreatyStatus.PENDING && t.receiver_id === user.id && !t.view_only).length,
     [treaties, user.id],
+  );
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter(n => !n.is_read).length,
+    [notifications],
   );
   const [mapModeAnchorEl, setMapModeAnchorEl] = useState<HTMLElement | null>(null);
   const activeMapModeLabel = MAP_MODE_OPTIONS.find(option => option.value === mapMode)?.label ?? 'Normal';
@@ -232,7 +237,7 @@ export const TopBar = () => {
               className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
               onClick={() => setOpenNotificationsModal(true)}
             >
-              <Badge badgeContent={pendingTreatyCount} color="error">
+              <Badge badgeContent={pendingTreatyCount + unreadNotificationCount} color="error">
                 <span className="material-symbols-outlined text-sm" data-icon="notifications">notifications</span>
               </Badge>
             </Button>

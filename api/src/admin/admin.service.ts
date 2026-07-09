@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
@@ -13,6 +13,8 @@ import { UserGoodsService } from '../goods/user-goods.service';
 import { UserResourcesService } from '../resources/user-resources.service';
 import { DiplomaticRelation } from '../diplomacy/entities/diplomatic-relation.entity';
 import { War } from '../diplomacy/entities/war.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationSeverity } from '../notifications/entities/notification.entity';
 
 @Injectable()
 export class AdminService {
@@ -28,7 +30,18 @@ export class AdminService {
     @InjectRepository(War) private readonly warRepo: Repository<War>,
     private readonly userGoodsService: UserGoodsService,
     private readonly userResourcesService: UserResourcesService,
+    private readonly notificationsService: NotificationsService,
   ) {}
+
+  // --- Notifications ---
+
+  async broadcastNotification(title: string, message: string, severity?: NotificationSeverity) {
+    if (!title?.trim() || !message?.trim()) {
+      throw new BadRequestException('title and message are required');
+    }
+    const sentTo = await this.notificationsService.broadcastToAll(title.trim(), message.trim(), severity);
+    return { sentTo };
+  }
 
   // --- Users ---
 

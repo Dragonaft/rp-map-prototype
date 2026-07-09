@@ -3,11 +3,29 @@ import { Dialog } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { diplomacyApi } from '../../api/diplomacy';
 import { setRelations, setTreaties, setWars } from '../../store/slices/diplomacySlice';
-import { Province, Treaty, TreatyArticle, TreatyStatus } from '../../types';
+import { AppNotification, NotificationSeverity, NotificationType, Province, Treaty, TreatyArticle, TreatyStatus } from '../../types';
 import { ActionButton } from '../ActionButton.tsx';
 import { RESOURCE_ICONS } from '../../constants/buildingIcons.ts';
 import { APP_VERSION } from '../../constants/appVersion.ts';
 import { DEFAULT_MAP_LAND_COLOR, DEFAULT_MAP_WATER_COLOR } from '../../utils/mapModes.ts';
+import { notificationsApi } from '../../api/notifications.ts';
+import { setNotifications } from '../../store/slices/notificationsSlice.ts';
+
+const SEVERITY_ICON: Record<NotificationSeverity, string> = {
+  [NotificationSeverity.ERROR]: 'error',
+  [NotificationSeverity.WARNING]: 'warning',
+  [NotificationSeverity.INFO]: 'info',
+};
+const SEVERITY_TEXT_CLASS: Record<NotificationSeverity, string> = {
+  [NotificationSeverity.ERROR]: 'text-error',
+  [NotificationSeverity.WARNING]: 'text-secondary',
+  [NotificationSeverity.INFO]: 'text-primary',
+};
+const SEVERITY_UNREAD_BORDER_CLASS: Record<NotificationSeverity, string> = {
+  [NotificationSeverity.ERROR]: 'border-l-4 border-l-error',
+  [NotificationSeverity.WARNING]: 'border-l-4 border-l-secondary',
+  [NotificationSeverity.INFO]: 'border-l-4 border-l-primary',
+};
 
 /** Fixed semantic colors for the "territory at stake" mini-map — see PeaceNegotiationModal for the sibling picker version. */
 const CEDE_GAIN_COLOR = '#16a34a';
@@ -41,6 +59,7 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
   const treaties = useAppSelector((state) => state.diplomacy.treaties);
   const provinces = useAppSelector((state) => state.provinces.provinces);
   const provinceBBoxById = useAppSelector((state) => state.provinces.provinceBBoxById);
+  const notifications = useAppSelector((state) => state.notifications.mine);
 
   const nameFor = (userId: string): string => {
     if (userId === currentUserId) return 'You';
@@ -194,6 +213,58 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
     return { pending, log };
   }, [treaties]);
 
+  /** News = admin broadcasts; System Logs = auto-generated (failed actions, system messages). */
+  const { newsItems, systemItems } = useMemo(() => {
+    const newsItems: AppNotification[] = [];
+    const systemItems: AppNotification[] = [];
+    for (const n of notifications) {
+      if (n.type === NotificationType.ADMIN) newsItems.push(n);
+      else systemItems.push(n);
+    }
+    const byNewest = (a: AppNotification, b: AppNotification) => (a.createdAt < b.createdAt ? 1 : -1);
+    newsItems.sort(byNewest);
+    systemItems.sort(byNewest);
+    return { newsItems, systemItems };
+  }, [notifications]);
+
+  const unreadNewsCount = useMemo(() => newsItems.filter((n) => !n.is_read).length, [newsItems]);
+  const unreadSystemCount = useMemo(() => systemItems.filter((n) => !n.is_read).length, [systemItems]);
+
+  const renderNotificationRow = (n: AppNotification) => (
+    <div
+      key={n.id}
+      className={`flex items-start gap-3 bg-surface-container-low border border-solid border-outline-variant/20 p-4 ${!n.is_read ? SEVERITY_UNREAD_BORDER_CLASS[n.severity] : ''}`}
+    >
+      <span className={`material-symbols-outlined text-lg shrink-0 ${SEVERITY_TEXT_CLASS[n.severity]}`}>
+        {SEVERITY_ICON[n.severity]}
+      </span>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <h3 className="font-headline text-sm uppercase tracking-wider text-on-surface">{n.title}</h3>
+          <span className="font-body text-[10px] text-on-surface-variant/60 shrink-0">
+            {new Date(n.createdAt).toLocaleString()}
+          </span>
+        </div>
+        <p className="mt-1 font-body text-xs text-on-surface-variant whitespace-pre-wrap">{n.message}</p>
+      </div>
+    </div>
+  );
+
+  const handleTabClick = (t: Tab) => {
+    setTab(t);
+    if (t === 'news' && unreadNewsCount > 0) {
+      void notificationsApi.markAllRead(NotificationType.ADMIN).catch(() => {});
+      dispatch(setNotifications(notifications.map((n) => (n.type === NotificationType.ADMIN ? { ...n, is_read: true } : n))));
+    }
+    if (t === 'system' && unreadSystemCount > 0) {
+      void Promise.all([
+        notificationsApi.markAllRead(NotificationType.ACTION_FAILED),
+        notificationsApi.markAllRead(NotificationType.SYSTEM),
+      ]).catch(() => {});
+      dispatch(setNotifications(notifications.map((n) => (n.type !== NotificationType.ADMIN ? { ...n, is_read: true } : n))));
+    }
+  };
+
   const refresh = async () => {
     const [relations, wars, treaties] = await Promise.all([
       diplomacyApi.getRelations(),
@@ -326,8 +397,8 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'treaties', label: `TREATIES${pending.length ? ` (${pending.length})` : ''}` },
-    { id: 'news', label: 'NEWS' },
-    { id: 'system', label: 'SYSTEM_LOGS' },
+    { id: 'news', label: `NEWS${unreadNewsCount ? ` (${unreadNewsCount})` : ''}` },
+    { id: 'system', label: `SYSTEM_LOGS${unreadSystemCount ? ` (${unreadSystemCount})` : ''}` },
   ];
 
   return (
@@ -376,7 +447,7 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
             <button
               key={t.id}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => handleTabClick(t.id)}
               className={`bg-transparent border-none border-b-2 py-3 px-5 font-headline text-xs uppercase tracking-widest transition-all cursor-pointer ${
                 tab === t.id ? 'text-primary border-primary glow-text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'
               }`}
@@ -410,13 +481,23 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
             </div>
           )}
           {tab === 'news' && (
-            <div className="font-headline text-xs uppercase tracking-widest text-on-surface-variant text-center py-16">
-              No news yet — coming soon.
+            <div className="flex flex-col gap-3">
+              {newsItems.length === 0 && (
+                <div className="font-headline text-xs uppercase tracking-widest text-on-surface-variant text-center py-16">
+                  No news yet.
+                </div>
+              )}
+              {newsItems.map(renderNotificationRow)}
             </div>
           )}
           {tab === 'system' && (
-            <div className="font-headline text-xs uppercase tracking-widest text-on-surface-variant text-center py-16">
-              No system messages yet — coming soon.
+            <div className="flex flex-col gap-3">
+              {systemItems.length === 0 && (
+                <div className="font-headline text-xs uppercase tracking-widest text-on-surface-variant text-center py-16">
+                  No system messages yet.
+                </div>
+              )}
+              {systemItems.map(renderNotificationRow)}
             </div>
           )}
         </div>

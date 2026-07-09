@@ -38,6 +38,7 @@ import { TechsModule } from '../techs/techs.module';
 import { ResourcesModule } from '../resources/resources.module';
 import { GoodsModule } from '../goods/goods.module';
 import { DiplomacyModule } from '../diplomacy/diplomacy.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -50,6 +51,7 @@ import { DiplomacyModule } from '../diplomacy/diplomacy.module';
     ResourcesModule,
     GoodsModule,
     DiplomacyModule,
+    NotificationsModule,
   ],
   controllers: [ActionsController, ActionExecutionStatusController],
   providers: [

@@ -27,7 +27,9 @@ User (1) ──── (*) Province ──── (*:1) Resource
   │
   ├── (*) War (attacker_leader_id/defender_leader_id) ── (1) ── (*) WarParticipant (*:1) ── User
   │
-  └── (*) Treaty (proposer_id/receiver_id)
+  ├── (*) Treaty (proposer_id/receiver_id)
+  │
+  └── (*) Notification
 
 User (1) ──── (*) ActionQueue
 
@@ -345,6 +347,24 @@ bidirectional; amounts are unbounded — no warscore/cost limits):
 - `{ type: 'grant_pass', from, to }` — sets the directional `pass_*_to_*` flag
 - `{ type: 'trade_agreement' }` — sets `has_trade = true`
 - `{ type: 'text', markdown }` — pure RP text, no mechanical effect
+
+### Notification
+Durable, per-user record — unlike `ActionQueue`, rows here are never deleted by the turn scheduler, so
+this is the only place a non-admin player can see why a queued action failed after the fact.
+
+| Column      | Type      | Notes |
+|-------------|-----------|-------|
+| id          | uuid (PK) | |
+| user_id     | uuid (FK) | → User, `ON DELETE CASCADE` |
+| type        | varchar   | `action_failed` \| `system` (reserved, unused so far) \| `admin` (not a DB enum) |
+| severity    | varchar   | `info` (default) \| `warning` \| `error` (not a DB enum) |
+| title       | varchar   | Short headline, e.g. "Build Failed" |
+| message     | text      | Body — for `action_failed`, the actual `ActionQueue.failureReason` |
+| is_read     | boolean   | Default false |
+| createdAt   | timestamp | |
+
+> Index on `user_id`. Created by `NotificationsService.createForUser` (one row) or `broadcastToAll` (one
+> row fanned out per registered user, mirroring `UserGoodsService.createRowsForNewGood`'s pattern).
 
 ## Seed Data
 

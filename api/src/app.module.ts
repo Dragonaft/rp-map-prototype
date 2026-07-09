@@ -14,6 +14,7 @@ import { AdminModule } from './admin/admin.module';
 import { ResourcesModule } from './resources/resources.module';
 import { GoodsModule } from './goods/goods.module';
 import { DiplomacyModule } from './diplomacy/diplomacy.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { Province } from './provinces/entities/province.entity';
 import { User } from './users/entities/user.entity';
 import { Building } from './buildings/entities/building.entity';
@@ -33,6 +34,7 @@ import { DiplomaticRelation } from './diplomacy/entities/diplomatic-relation.ent
 import { War } from './diplomacy/entities/war.entity';
 import { WarParticipant } from './diplomacy/entities/war-participant.entity';
 import { Treaty } from './diplomacy/entities/treaty.entity';
+import { Notification } from './notifications/entities/notification.entity';
 
 @Module({
   imports: [
@@ -50,6 +52,7 @@ import { Treaty } from './diplomacy/entities/treaty.entity';
         Province, User, Building, ProvinceBuilding, ActionQueue, ActionsLog, ExecutionLock, Tech,
         Army, ArmyUnit, TroopType, Resource, Good, UserGood, UserResource,
         DiplomaticRelation, War, WarParticipant, Treaty,
+        Notification,
       ],
       synchronize: false,
     }),
@@ -64,6 +67,7 @@ import { Treaty } from './diplomacy/entities/treaty.entity';
     ResourcesModule,
     GoodsModule,
     DiplomacyModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

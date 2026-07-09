@@ -14,6 +14,8 @@ import { OccupationService } from '../diplomacy/occupation.service';
 import { TreatyService } from '../diplomacy/treaty.service';
 import { OCCUPATION_CORE_THRESHOLD } from '../diplomacy/types/diplomacy.types';
 import { ActionsLog, ExecutedAction } from './entities/actions-log.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { NotificationSeverity, NotificationType } from '../notifications/entities/notification.entity';
 import { ExecutionLock } from './entities/execution-lock.entity';
 import { ActionQueue, ActionStatus } from './entities/action-queue.entity';
 import { Army } from '../armies/entities/army.entity';
@@ -53,6 +55,7 @@ export class ActionSchedulerService {
     private readonly diplomacyService: DiplomacyService,
     private readonly occupationService: OccupationService,
     private readonly treatyService: TreatyService,
+    private readonly notificationsService: NotificationsService,
     private readonly dataSource: DataSource,
   ) {
     // Create unique instance ID (hostname + process ID)
@@ -186,18 +189,17 @@ export class ActionSchedulerService {
               actionType: action.actionType,
               actionData: action.actionData,
               status: ActionStatus.FAILED,
+              failureReason: result.error,
               order: action.order,
               executedAt: new Date(),
             });
+            await this.notifyActionFailed(action.userId, action.actionType, result.error);
           }
         } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
           this.logger.error(`Error executing action ${action.id}:`, error);
 
-          await this.actionsService.updateActionStatus(
-            action.id,
-            ActionStatus.FAILED,
-            error instanceof Error ? error.message : 'Unknown error',
-          );
+          await this.actionsService.updateActionStatus(action.id, ActionStatus.FAILED, message);
           failedActions++;
 
           executedActions.push({
@@ -206,9 +208,11 @@ export class ActionSchedulerService {
             actionType: action.actionType,
             actionData: action.actionData,
             status: ActionStatus.FAILED,
+            failureReason: message,
             order: action.order,
             executedAt: new Date(),
           });
+          await this.notifyActionFailed(action.userId, action.actionType, message);
         }
       }
 
@@ -587,6 +591,33 @@ export class ActionSchedulerService {
       });
     } catch (error) {
       this.logger.error('Error during occupation tick:', error);
+    }
+  }
+
+  private static readonly ACTION_TYPE_LABELS: Record<string, string> = {
+    BUILD: 'Build', UPGRADE: 'Upgrade', REMOVE: 'Remove', RESEARCH: 'Research', COLONIZE: 'Colonize',
+    ARMY_CREATE: 'Army Creation', ARMY_MOVE: 'Army Move', ARMY_RECRUIT: 'Army Recruit',
+    ARMY_MERGE: 'Army Merge', ARMY_DISBAND: 'Army Disband', ARMY_EDIT: 'Army Edit',
+    TRANSFER_TROOPS: 'Troop Transfer',
+  };
+
+  /**
+   * Surfaces a queued action's failure to the player — the ActionQueue row itself is deleted by
+   * cleanupExecutedActions() later this same turn, so this Notification is the only durable trace
+   * of *why* it failed that a non-admin player can ever see (see NotificationsModule).
+   */
+  private async notifyActionFailed(userId: string, actionType: string, reason?: string): Promise<void> {
+    try {
+      const label = ActionSchedulerService.ACTION_TYPE_LABELS[actionType] ?? actionType;
+      await this.notificationsService.createForUser(
+        userId,
+        NotificationType.ACTION_FAILED,
+        `${label} Failed`,
+        reason?.trim() || 'No reason was given.',
+        NotificationSeverity.ERROR,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to create action-failed notification for user ${userId}:`, error);
     }
   }
 

@@ -42,6 +42,7 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 | `resources`  | resources[] (catalog, `/resources`), mine[] (`UserResourceHolding[]`, `/resources/mine`) |
 | `goods`      | mine[] (`UserGoodHolding[]`, `/goods/mine`)                       |
 | `diplomacy`  | relations[] (`DiplomaticRelation[]`, `/diplomacy/relations`), wars[] (`/diplomacy/wars`), treaties[] (`/diplomacy/treaties`) |
+| `notifications` | mine[] (`AppNotification[]`, `/notifications`) — split client-side by `type` into the Notifications Center's News (`admin`) and System Logs (`action_failed`/`system`) tabs |
 
 > Player resource/good holdings are no longer embedded in the `user` slice — they're fetched separately as ledger rows (`resource`/`good` + `quantity`) and displayed in `TopBar.tsx`, mirroring each other.
 
@@ -57,7 +58,7 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 - `withCredentials: true` (httpOnly cookies)
 - 401 interceptor: queues failed requests, calls `/auth/refresh`, retries all
 
-**API modules:** auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts, resources.ts, goods.ts, diplomacy.ts
+**API modules:** auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts, resources.ts, goods.ts, diplomacy.ts, notifications.ts
 
 **SSE:** `/actions/execution-stream` — listened in `useActionExecutionReload` hook for auto-reload when turn completes.
 
@@ -117,7 +118,7 @@ GamePage
     ├── DeleteBuildingModal    Demolish confirmation
     ├── ProfileModal           Edit country name/color
     ├── TechsModal             Tech tree research UI (renders TechTree)
-    ├── NotificationsModal     Bell dropdown: Treaties (pending + log) / News / System tabs
+    ├── NotificationsModal     Bell dropdown: Treaties (pending + log) / News (admin broadcasts) / System Logs (auto action-failure notifications) tabs
     ├── DiplomacyModal         Player list + relation state + propose/declare-war/send-money hub
     ├── TreatyNegotiationModal Vic3-style article builder (alliance/trade/troops_pass/article)
     ├── PeaceNegotiationModal  EU4-style peace proposal (province checklist + tribute, contiguity-checked)
@@ -222,7 +223,7 @@ source alone — this is how every gotcha above was originally diagnosed.
 ```
 web-map/src/
 ├── api/              config.ts, auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts,
-│                     resources.ts, goods.ts, diplomacy.ts
+│                     resources.ts, goods.ts, diplomacy.ts, notifications.ts
 ├── components/       MapView, ProvinceShape, SelectedProvinceHover, ArmyBlock, TopBar, TechTree, modals
 ├── pages/            game/index.tsx, auth/login/LoginPage.tsx, auth/register/RegisterPage.tsx
 ├── store/            store.ts, hooks.ts, slices/ (user, provinces, armies, buildings, techs, actions, otherUsers,
