@@ -8,6 +8,7 @@ import { TreatyNegotiationModal } from './TreatyNegotiationModal';
 import { PeaceNegotiationModal } from './PeaceNegotiationModal';
 import { PlayerTreatiesModal } from './PlayerTreatiesModal';
 import { ActionButton } from '../ActionButton.tsx';
+import { APP_VERSION } from '../../constants/appVersion.ts';
 
 interface Props {
   open: boolean;
@@ -124,7 +125,7 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
               <h1 className="font-headline text-2xl tracking-[0.2em] uppercase glow-text-primary text-primary flex items-center gap-3">
                 DIPLOMACY_NETWORK
                 <span className="text-[10px] bg-error/20 text-error px-2 py-0.5 border border-solid border-error/30 tracking-normal leading-none rounded-sm">
-                  v0.6.5_WAR
+                  {APP_VERSION}
                 </span>
               </h1>
               <p className="font-headline text-[10px] tracking-widest text-on-surface-variant uppercase">

@@ -8,6 +8,7 @@ import { authApi } from '../../../api/auth.ts';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { useSnackbar } from "../../../context/SnackbarContext.tsx";
+import { APP_VERSION } from "../../../constants/appVersion.ts";
 
 interface ILoginFormInput {
   login: string
@@ -73,7 +74,7 @@ export const LoginPage: React.FC = () => {
             PR_PROTOTYPE
           </h1>
           <p className="font-label text-xs uppercase tracking-[0.2em] text-on-surface-variant">
-            v0.6.5_WAR
+            {APP_VERSION}
           </p>
         </div>
         <form

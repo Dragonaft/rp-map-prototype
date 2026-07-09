@@ -6,6 +6,7 @@ import { setRelations, setTreaties, setWars } from '../../store/slices/diplomacy
 import { Treaty, TreatyStatus } from '../../types';
 import { ActionButton } from '../ActionButton.tsx';
 import { RESOURCE_ICONS } from '../../constants/buildingIcons.ts';
+import { APP_VERSION } from '../../constants/appVersion.ts';
 
 interface Props {
   open: boolean;
@@ -260,7 +261,7 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
               <h1 className="font-headline text-xl uppercase tracking-widest text-primary glow-text-primary">Notifications_center</h1>
             </div>
             <div className="flex items-center gap-4 mt-1">
-              <span className="font-body text-[10px] text-on-surface-variant tracking-tighter">v0.6.5_WAR</span>
+              <span className="font-body text-[10px] text-on-surface-variant tracking-tighter">{APP_VERSION}</span>
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
                 <span className="font-headline text-[10px] text-green-500 tracking-widest font-bold uppercase">Status: monitoring</span>
