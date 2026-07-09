@@ -1,14 +1,18 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Chip, Dialog, DialogContent, DialogTitle, IconButton, Tab, Tabs } from '@mui/material';
+import { Dialog } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { diplomacyApi } from '../../api/diplomacy';
 import { setRelations, setTreaties, setWars } from '../../store/slices/diplomacySlice';
 import { Treaty, TreatyStatus } from '../../types';
+import { ActionButton } from '../ActionButton.tsx';
+import { RESOURCE_ICONS } from '../../constants/buildingIcons.ts';
 
 interface Props {
   open: boolean;
   onClose: () => void;
 }
+
+type Tab = 'treaties' | 'news' | 'system';
 
 const KIND_LABELS: Record<string, string> = {
   peace: 'Peace',
@@ -18,9 +22,12 @@ const KIND_LABELS: Record<string, string> = {
   article: 'Article',
 };
 
+/** Neutral, always-gray badge shape shared by every small tag on a treaty card. */
+const TAG_CLASS = 'px-2 py-0.5 border border-solid text-[10px] font-headline font-bold uppercase rounded-sm leading-none';
+
 export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
   const dispatch = useAppDispatch();
-  const [tab, setTab] = useState<'treaties' | 'news' | 'system'>('treaties');
+  const [tab, setTab] = useState<Tab>('treaties');
   const [busyId, setBusyId] = useState<string | null>(null);
   const currentUserId = useAppSelector((state) => state.user.id);
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
@@ -41,17 +48,37 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
   const renderArticlesSummary = (treaty: Treaty) => {
     if (!treaty.articles.length) return null;
     return (
-      <ul className="text-xs text-white/70 list-disc list-inside">
+      <ul className="mt-3 list-disc list-inside pl-2 space-y-1.5 font-body text-xs text-on-surface-variant">
         {treaty.articles.map((article, i) => {
           switch (article.type) {
             case 'cede_province':
-              return <li key={i}>{nameFor(article.to)} annexes {provinceLabel(article.provinceId)} from {nameFor(article.from)}</li>;
+              return (
+                <li key={i}>
+                  {nameFor(article.to)} annexes{' '}
+                  <span className="font-mono text-secondary text-[13px]">{provinceLabel(article.provinceId)}</span>
+                  {' '}from {nameFor(article.from)}
+                </li>
+              );
             case 'money_tribute':
-              return <li key={i}>{nameFor(article.from)} pays {article.amount} money to {nameFor(article.to)}</li>;
+              return (
+                <li key={i}>
+                  {nameFor(article.from)} pays <span className="text-secondary font-bold">💰 {article.amount} money</span> to {nameFor(article.to)}
+                </li>
+              );
             case 'resource_tribute':
-              return <li key={i}>{nameFor(article.from)} pays {article.amount} {article.resourceKey} to {nameFor(article.to)}</li>;
+              return (
+                <li key={i}>
+                  {nameFor(article.from)} pays{' '}
+                  <span className="text-secondary font-bold">{RESOURCE_ICONS[article.resourceKey] ?? '📦'} {article.amount} {article.resourceKey}</span>
+                  {' '}to {nameFor(article.to)}
+                </li>
+              );
             case 'goods_tribute':
-              return <li key={i}>{nameFor(article.from)} sends {article.amount} goods to {nameFor(article.to)}</li>;
+              return (
+                <li key={i}>
+                  {nameFor(article.from)} sends <span className="text-secondary font-bold">📦 {article.amount} goods</span> to {nameFor(article.to)}
+                </li>
+              );
             case 'grant_pass':
               return <li key={i}>{nameFor(article.from)} grants troop passage to {nameFor(article.to)}</li>;
             default:
@@ -97,6 +124,25 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
     }
   };
 
+  /** Status dot + tag color — pulses only while a response from *me* is actually pending, matching the app's existing "pulse = needs attention now" convention (see LoginPage's queue-status dot). */
+  const statusVisual = (treaty: Treaty, isPending: boolean, iAmReceiver: boolean): { dot: string; pulse: boolean; tagClass: string; label: string } => {
+    if (isPending) {
+      return iAmReceiver
+        ? { dot: 'bg-secondary', pulse: true, tagClass: 'bg-secondary/10 border-secondary/30 text-secondary', label: 'Pending' }
+        : { dot: 'bg-on-surface-variant', pulse: false, tagClass: 'bg-surface-container-highest border-outline-variant/30 text-on-surface-variant', label: 'Pending' };
+    }
+    switch (treaty.status) {
+      case TreatyStatus.ACCEPTED:
+        return { dot: 'bg-green-500', pulse: false, tagClass: 'bg-green-500/10 border-green-500/30 text-green-500', label: 'Accepted' };
+      case TreatyStatus.REJECTED:
+        return { dot: 'bg-error', pulse: false, tagClass: 'bg-error/10 border-error/30 text-error', label: 'Rejected' };
+      case TreatyStatus.CANCELLED:
+        return { dot: 'bg-error', pulse: false, tagClass: 'bg-error/20 border-error/40 text-error', label: 'Cancelled' };
+      default:
+        return { dot: 'bg-on-surface-variant', pulse: false, tagClass: 'bg-surface-container-highest border-outline-variant/30 text-on-surface-variant', label: treaty.status };
+    }
+  };
+
   const renderTreatyRow = (treaty: Treaty, isPending: boolean) => {
     const iAmReceiver = treaty.receiver_id === currentUserId;
     const iAmProposer = treaty.proposer_id === currentUserId;
@@ -105,60 +151,78 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
     const canCancelSigned = !isPending && treaty.status === TreatyStatus.ACCEPTED
       && (iAmProposer || iAmReceiver)
       && (treaty.kind === 'alliance' || treaty.kind === 'troops_pass');
+    const busy = busyId === treaty.id;
+    const visual = statusVisual(treaty, isPending, iAmReceiver);
 
     return (
       <div
         key={treaty.id}
-        className="flex flex-col gap-1 p-3 rounded border border-outline-variant/20 bg-surface-container"
+        className="bg-surface-container-low border border-solid border-outline-variant/20 p-4 transition-colors hover:bg-surface-container-high"
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <span className="font-headline font-bold text-white text-sm">{treaty.name}</span>
-            <Chip label={KIND_LABELS[treaty.kind] ?? treaty.kind} size="small" />
-            {treaty.visibility === 'public' && <Chip label="Public" size="small" color="info" />}
-            {treaty.view_only && <Chip label="View only" size="small" color="default" />}
-            {treaty.recurring && <Chip label="Recurring" size="small" color="secondary" />}
+        <div className="flex justify-between items-start gap-3 mb-3 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${visual.dot} ${visual.pulse ? 'animate-pulse' : ''}`} />
+            <h3 className="font-headline text-sm uppercase tracking-wider text-on-surface truncate">{treaty.name}</h3>
           </div>
-          <span className="text-xs text-white/50 uppercase">{treaty.status}</span>
+          <div className="flex gap-2 flex-wrap shrink-0">
+            <span className={`${TAG_CLASS} bg-surface-container-highest border-outline-variant/30 text-on-surface-variant`}>
+              {KIND_LABELS[treaty.kind] ?? treaty.kind}
+            </span>
+            {treaty.visibility === 'public' && (
+              <span className={`${TAG_CLASS} bg-primary-dim border-primary-dim text-on-primary-fixed`}>Public</span>
+            )}
+            {treaty.view_only && (
+              <span className={`${TAG_CLASS} bg-surface-container-highest border-outline-variant/30 text-on-surface-variant`}>View only</span>
+            )}
+            {treaty.recurring && (
+              <span className={`${TAG_CLASS} bg-secondary/10 border-secondary/30 text-secondary`}>Recurring</span>
+            )}
+            <span className={`${TAG_CLASS} ${visual.tagClass}`}>{visual.label}</span>
+          </div>
         </div>
-        <div className="text-xs text-white/70">
-          {nameFor(treaty.proposer_id)} → {nameFor(treaty.receiver_id)}
+
+        <div className="flex items-center gap-2 font-body text-sm text-on-surface-variant">
+          <span className={iAmProposer ? 'text-primary font-bold uppercase' : 'text-secondary'}>{nameFor(treaty.proposer_id)}</span>
+          <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+          <span className={iAmReceiver ? 'text-primary font-bold uppercase' : 'text-secondary'}>{nameFor(treaty.receiver_id)}</span>
         </div>
-        {treaty.note && <div className="text-xs text-white/60 whitespace-pre-wrap">{treaty.note}</div>}
+
+        {treaty.note && <div className="mt-2 font-body text-xs text-on-surface-variant/80 whitespace-pre-wrap">{treaty.note}</div>}
         {renderArticlesSummary(treaty)}
+
         {(canRespond || canCancelProposal || canCancelSigned) && (
-          <div className="flex gap-2 mt-1">
+          <div className="flex gap-2 mt-3 flex-wrap">
             {canRespond && (
               <>
-                <Button
-                  size="small" variant="contained" color="success" disabled={busyId === treaty.id}
+                <ActionButton
+                  label="Accept"
+                  colorClass="border-green-500 text-green-500 hover:bg-green-500/10"
+                  disabled={busy}
                   onClick={() => withBusy(treaty.id, () => diplomacyApi.accept(treaty.id))}
-                >
-                  Accept
-                </Button>
-                <Button
-                  size="small" variant="outlined" color="error" disabled={busyId === treaty.id}
+                />
+                <ActionButton
+                  label="Reject"
+                  colorClass="border-error text-error hover:bg-error/10"
+                  disabled={busy}
                   onClick={() => withBusy(treaty.id, () => diplomacyApi.reject(treaty.id))}
-                >
-                  Reject
-                </Button>
+                />
               </>
             )}
             {canCancelProposal && (
-              <Button
-                size="small" variant="outlined" disabled={busyId === treaty.id}
+              <ActionButton
+                label="Cancel"
+                colorClass="border-outline-variant/40 text-on-surface-variant hover:bg-white/5"
+                disabled={busy}
                 onClick={() => withBusy(treaty.id, () => diplomacyApi.cancelProposal(treaty.id))}
-              >
-                Cancel
-              </Button>
+              />
             )}
             {canCancelSigned && (
-              <Button
-                size="small" variant="outlined" color="warning" disabled={busyId === treaty.id}
+              <ActionButton
+                label="Cancel Treaty"
+                colorClass="border-secondary text-secondary hover:bg-secondary/10"
+                disabled={busy}
                 onClick={() => withBusy(treaty.id, () => diplomacyApi.cancelSigned(treaty.id))}
-              >
-                Cancel Treaty
-              </Button>
+              />
             )}
           </div>
         )}
@@ -166,50 +230,103 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
     );
   };
 
+  const tabs: { id: Tab; label: string }[] = [
+    { id: 'treaties', label: `TREATIES${pending.length ? ` (${pending.length})` : ''}` },
+    { id: 'news', label: 'NEWS' },
+    { id: 'system', label: 'SYSTEM_LOGS' },
+  ];
+
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        Notifications
-        <IconButton onClick={onClose} size="small">
-          <span className="material-symbols-outlined text-sm" data-icon="close">close</span>
-        </IconButton>
-      </DialogTitle>
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2 }}>
-        <Tab value="treaties" label={`Treaties${pending.length ? ` (${pending.length})` : ''}`} />
-        <Tab value="news" label="News" />
-        <Tab value="system" label="System" />
-      </Tabs>
-      <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 300 }}>
-        {tab === 'treaties' && (
-          <>
-            {pending.length === 0 && log.length === 0 && (
-              <div className="text-sm text-white/50 text-center py-8">No treaties yet</div>
-            )}
-            {pending.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <div className="text-xs uppercase tracking-widest text-white/40">Awaiting response</div>
-                {pending.map((t) => renderTreatyRow(t, true))}
+    <Dialog
+      open={open}
+      onClose={onClose}
+      maxWidth="sm"
+      fullWidth
+      disablePortal
+      slotProps={{
+        paper: {
+          className: '!bg-surface-container !text-on-surface !shadow-2xl !rounded-sm !max-w-xl !overflow-hidden !h-[720px] !max-h-[85vh]',
+        },
+      }}
+    >
+      <div className="relative flex flex-col h-full">
+        <div className="absolute top-0 left-0 h-[1px] w-full bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-solid border-outline-variant/20 flex justify-between items-start shrink-0">
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-3">
+              <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>notifications_active</span>
+              <h1 className="font-headline text-xl uppercase tracking-widest text-primary glow-text-primary">Notifications_center</h1>
+            </div>
+            <div className="flex items-center gap-4 mt-1">
+              <span className="font-body text-[10px] text-on-surface-variant tracking-tighter">v0.6.5_WAR</span>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                <span className="font-headline text-[10px] text-green-500 tracking-widest font-bold uppercase">Status: monitoring</span>
               </div>
-            )}
-            {log.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <div className="text-xs uppercase tracking-widest text-white/40">History</div>
-                {log.map((t) => renderTreatyRow(t, false))}
-              </div>
-            )}
-          </>
-        )}
-        {tab === 'news' && (
-          <div className="text-sm text-white/50 text-center py-8">
-            No news yet — coming soon.
+            </div>
           </div>
-        )}
-        {tab === 'system' && (
-          <div className="text-sm text-white/50 text-center py-8">
-            No system messages yet — coming soon.
-          </div>
-        )}
-      </DialogContent>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="bg-transparent border-none text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-2xl">close</span>
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <nav className="flex border-b border-solid border-outline-variant/20 px-6 shrink-0">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={`bg-transparent border-none border-b-2 py-3 px-5 font-headline text-xs uppercase tracking-widest transition-all cursor-pointer ${
+                tab === t.id ? 'text-primary border-primary glow-text-primary' : 'border-transparent text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Feed */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
+          {tab === 'treaties' && (
+            <div className="flex flex-col gap-6">
+              {pending.length === 0 && log.length === 0 && (
+                <div className="font-headline text-xs uppercase tracking-widest text-on-surface-variant text-center py-16">
+                  No treaties yet
+                </div>
+              )}
+              {pending.length > 0 && (
+                <div className="flex flex-col gap-3">
+                  <div className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant">Awaiting response</div>
+                  {pending.map((t) => renderTreatyRow(t, true))}
+                </div>
+              )}
+              {log.length > 0 && (
+                <div className="flex flex-col gap-3">
+                  <div className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant">History</div>
+                  {log.map((t) => renderTreatyRow(t, false))}
+                </div>
+              )}
+            </div>
+          )}
+          {tab === 'news' && (
+            <div className="font-headline text-xs uppercase tracking-widest text-on-surface-variant text-center py-16">
+              No news yet — coming soon.
+            </div>
+          )}
+          {tab === 'system' && (
+            <div className="font-headline text-xs uppercase tracking-widest text-on-surface-variant text-center py-16">
+              No system messages yet — coming soon.
+            </div>
+          )}
+        </div>
+      </div>
     </Dialog>
   );
 };
