@@ -104,6 +104,10 @@ During execution, the API returns **503** on most endpoints (ActionExecutionBloc
 - [GAME-MECHANICS.md](GAME-MECHANICS.md) — Turn system, combat, economy, tech tree
 - [DOCKER.md](DOCKER.md) — Container orchestration, env vars, networking
 - [DATABASE.md](DATABASE.md) — Entity schemas and relationships
+- [DESIGN.md](DESIGN.md) — Visual identity, terminology, and copy source of
+  truth for any UI/design work (colors, type, spacing, component patterns,
+  closed game vocabulary). See [WEB-MAP.md](WEB-MAP.md#styling) for Tailwind/MUI
+  pitfalls specific to this frontend.
 
 ## Note
 - Don't push or commit any changes to git.

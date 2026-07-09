@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Button, Chip, Dialog, DialogContent, DialogTitle, TextField } from '@mui/material';
+import { Dialog } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { diplomacyApi } from '../../api/diplomacy';
 import { setRelations, setTreaties, setWars } from '../../store/slices/diplomacySlice';
@@ -7,17 +7,19 @@ import { DiplomaticState, TreatyKind } from '../../types';
 import { TreatyNegotiationModal } from './TreatyNegotiationModal';
 import { PeaceNegotiationModal } from './PeaceNegotiationModal';
 import { PlayerTreatiesModal } from './PlayerTreatiesModal';
+import { ActionButton } from '../ActionButton.tsx';
 
 interface Props {
   open: boolean;
   onClose: () => void;
 }
 
-const STATE_COLORS: Record<DiplomaticState, 'default' | 'error' | 'success' | 'info'> = {
-  [DiplomaticState.NEUTRAL]: 'default',
-  [DiplomaticState.WAR]: 'error',
-  [DiplomaticState.PEACE]: 'info',
-  [DiplomaticState.ALLIANCE]: 'success',
+/** Border/text color for the state badge — terminal aesthetic uses bare currentColor, no fills. */
+const STATE_BADGE_CLASSES: Record<DiplomaticState, string> = {
+  [DiplomaticState.NEUTRAL]: 'border-white/40 text-on-surface-variant',
+  [DiplomaticState.WAR]: 'border-error/40 text-error',
+  [DiplomaticState.PEACE]: 'border-primary/40 text-primary',
+  [DiplomaticState.ALLIANCE]: 'border-secondary/40 text-secondary',
 };
 
 export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
@@ -31,11 +33,18 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
   const [moneyAmount, setMoneyAmount] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const relationByUserId = useMemo(() => {
     const map = new Map(relations.map((r) => [r.otherUserId, r]));
     return map;
   }, [relations]);
+
+  const filteredUsers = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return otherUsers;
+    return otherUsers.filter((u) => u.countryName.toLowerCase().includes(query));
+  }, [otherUsers, searchQuery]);
 
   const refresh = async () => {
     const [relations, wars, treaties] = await Promise.all([
@@ -78,69 +87,148 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
 
   return (
     <>
-      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Diplomacy</DialogTitle>
-        <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {error && <p className="text-xs text-red-500">{error}</p>}
-          {otherUsers.length === 0 && <div className="text-sm text-white/50 text-center py-8">No other players yet</div>}
-          {otherUsers.map((other) => {
-            const relation = relationByUserId.get(other.id);
-            const state = relation?.state ?? DiplomaticState.NEUTRAL;
-            const busy = busyId === other.id;
-            return (
-              <div key={other.id} className="flex flex-col gap-2 p-3 rounded border border-outline-variant/20 bg-surface-container">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: other.color }} />
-                    <span className="font-headline font-bold text-white text-sm">{other.countryName}</span>
+      <Dialog
+        open={open}
+        onClose={onClose}
+        maxWidth="md"
+        fullWidth
+        disablePortal
+        slotProps={{
+          paper: {
+            className: '!bg-surface-container !text-on-surface !shadow-2xl !rounded-sm !max-w-2xl !overflow-hidden',
+          },
+        }}
+      >
+        <div className="relative">
+          {/* Top edge gradient hairline — terminal panel seam detail */}
+          <div className="absolute top-0 left-0 h-[1px] w-full bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="bg-transparent border-none absolute top-4 right-4 z-10 p-1 text-on-surface-variant hover:text-primary transition-colors cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-2xl">close</span>
+          </button>
+
+          <div className="p-6 flex flex-col gap-6">
+            <div className="flex flex-col gap-1 pr-8">
+              <h1 className="font-headline text-2xl tracking-[0.2em] uppercase glow-text-primary text-primary flex items-center gap-3">
+                DIPLOMACY_NETWORK
+                <span className="text-[10px] bg-error/20 text-error px-2 py-0.5 border border-solid border-error/30 tracking-normal leading-none rounded-sm">
+                  v0.6.5_WAR
+                </span>
+              </h1>
+              <p className="font-headline text-[10px] tracking-widest text-on-surface-variant uppercase">
+                Status: encrypted_uplink_active
+              </p>
+            </div>
+
+            {error && (
+              <p className="font-headline text-xs tracking-wide text-error border border-solid border-error/30 bg-error/10 rounded-sm px-3 py-2">
+                {error}
+              </p>
+            )}
+
+            <div className="relative">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">
+                search
+              </span>
+              <input
+                type="text"
+                placeholder="SEARCH_ENTITIES..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="box-border w-full bg-surface-container-lowest border border-outline-variant/20 rounded-sm py-2.5 pl-10 pr-4 text-sm text-white font-headline tracking-wider focus:outline-none focus:border-primary/50 transition-all placeholder:text-on-surface-variant/40"
+              />
+            </div>
+
+            <div className="flex flex-col gap-8 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+              {filteredUsers.length === 0 && (
+                <div className="font-headline text-xs uppercase tracking-widest text-on-surface-variant text-center py-8">
+                  {otherUsers.length === 0 ? 'No other players yet' : 'No matching entities'}
+                </div>
+              )}
+              {filteredUsers.map((other) => {
+                const relation = relationByUserId.get(other.id);
+                const state = relation?.state ?? DiplomaticState.NEUTRAL;
+                const busy = busyId === other.id;
+                return (
+                  <div key={other.id} className="flex flex-col gap-3">
+                    <div className="flex justify-between items-center pb-1 gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: other.color }} />
+                        <h2 className="font-headline text-lg tracking-widest uppercase truncate">{other.countryName}</h2>
+                      </div>
+                      <span className={`font-headline text-[11px] tracking-widest border border-solid px-2 py-0.5 rounded-full shrink-0 ${STATE_BADGE_CLASSES[state]}`}>
+                        {state.toUpperCase()}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      {state === DiplomaticState.NEUTRAL && (
+                        <ActionButton
+                          label="Declare War"
+                          colorClass="border-error text-error hover:bg-error/10"
+                          disabled={busy}
+                          onClick={() => handleDeclareWar(other.id)}
+                        />
+                      )}
+                      {state === DiplomaticState.WAR && (
+                        <ActionButton
+                          label="Propose Peace"
+                          colorClass="border-primary text-primary hover:bg-primary/10"
+                          disabled={busy}
+                          onClick={() => setPeaceTarget({ id: other.id, name: other.countryName })}
+                        />
+                      )}
+                      {(state === DiplomaticState.NEUTRAL || state === DiplomaticState.PEACE) && (
+                        <ActionButton
+                          label="Propose Alliance"
+                          colorClass="border-primary text-primary hover:bg-primary/10"
+                          disabled={busy}
+                          onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.ALLIANCE })}
+                        />
+                      )}
+                      {state !== DiplomaticState.ALLIANCE && (
+                        <ActionButton
+                          label="Propose Troops Pass"
+                          colorClass="border-primary text-primary hover:bg-primary/10"
+                          disabled={busy}
+                          onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.TROOPS_PASS })}
+                        />
+                      )}
+                      <ActionButton
+                        label="Propose Trade"
+                        colorClass="border-secondary text-secondary hover:bg-secondary/10"
+                        disabled={busy}
+                        onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.TRADE })}
+                      />
+                      <ActionButton
+                        label="Propose Article"
+                        colorClass="border-primary text-primary hover:bg-primary/10"
+                        disabled={busy}
+                        onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.ARTICLE })}
+                      />
+                      <ActionButton
+                        label="Send Money"
+                        colorClass="border-primary text-primary hover:bg-primary/10"
+                        disabled={busy}
+                        onClick={() => setMoneyTarget({ id: other.id, name: other.countryName })}
+                      />
+                      <button
+                        onClick={() => setTreatiesOf({ id: other.id, name: other.countryName })}
+                        className="bg-transparent col-span-full border border-primary text-primary py-1.5 font-headline text-[11px] tracking-[0.2em] uppercase hover:bg-primary/10 transition-all rounded-sm cursor-pointer"
+                      >
+                        Player Treaties
+                      </button>
+                    </div>
                   </div>
-                  <Chip label={state.toUpperCase()} size="small" color={STATE_COLORS[state]} />
-                </div>
-                <div className="flex gap-2 flex-wrap">
-                  {state === DiplomaticState.NEUTRAL && (
-                    <Button size="small" color="error" variant="outlined" disabled={busy}
-                      onClick={() => handleDeclareWar(other.id)}>
-                      Declare War
-                    </Button>
-                  )}
-                  {state === DiplomaticState.WAR && (
-                    <Button size="small" variant="outlined" disabled={busy}
-                      onClick={() => setPeaceTarget({ id: other.id, name: other.countryName })}>
-                      Propose Peace
-                    </Button>
-                  )}
-                  {(state === DiplomaticState.NEUTRAL || state === DiplomaticState.PEACE) && (
-                    <Button size="small" variant="outlined" disabled={busy}
-                      onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.ALLIANCE })}>
-                      Propose Alliance
-                    </Button>
-                  )}
-                  {state !== DiplomaticState.ALLIANCE && (
-                    <Button size="small" variant="outlined" disabled={busy}
-                      onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.TROOPS_PASS })}>
-                      Propose Troops Pass
-                    </Button>
-                  )}
-                  <Button size="small" variant="outlined" disabled={busy}
-                    onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.TRADE })}>
-                    Propose Trade
-                  </Button>
-                  <Button size="small" variant="outlined" disabled={busy}
-                    onClick={() => setNegotiation({ receiverId: other.id, receiverName: other.countryName, kind: TreatyKind.ARTICLE })}>
-                    Propose Article
-                  </Button>
-                  <Button size="small" variant="outlined" disabled={busy}
-                    onClick={() => setMoneyTarget({ id: other.id, name: other.countryName })}>
-                    Send Money
-                  </Button>
-                  <Button size="small" onClick={() => setTreatiesOf({ id: other.id, name: other.countryName })}>
-                    Player Treaties
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </DialogContent>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </Dialog>
 
       {negotiation && (
@@ -173,17 +261,47 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
         />
       )}
 
-      <Dialog open={!!moneyTarget} onClose={() => setMoneyTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle>Send Money to {moneyTarget?.name}</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-          <TextField
-            label="Amount" type="number" size="small" value={moneyAmount}
-            onChange={(e) => setMoneyAmount(Math.max(0, Number(e.target.value)))}
-          />
-          <Button variant="contained" onClick={() => void handleSendMoney()} disabled={!moneyTarget || moneyAmount <= 0}>
-            Send
-          </Button>
-        </DialogContent>
+      <Dialog
+        open={!!moneyTarget}
+        onClose={() => setMoneyTarget(null)}
+        maxWidth="xs"
+        fullWidth
+        disablePortal
+        slotProps={{
+          paper: {
+            className: '!bg-surface-container !text-on-surface !shadow-2xl !rounded-sm !overflow-hidden',
+          },
+        }}
+      >
+        <div className="relative">
+          <div className="absolute top-0 left-0 h-[1px] w-full bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
+          <div className="p-6 flex flex-col gap-4">
+            <h2 className="font-headline text-sm tracking-[0.2em] uppercase text-primary">
+              Send Money to {moneyTarget?.name}
+            </h2>
+            <input
+              type="number"
+              min={0}
+              placeholder="AMOUNT"
+              value={moneyAmount || ''}
+              onChange={(e) => setMoneyAmount(Math.max(0, Number(e.target.value)))}
+              className="box-border w-full bg-surface-container-lowest border border-outline-variant/20 rounded-sm py-2.5 px-4 text-sm text-white font-headline tracking-wider focus:outline-none focus:border-primary/50 transition-all placeholder:text-on-surface-variant/40"
+            />
+            <div className="flex gap-2 justify-end">
+              <ActionButton
+                label="Cancel"
+                colorClass="border-outline-variant/40 text-on-surface-variant hover:bg-white/5"
+                onClick={() => setMoneyTarget(null)}
+              />
+              <ActionButton
+                label="Send"
+                colorClass="border-primary text-primary hover:bg-primary/10"
+                disabled={!moneyTarget || moneyAmount <= 0 || busyId === moneyTarget?.id}
+                onClick={() => void handleSendMoney()}
+              />
+            </div>
+          </div>
+        </div>
       </Dialog>
     </>
   );

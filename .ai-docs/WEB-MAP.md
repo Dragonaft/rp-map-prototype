@@ -148,6 +148,66 @@ graph rendered inside `TechsModal`.)
 - **Custom CSS** (glow effects, glassmorphism in `index.css`)
 - Custom fonts: Space Grotesk (headlines), Manrope (body)
 - Dark theme color palette in `tailwind.config.js`
+- **Visual identity, terminology, and copy source of truth: [`DESIGN.md`](DESIGN.md)**
+  (repo root) — read it before any UI/design work. It documents the exact color
+  tokens, type scale, spacing/radius tokens, component patterns, and the game's
+  closed vocabulary (building types, resources, diplomacy terms, etc.) pulled
+  directly from this codebase. Update it when the visual system changes.
+
+### Tailwind gotchas specific to this project
+
+`tailwind.config.js` sets **`corePlugins: { preflight: false }`** (no global CSS
+reset) and **`important: '#root'`** (every utility is scoped to require `#root`
+as an ancestor). Both are easy to forget and cause silent, hard-to-diagnose
+rendering bugs:
+
+- **Bare `<button>`/`<input>`/`<select>`/`<textarea>` keep native browser
+  chrome.** Without preflight, form controls retain the OS/browser default
+  background and border (Chrome's default button background is a visible light
+  gray, `rgb(239,239,239)`) unless you explicitly add `bg-transparent` (and
+  `border-none` if no border is wanted). Non-form elements (`div`/`span`/`p`)
+  don't have this problem since they have no native chrome to override.
+- **`border-{color}` alone does not draw a border on non-form elements.**
+  Tailwind's `border` utility only sets `border-width`; normally preflight sets
+  a global `border-style: solid` reset so any element with a border color
+  shows one. Without preflight, `<div>`/`<span>`/`<p>` fall back to the CSS
+  initial `border-style: none` — the border silently doesn't render even
+  though width and color are correct. Native form controls are exempt (browsers
+  give them their own default border style), which is why this only bites
+  divs/spans/badges/dividers, not buttons/inputs. **Fix: always pair `border`
+  with `border-solid`** on any non-form-control element.
+- **`<input>` defaults to `box-sizing: content-box`.** An input styled with
+  `w-full` plus horizontal padding (e.g. `pl-10 pr-4`) will overflow its
+  container by the padding amount, since padding is added on top of the full
+  width instead of being included in it. **Fix: add `box-border`** to any input
+  using `w-full` (or any explicit width) together with padding.
+- **Set input text color explicitly.** Browsers give form controls their own
+  default text color rather than always inheriting the surrounding page's
+  color — a dark-on-dark input (e.g. black text on a black field) is easy to
+  ship unnoticed. Add `text-white` (or the appropriate token) directly.
+- **MUI `Dialog`/`Modal` portals to `document.body` by default — outside
+  `#root`.** Since Tailwind's `important: '#root'` scopes every utility to
+  require an `#root` ancestor, any Tailwind class used inside a MUI Dialog's
+  content **silently does nothing** unless the dialog renders inside `#root`.
+  **Fix: pass `disablePortal` to `Dialog`** (or `container={() =>
+  document.getElementById('root')}`) whenever its content uses Tailwind
+  classes. This affects every MUI `Dialog`/`Modal` in this codebase — check for
+  it first if a modal's Tailwind styling appears to do nothing.
+
+### Verifying UI changes
+
+There's no visual regression suite — verify styling changes by actually running
+the app: `npm run start:dev` in `api/`, `npm run dev` in `web-map/` (DB via
+`docker compose up db` or `npm run db:local` from the repo root), then log in
+with a seeded test account. `api/src/scripts/seed-test-countries.ts` (run via
+`npm run seed:test-countries`) creates two ready-made opposing countries —
+logins `test-blue` / `test-red` (plus the pre-existing `TestUser1` admin),
+shared password `test123` — useful for exercising anything that needs another
+player, a diplomatic relation, or an army fight. A headless Chromium driven via
+Playwright (`playwright-core` + the system's installed `google-chrome` binary,
+no browser download needed) plus `getComputedStyle()` checks is the fastest way
+to confirm a fix actually changed the rendered CSS rather than trusting the
+source alone — this is how every gotcha above was originally diagnosed.
 
 ## Docker
 
