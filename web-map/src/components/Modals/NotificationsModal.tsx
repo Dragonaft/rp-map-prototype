@@ -3,10 +3,15 @@ import { Dialog } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { diplomacyApi } from '../../api/diplomacy';
 import { setRelations, setTreaties, setWars } from '../../store/slices/diplomacySlice';
-import { Treaty, TreatyStatus } from '../../types';
+import { Province, Treaty, TreatyArticle, TreatyStatus } from '../../types';
 import { ActionButton } from '../ActionButton.tsx';
 import { RESOURCE_ICONS } from '../../constants/buildingIcons.ts';
 import { APP_VERSION } from '../../constants/appVersion.ts';
+import { DEFAULT_MAP_LAND_COLOR, DEFAULT_MAP_WATER_COLOR } from '../../utils/mapModes.ts';
+
+/** Fixed semantic colors for the "territory at stake" mini-map — see PeaceNegotiationModal for the sibling picker version. */
+const CEDE_GAIN_COLOR = '#16a34a';
+const CEDE_LOSS_COLOR = '#ef4444';
 
 interface Props {
   open: boolean;
@@ -31,9 +36,11 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
   const [tab, setTab] = useState<Tab>('treaties');
   const [busyId, setBusyId] = useState<string | null>(null);
   const currentUserId = useAppSelector((state) => state.user.id);
+  const currentUserColor = useAppSelector((state) => state.user.color);
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
   const treaties = useAppSelector((state) => state.diplomacy.treaties);
   const provinces = useAppSelector((state) => state.provinces.provinces);
+  const provinceBBoxById = useAppSelector((state) => state.provinces.provinceBBoxById);
 
   const nameFor = (userId: string): string => {
     if (userId === currentUserId) return 'You';
@@ -87,6 +94,91 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
           }
         })}
       </ul>
+    );
+  };
+
+  const provinceOwnerColor = (p: Province): string => {
+    if (p.type === 'water') return DEFAULT_MAP_WATER_COLOR;
+    if (!p.userId) return DEFAULT_MAP_LAND_COLOR;
+    if (p.userId === currentUserId) return currentUserColor;
+    return otherUsers.find((u) => u.id === p.userId)?.color ?? DEFAULT_MAP_LAND_COLOR;
+  };
+
+  /**
+   * A small read-only map of exactly the province(s) a pending peace proposal would cede,
+   * plus their immediate neighbors for orientation, so the viewer can see at a glance what
+   * territory they'd lose (red) or gain (green) before deciding — the real geometry, not a
+   * schematic, same technique as PeaceNegotiationModal's interactive picker but static.
+   */
+  const renderCededProvincesMap = (treaty: Treaty) => {
+    const cedeArticles = treaty.articles.filter(
+      (a): a is Extract<TreatyArticle, { type: 'cede_province' }> => a.type === 'cede_province',
+    );
+    if (!cedeArticles.length) return null;
+
+    const cededById = new Map(cedeArticles.map((a) => [a.provinceId, a]));
+    const contextIds = new Set(cededById.keys());
+    for (const id of cededById.keys()) {
+      const p = provinces.find((pp) => pp.id === id);
+      (p?.neighbors ?? []).forEach((n) => contextIds.add(n));
+    }
+    const mapProvinces = provinces.filter((p) => contextIds.has(p.id));
+    if (!mapProvinces.length) return null;
+
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const p of mapProvinces) {
+      const bbox = provinceBBoxById[p.id];
+      if (!bbox) continue;
+      minX = Math.min(minX, bbox.x);
+      minY = Math.min(minY, bbox.y);
+      maxX = Math.max(maxX, bbox.x + bbox.width);
+      maxY = Math.max(maxY, bbox.y + bbox.height);
+    }
+    if (!isFinite(minX)) return null;
+    const pad = Math.max(20, (maxX - minX) * 0.08);
+    const viewBox = `${minX - pad} ${minY - pad} ${(maxX - minX) + pad * 2} ${(maxY - minY) + pad * 2}`;
+
+    return (
+      <div className="mt-3">
+        <div className="flex items-center justify-between mb-1.5 flex-wrap gap-2">
+          <span className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant">Territory at stake</span>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: CEDE_LOSS_COLOR }} />
+              <span className="font-headline text-[9px] uppercase tracking-widest text-on-surface-variant">You lose</span>
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: CEDE_GAIN_COLOR }} />
+              <span className="font-headline text-[9px] uppercase tracking-widest text-on-surface-variant">You gain</span>
+            </span>
+          </div>
+        </div>
+        <svg
+          viewBox={viewBox}
+          preserveAspectRatio="xMidYMid meet"
+          className="w-full h-40 bg-black border border-solid border-outline-variant/20 rounded-sm"
+        >
+          {mapProvinces.map((p) => {
+            const article = cededById.get(p.id);
+            const fill = article
+              ? (article.from === currentUserId ? CEDE_LOSS_COLOR : article.to === currentUserId ? CEDE_GAIN_COLOR : provinceOwnerColor(p))
+              : provinceOwnerColor(p);
+            return (
+              <path
+                key={p.id}
+                d={p.polygon}
+                fill={fill}
+                stroke={article ? '#ffffff' : '#0e0e0e'}
+                strokeWidth={article ? 2 : 1}
+              >
+                <title>
+                  {p.regionId} ({p.landscape}){article ? ` — ${nameFor(article.to)} would gain this from ${nameFor(article.from)}` : ''}
+                </title>
+              </path>
+            );
+          })}
+        </svg>
+      </div>
     );
   };
 
@@ -190,6 +282,7 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
 
         {treaty.note && <div className="mt-2 font-body text-xs text-on-surface-variant/80 whitespace-pre-wrap">{treaty.note}</div>}
         {renderArticlesSummary(treaty)}
+        {isPending && treaty.kind === 'peace' && renderCededProvincesMap(treaty)}
 
         {(canRespond || canCancelProposal || canCancelSigned) && (
           <div className="flex gap-2 mt-3 flex-wrap">
