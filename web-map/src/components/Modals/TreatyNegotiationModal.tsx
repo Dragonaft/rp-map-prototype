@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Dialog, Tooltip } from '@mui/material';
+import MDEditor from '@uiw/react-md-editor';
 import { useAppSelector } from '../../store/hooks';
 import { diplomacyApi } from '../../api/diplomacy';
 import { TreatyArticle, TreatyKind, TreatyVisibility } from '../../types';
@@ -273,12 +274,24 @@ export const TreatyNegotiationModal: React.FC<Props> = ({ open, onClose, receive
               <label className="font-headline text-[10px] tracking-widest text-on-surface-variant uppercase">
                 {kind === TreatyKind.ARTICLE ? 'Article_text_(markdown)' : 'Optional_message'}
               </label>
-              <textarea
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-                placeholder={kind === TreatyKind.ARTICLE ? 'ENTER_ARTICLE_TERMS...' : 'ENTER_ADDITIONAL_NOTES...'}
-                className="box-border w-full h-24 bg-surface-container-lowest border border-solid border-outline-variant/20 rounded-sm p-3 text-sm text-white font-body focus:outline-none focus:border-primary/50 transition-all resize-none placeholder:text-on-surface-variant/30"
-              />
+              {kind === TreatyKind.ARTICLE ? (
+                <div data-color-mode="dark" className="rounded-sm overflow-hidden border border-solid border-outline-variant/20">
+                  <MDEditor
+                    value={note}
+                    onChange={(v) => setNote(v ?? '')}
+                    height={200}
+                    preview="edit"
+                    textareaProps={{ placeholder: 'ENTER_ARTICLE_TERMS...' }}
+                  />
+                </div>
+              ) : (
+                <textarea
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="ENTER_ADDITIONAL_NOTES..."
+                  className="box-border w-full h-24 bg-surface-container-lowest border border-solid border-outline-variant/20 rounded-sm p-3 text-sm text-white font-body focus:outline-none focus:border-primary/50 transition-all resize-none placeholder:text-on-surface-variant/30"
+                />
+              )}
             </div>
 
             {/* Footer */}

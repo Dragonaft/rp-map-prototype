@@ -10,6 +10,7 @@ import resourcesReducer from "./slices/resourcesSlice.ts";
 import goodsReducer from "./slices/goodsSlice.ts";
 import diplomacyReducer from "./slices/diplomacySlice.ts";
 import notificationsReducer from "./slices/notificationsSlice.ts";
+import newsReducer from "./slices/newsSlice.ts";
 
 export const store = configureStore({
   reducer: {
@@ -24,6 +25,7 @@ export const store = configureStore({
     goods: goodsReducer,
     diplomacy: diplomacyReducer,
     notifications: notificationsReducer,
+    news: newsReducer,
   },
   devTools: process.env.NODE_ENV !== 'production',
 });

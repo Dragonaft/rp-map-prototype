@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Chip, Dialog, DialogContent, DialogTitle } from '@mui/material';
+import MDEditor from '@uiw/react-md-editor';
 import { useAppSelector } from '../../store/hooks';
 import { diplomacyApi } from '../../api/diplomacy';
 import { Treaty } from '../../types';
@@ -55,7 +56,15 @@ export const PlayerTreatiesModal: React.FC<Props> = ({ open, onClose, userId, us
               <Chip label={KIND_LABELS[t.kind] ?? t.kind} size="small" />
             </div>
             <div className="text-xs text-white/70">{nameFor(t.proposer_id)} → {nameFor(t.receiver_id)}</div>
-            {t.note && <div className="text-xs text-white/60 whitespace-pre-wrap">{t.note}</div>}
+            {t.note && (
+              t.kind === 'article' ? (
+                <div data-color-mode="dark">
+                  <MDEditor.Markdown source={t.note} style={{ backgroundColor: 'transparent', fontSize: '0.75rem' }} />
+                </div>
+              ) : (
+                <div className="text-xs text-white/60 whitespace-pre-wrap">{t.note}</div>
+              )
+            )}
           </div>
         ))}
       </DialogContent>

@@ -15,6 +15,8 @@ import { DiplomaticRelation } from '../diplomacy/entities/diplomatic-relation.en
 import { War } from '../diplomacy/entities/war.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationSeverity } from '../notifications/entities/notification.entity';
+import { NewsAgency } from '../news/entities/news-agency.entity';
+import { NewsArticle } from '../news/entities/news-article.entity';
 
 @Injectable()
 export class AdminService {
@@ -28,6 +30,8 @@ export class AdminService {
     @InjectRepository(Good) private readonly goodRepo: Repository<Good>,
     @InjectRepository(DiplomaticRelation) private readonly diplomaticRelationRepo: Repository<DiplomaticRelation>,
     @InjectRepository(War) private readonly warRepo: Repository<War>,
+    @InjectRepository(NewsAgency) private readonly newsAgencyRepo: Repository<NewsAgency>,
+    @InjectRepository(NewsArticle) private readonly newsArticleRepo: Repository<NewsArticle>,
     private readonly userGoodsService: UserGoodsService,
     private readonly userResourcesService: UserResourcesService,
     private readonly notificationsService: NotificationsService,
@@ -277,5 +281,39 @@ export class AdminService {
     const war = await this.warRepo.findOne({ where: { id } });
     if (!war) throw new NotFoundException(`War ${id} not found`);
     await this.warRepo.remove(war);
+  }
+
+  // --- News Wall (moderation: list + delete only, no admin-authored content) ---
+
+  findAllNewsAgencies() {
+    return this.newsAgencyRepo
+      .createQueryBuilder('agency')
+      .leftJoin('agency.user', 'user')
+      .addSelect(['user.id', 'user.country_name', 'user.login'])
+      .orderBy('agency.createdAt', 'DESC')
+      .getMany();
+  }
+
+  async deleteNewsAgency(id: string) {
+    const agency = await this.newsAgencyRepo.findOne({ where: { id } });
+    if (!agency) throw new NotFoundException(`News agency ${id} not found`);
+    await this.newsAgencyRepo.remove(agency);
+  }
+
+  findAllNewsArticles() {
+    return this.newsArticleRepo
+      .createQueryBuilder('article')
+      .leftJoin('article.agency', 'agency')
+      .addSelect(['agency.id', 'agency.name'])
+      .leftJoin('agency.user', 'user')
+      .addSelect(['user.id', 'user.country_name'])
+      .orderBy('article.createdAt', 'DESC')
+      .getMany();
+  }
+
+  async deleteNewsArticle(id: string) {
+    const article = await this.newsArticleRepo.findOne({ where: { id } });
+    if (!article) throw new NotFoundException(`News article ${id} not found`);
+    await this.newsArticleRepo.remove(article);
   }
 }

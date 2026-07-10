@@ -407,3 +407,27 @@ export interface Treaty {
   resolved_at: string | null;
 }
 
+// ── News Wall ───────────────────────────────────────────────────────────
+
+export interface NewsAgency {
+  id: string;
+  user_id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface NewsArticle {
+  id: string;
+  agency_id: string;
+  title: string;
+  /** Markdown body. */
+  content: string;
+  createdAt: string;
+}
+
+export interface MyNewsAgency {
+  agency: NewsAgency | null;
+  articlesToday: number;
+  remainingToday: number;
+}
+

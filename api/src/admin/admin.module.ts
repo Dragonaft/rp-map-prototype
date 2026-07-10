@@ -14,10 +14,12 @@ import { ResourcesModule } from '../resources/resources.module';
 import { DiplomaticRelation } from '../diplomacy/entities/diplomatic-relation.entity';
 import { War } from '../diplomacy/entities/war.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { NewsAgency } from '../news/entities/news-agency.entity';
+import { NewsArticle } from '../news/entities/news-article.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Building, Army, Tech, TroopType, Resource, Good, DiplomaticRelation, War]),
+    TypeOrmModule.forFeature([User, Building, Army, Tech, TroopType, Resource, Good, DiplomaticRelation, War, NewsAgency, NewsArticle]),
     GoodsModule,
     ResourcesModule,
     NotificationsModule,

@@ -35,6 +35,9 @@ import { War } from './diplomacy/entities/war.entity';
 import { WarParticipant } from './diplomacy/entities/war-participant.entity';
 import { Treaty } from './diplomacy/entities/treaty.entity';
 import { Notification } from './notifications/entities/notification.entity';
+import { NewsModule } from './news/news.module';
+import { NewsAgency } from './news/entities/news-agency.entity';
+import { NewsArticle } from './news/entities/news-article.entity';
 
 @Module({
   imports: [
@@ -53,6 +56,7 @@ import { Notification } from './notifications/entities/notification.entity';
         Army, ArmyUnit, TroopType, Resource, Good, UserGood, UserResource,
         DiplomaticRelation, War, WarParticipant, Treaty,
         Notification,
+        NewsAgency, NewsArticle,
       ],
       synchronize: false,
     }),
@@ -68,6 +72,7 @@ import { Notification } from './notifications/entities/notification.entity';
     GoodsModule,
     DiplomacyModule,
     NotificationsModule,
+    NewsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

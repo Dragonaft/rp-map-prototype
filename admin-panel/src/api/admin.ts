@@ -46,4 +46,10 @@ export const adminApi = {
   // Notifications
   broadcastNotification: (data: { title: string; message: string; severity: string }) =>
     apiClient.post('/admin/notifications/broadcast', data),
+
+  // News Wall
+  getNewsAgencies: () => apiClient.get('/admin/news-agencies'),
+  deleteNewsAgency: (id: string) => apiClient.delete(`/admin/news-agencies/${id}`),
+  getNewsArticles: () => apiClient.get('/admin/news-articles'),
+  deleteNewsArticle: (id: string) => apiClient.delete(`/admin/news-articles/${id}`),
 };

@@ -227,4 +227,28 @@ export class AdminController {
   broadcastNotification(@Body() body: { title: string; message: string; severity?: string }) {
     return this.adminService.broadcastNotification(body.title, body.message, body.severity as any);
   }
+
+  // --- News Wall ---
+
+  @Get('news-agencies')
+  getNewsAgencies() {
+    return this.adminService.findAllNewsAgencies();
+  }
+
+  @Delete('news-agencies/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteNewsAgency(@Param('id') id: string) {
+    return this.adminService.deleteNewsAgency(id);
+  }
+
+  @Get('news-articles')
+  getNewsArticles() {
+    return this.adminService.findAllNewsArticles();
+  }
+
+  @Delete('news-articles/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteNewsArticle(@Param('id') id: string) {
+    return this.adminService.deleteNewsArticle(id);
+  }
 }

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Dialog } from '@mui/material';
+import MDEditor from '@uiw/react-md-editor';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { diplomacyApi } from '../../api/diplomacy';
 import { setRelations, setTreaties, setWars } from '../../store/slices/diplomacySlice';
@@ -10,6 +11,10 @@ import { APP_VERSION } from '../../constants/appVersion.ts';
 import { DEFAULT_MAP_LAND_COLOR, DEFAULT_MAP_WATER_COLOR } from '../../utils/mapModes.ts';
 import { notificationsApi } from '../../api/notifications.ts';
 import { setNotifications } from '../../store/slices/notificationsSlice.ts';
+import { newsApi } from '../../api/news.ts';
+import { setAgencies } from '../../store/slices/newsSlice.ts';
+import { MyNewsAgency } from '../../types';
+import { NewsAgencyArticlesModal } from './NewsAgencyArticlesModal.tsx';
 
 const SEVERITY_ICON: Record<NotificationSeverity, string> = {
   [NotificationSeverity.ERROR]: 'error',
@@ -36,7 +41,7 @@ interface Props {
   onClose: () => void;
 }
 
-type Tab = 'treaties' | 'news' | 'system';
+type Tab = 'treaties' | 'news' | 'system' | 'newswall';
 
 const KIND_LABELS: Record<string, string> = {
   peace: 'Peace',
@@ -60,6 +65,17 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
   const provinces = useAppSelector((state) => state.provinces.provinces);
   const provinceBBoxById = useAppSelector((state) => state.provinces.provinceBBoxById);
   const notifications = useAppSelector((state) => state.notifications.mine);
+  const agencies = useAppSelector((state) => state.news.agencies);
+  const [myAgency, setMyAgency] = useState<MyNewsAgency | null>(null);
+  const [agencyNameInput, setAgencyNameInput] = useState('');
+  const [renaming, setRenaming] = useState(false);
+  const [renameInput, setRenameInput] = useState('');
+  const [composing, setComposing] = useState(false);
+  const [articleTitle, setArticleTitle] = useState('');
+  const [articleContent, setArticleContent] = useState('');
+  const [newsBusy, setNewsBusy] = useState(false);
+  const [newsError, setNewsError] = useState<string | null>(null);
+  const [viewingAgency, setViewingAgency] = useState<{ id: string; name: string } | null>(null);
 
   const nameFor = (userId: string): string => {
     if (userId === currentUserId) return 'You';
@@ -263,6 +279,65 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
       ]).catch(() => {});
       dispatch(setNotifications(notifications.map((n) => (n.type !== NotificationType.ADMIN ? { ...n, is_read: true } : n))));
     }
+    if (t === 'newswall') {
+      void refreshNewsWall();
+    }
+  };
+
+  const refreshNewsWall = async () => {
+    const [agencyList, mine] = await Promise.all([newsApi.getAgencies(), newsApi.getMine()]);
+    dispatch(setAgencies(agencyList));
+    setMyAgency(mine);
+  };
+
+  const handleCreateAgency = async () => {
+    if (!agencyNameInput.trim()) return;
+    setNewsBusy(true);
+    setNewsError(null);
+    try {
+      await newsApi.createAgency(agencyNameInput.trim());
+      setAgencyNameInput('');
+      await refreshNewsWall();
+    } catch (e: any) {
+      setNewsError(e?.response?.data?.message || 'Failed to create agency');
+    } finally {
+      setNewsBusy(false);
+    }
+  };
+
+  const handleRenameAgency = async () => {
+    if (!renameInput.trim()) return;
+    setNewsBusy(true);
+    setNewsError(null);
+    try {
+      await newsApi.renameAgency(renameInput.trim());
+      setRenaming(false);
+      await refreshNewsWall();
+    } catch (e: any) {
+      setNewsError(e?.response?.data?.message || 'Failed to rename agency');
+    } finally {
+      setNewsBusy(false);
+    }
+  };
+
+  const handlePublishArticle = async () => {
+    if (!articleTitle.trim() || !articleContent.trim()) {
+      setNewsError('Title and content are required');
+      return;
+    }
+    setNewsBusy(true);
+    setNewsError(null);
+    try {
+      await newsApi.createArticle(articleTitle.trim(), articleContent);
+      setArticleTitle('');
+      setArticleContent('');
+      setComposing(false);
+      await refreshNewsWall();
+    } catch (e: any) {
+      setNewsError(e?.response?.data?.message || 'Failed to publish article');
+    } finally {
+      setNewsBusy(false);
+    }
   };
 
   const refresh = async () => {
@@ -351,7 +426,15 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
           <span className={iAmReceiver ? 'text-primary font-bold uppercase' : 'text-secondary'}>{nameFor(treaty.receiver_id)}</span>
         </div>
 
-        {treaty.note && <div className="mt-2 font-body text-xs text-on-surface-variant/80 whitespace-pre-wrap">{treaty.note}</div>}
+        {treaty.note && (
+          treaty.kind === 'article' ? (
+            <div className="mt-2" data-color-mode="dark">
+              <MDEditor.Markdown source={treaty.note} style={{ backgroundColor: 'transparent', fontSize: '0.75rem' }} />
+            </div>
+          ) : (
+            <div className="mt-2 font-body text-xs text-on-surface-variant/80 whitespace-pre-wrap">{treaty.note}</div>
+          )
+        )}
         {renderArticlesSummary(treaty)}
         {isPending && treaty.kind === 'peace' && renderCededProvincesMap(treaty)}
 
@@ -399,9 +482,11 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
     { id: 'treaties', label: `TREATIES${pending.length ? ` (${pending.length})` : ''}` },
     { id: 'news', label: `NEWS${unreadNewsCount ? ` (${unreadNewsCount})` : ''}` },
     { id: 'system', label: `SYSTEM_LOGS${unreadSystemCount ? ` (${unreadSystemCount})` : ''}` },
+    { id: 'newswall', label: 'NEWS_WALL' },
   ];
 
   return (
+    <>
     <Dialog
       open={open}
       onClose={onClose}
@@ -500,8 +585,156 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
               {systemItems.map(renderNotificationRow)}
             </div>
           )}
+          {tab === 'newswall' && (
+            <div className="flex flex-col gap-6">
+              <div className="bg-surface-container-low border border-solid border-outline-variant/20 p-4">
+                <div className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant mb-3">My_agency</div>
+
+                {newsError && (
+                  <p className="mb-3 font-headline text-xs tracking-wide text-error border border-solid border-error/30 bg-error/10 rounded-sm px-3 py-2">
+                    {newsError}
+                  </p>
+                )}
+
+                {!myAgency?.agency && (
+                  <div className="flex gap-2 flex-wrap items-center">
+                    <input
+                      type="text"
+                      value={agencyNameInput}
+                      onChange={(e) => setAgencyNameInput(e.target.value)}
+                      placeholder="ENTER_AGENCY_NAME..."
+                      className="box-border flex-1 min-w-[180px] bg-surface-container-lowest border border-solid border-outline-variant/20 rounded-sm px-3 py-2 text-sm text-white font-headline tracking-wider focus:outline-none focus:border-primary/50 transition-all placeholder:text-on-surface-variant/40"
+                    />
+                    <ActionButton
+                      label="Register_agency"
+                      colorClass="border-primary text-primary hover:bg-primary/10"
+                      disabled={newsBusy || !agencyNameInput.trim()}
+                      onClick={() => void handleCreateAgency()}
+                    />
+                  </div>
+                )}
+
+                {myAgency?.agency && (
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      {!renaming ? (
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-headline text-sm uppercase tracking-wider text-on-surface">{myAgency.agency.name}</h3>
+                          <button
+                            type="button"
+                            onClick={() => { setRenameInput(myAgency.agency!.name); setRenaming(true); }}
+                            className="bg-transparent border-none p-0.5 text-on-surface-variant/60 hover:text-primary transition-colors cursor-pointer"
+                            aria-label="Rename agency"
+                          >
+                            <span className="material-symbols-outlined text-base">edit</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                          <input
+                            type="text"
+                            value={renameInput}
+                            onChange={(e) => setRenameInput(e.target.value)}
+                            className="box-border flex-1 bg-surface-container-lowest border border-solid border-outline-variant/20 rounded-sm px-3 py-1.5 text-sm text-white font-headline tracking-wider focus:outline-none focus:border-primary/50"
+                          />
+                          <ActionButton
+                            label="Save"
+                            colorClass="border-primary text-primary hover:bg-primary/10"
+                            disabled={newsBusy || !renameInput.trim()}
+                            onClick={() => void handleRenameAgency()}
+                          />
+                          <ActionButton
+                            label="Cancel"
+                            colorClass="border-outline-variant/40 text-on-surface-variant hover:bg-white/5"
+                            disabled={newsBusy}
+                            onClick={() => setRenaming(false)}
+                          />
+                        </div>
+                      )}
+                      <span className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant shrink-0">
+                        {myAgency.articlesToday}/{myAgency.articlesToday + myAgency.remainingToday} articles_published_today
+                      </span>
+                    </div>
+
+                    {!composing ? (
+                      <ActionButton
+                        label="Publish_article"
+                        colorClass="border-primary text-primary hover:bg-primary/10"
+                        disabled={myAgency.remainingToday <= 0}
+                        onClick={() => setComposing(true)}
+                      />
+                    ) : (
+                      <div className="flex flex-col gap-2 bg-surface-container-lowest/50 border border-solid border-outline-variant/10 p-3">
+                        <input
+                          type="text"
+                          value={articleTitle}
+                          onChange={(e) => setArticleTitle(e.target.value)}
+                          placeholder="ENTER_ARTICLE_TITLE..."
+                          className="box-border w-full bg-surface-container-lowest border border-solid border-outline-variant/20 rounded-sm px-3 py-2 text-sm text-white font-headline tracking-wider focus:outline-none focus:border-primary/50 transition-all placeholder:text-on-surface-variant/40"
+                        />
+                        <div data-color-mode="dark" className="rounded-sm overflow-hidden border border-solid border-outline-variant/20">
+                          <MDEditor
+                            value={articleContent}
+                            onChange={(v) => setArticleContent(v ?? '')}
+                            height={220}
+                            preview="edit"
+                            textareaProps={{ placeholder: 'ENTER_ARTICLE_TEXT_(MARKDOWN)...' }}
+                          />
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <ActionButton
+                            label="Cancel"
+                            colorClass="border-outline-variant/40 text-on-surface-variant hover:bg-white/5"
+                            disabled={newsBusy}
+                            onClick={() => { setComposing(false); setArticleTitle(''); setArticleContent(''); }}
+                          />
+                          <ActionButton
+                            label="Publish"
+                            colorClass="border-primary text-primary hover:bg-primary/10"
+                            disabled={newsBusy || !articleTitle.trim() || !articleContent.trim()}
+                            onClick={() => void handlePublishArticle()}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <div className="font-headline text-[10px] uppercase tracking-widest text-on-surface-variant">Agencies</div>
+                {agencies.length === 0 && (
+                  <div className="font-headline text-xs uppercase tracking-widest text-on-surface-variant text-center py-16">
+                    No agencies registered yet
+                  </div>
+                )}
+                {agencies.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between gap-3 bg-surface-container-low border border-solid border-outline-variant/20 p-4 cursor-pointer transition-colors hover:bg-surface-container-high"
+                    onClick={() => setViewingAgency({ id: a.id, name: a.name })}
+                  >
+                    <div className="flex flex-col min-w-0">
+                      <h3 className="font-headline text-sm uppercase tracking-wider text-on-surface truncate">{a.name}</h3>
+                      <span className="font-body text-xs text-on-surface-variant">{nameFor(a.user_id)}</span>
+                    </div>
+                    <span className="material-symbols-outlined text-on-surface-variant/60">chevron_right</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Dialog>
+    {viewingAgency && (
+      <NewsAgencyArticlesModal
+        open={!!viewingAgency}
+        onClose={() => setViewingAgency(null)}
+        agencyId={viewingAgency.id}
+        agencyName={viewingAgency.name}
+      />
+    )}
+    </>
   );
 };
