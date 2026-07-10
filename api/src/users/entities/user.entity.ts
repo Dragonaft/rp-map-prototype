@@ -55,6 +55,14 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   public role: UserRoles | null;
 
+  /** Consecutive turns money has ended negative; resets to 0 the moment money is >= 0. Triggers bankruptcy above BANKRUPTCY_TRIGGER_TURNS. */
+  @Column({ default: 0 })
+  public negative_money_turns: number;
+
+  /** Turns remaining on the post-bankruptcy penalty (-50% combat power, no goods/resource production); 0 = not debuffed. */
+  @Column({ default: 0 })
+  public bankruptcy_debuff_turns: number;
+
   @OneToMany(() => Province, (province) => province.user)
   public readonly provinces?: Province[];
 }

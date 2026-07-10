@@ -8,6 +8,7 @@ import { ActionExecutorService, ExecutionContext } from './action-executor.servi
 import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
 import { ProductionActionService } from './production-action.service';
+import { BankruptcyService } from './bankruptcy.service';
 import { UserStateLoaderService } from './user-state-loader.service';
 import { DiplomacyService } from '../diplomacy/diplomacy.service';
 import { OccupationService } from '../diplomacy/occupation.service';
@@ -21,14 +22,17 @@ import { ActionQueue, ActionStatus } from './entities/action-queue.entity';
 import { Army } from '../armies/entities/army.entity';
 import { ArmyUnit } from '../armies/entities/army-unit.entity';
 import { Province } from '../provinces/entities/province.entity';
+import { User } from '../users/entities/user.entity';
 import {
   ARMY_MIN_SIZE,
+  BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER,
   CASUALTY_FLOOR,
   applyCasualties,
   armyAttackPower,
   armyDefensePower,
   armyTotalTroops,
   computeBuildModifier,
+  isBankruptcyDebuffed,
 } from './combat-calculator';
 import * as os from 'os';
 import { v4 as uuidv4 } from 'uuid';
@@ -50,6 +54,7 @@ export class ActionSchedulerService {
     private readonly incomeAction: IncomeActionService,
     private readonly upkeepAction: UpkeepActionService,
     private readonly productionAction: ProductionActionService,
+    private readonly bankruptcyService: BankruptcyService,
     private readonly userStateLoader: UserStateLoaderService,
     private readonly actionExecutionState: ActionExecutionStateService,
     private readonly diplomacyService: DiplomacyService,
@@ -256,6 +261,10 @@ export class ActionSchedulerService {
       await this.dataSource.transaction((manager) => this.diplomacyService.tickPeaceDecay(manager));
       await this.dataSource.transaction((manager) => this.treatyService.tickPendingExpiry(manager));
 
+      // Bankruptcy tick: runs last so it sees this turn's final money (income,
+      // upkeep, recurring trade, and every queued action's cost have all applied by now).
+      await this.dataSource.transaction((manager) => this.bankruptcyService.tick(manager));
+
     } catch (error) {
       this.logger.error(`Error during scheduled action execution for ${timetable}:`, error);
     } finally {
@@ -367,6 +376,12 @@ export class ActionSchedulerService {
           byProvince.set(army.province_id, list);
         }
 
+        // Bankruptcy-debuffed users fight at half power on whichever side they're on.
+        const involvedUserIds = [...new Set(armies.map((a) => a.user_id))];
+        const usersById = new Map(
+          (await manager.find(User, { where: { id: In(involvedUserIds) } })).map((u) => [u.id, u]),
+        );
+
         for (const [provinceId, armiesInProvince] of byProvince) {
           // Collect unique user ids
           const userIds = new Set(armiesInProvince.map((a) => a.user_id));
@@ -414,9 +429,12 @@ export class ActionSchedulerService {
           // first, ties broken by user id. Without this the order is whatever
           // the DB happened to return, so contested-province outcomes were
           // effectively random.
+          const powerMultiplier = (userId: string): number =>
+            isBankruptcyDebuffed(usersById.get(userId)) ? BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER : 1;
+
           const orderedAttackers = [...attackerGroups.entries()].sort((a, b) => {
-            const powerA = a[1].reduce((sum, x) => sum + armyAttackPower(x), 0);
-            const powerB = b[1].reduce((sum, x) => sum + armyAttackPower(x), 0);
+            const powerA = a[1].reduce((sum, x) => sum + armyAttackPower(x), 0) * powerMultiplier(a[0]);
+            const powerB = b[1].reduce((sum, x) => sum + armyAttackPower(x), 0) * powerMultiplier(b[0]);
             if (powerB !== powerA) return powerB - powerA;
             return a[0].localeCompare(b[0]);
           });
@@ -425,11 +443,11 @@ export class ActionSchedulerService {
           for (const [attackerUserId, attackerArmies] of orderedAttackers) {
             const attackerPower = attackerArmies.reduce(
               (sum, a) => sum + armyAttackPower(a), 0,
-            );
+            ) * powerMultiplier(attackerUserId);
 
             const defenderBasePower = defenderArmies.reduce(
               (sum, a) => sum + armyDefensePower(a), 0,
-            );
+            ) * powerMultiplier(defenderUserId);
             const buildingModifier = computeBuildModifier(province.buildings);
             const defenderPower = defenderBasePower * buildingModifier;
 

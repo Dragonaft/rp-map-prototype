@@ -311,6 +311,27 @@ export class TreatyService {
     }
   }
 
+  /**
+   * Bankruptcy fallout: cancels every accepted recurring trade treaty where this user is the
+   * `from` side of a money_tribute article — they can no longer afford to keep paying it out.
+   * Returns the number of treaties cancelled.
+   */
+  async cancelOutgoingRecurringMoneyTrades(manager: EntityManager, userId: string): Promise<number> {
+    const treaties = await manager.find(Treaty, {
+      where: { kind: TreatyKind.TRADE, recurring: true, status: TreatyStatus.ACCEPTED },
+    });
+    let cancelled = 0;
+    for (const treaty of treaties) {
+      const sendsMoney = treaty.articles.some((a) => a.type === 'money_tribute' && a.from === userId);
+      if (!sendsMoney) continue;
+      treaty.status = TreatyStatus.CANCELLED;
+      treaty.resolved_at = new Date();
+      await manager.save(Treaty, treaty);
+      cancelled++;
+    }
+    return cancelled;
+  }
+
   /** Pending proposals older than TREATY_EXPIRY_TURNS auto-reject. */
   async tickPendingExpiry(manager: EntityManager): Promise<void> {
     const pending = await manager.find(Treaty, { where: { status: TreatyStatus.PENDING } });
@@ -360,7 +381,8 @@ export class TreatyService {
       const fromUser = await manager.findOne(User, { where: { id: article.from }, lock: { mode: 'pessimistic_write' } });
       const toUser = await manager.findOne(User, { where: { id: article.to }, lock: { mode: 'pessimistic_write' } });
       if (!fromUser || !toUser) return;
-      const payable = Math.min(fromUser.money ?? 0, article.amount);
+      // Clamped to >= 0: a negative balance (allowed since money can go into debt) means nothing payable, not a negative transfer to the recipient.
+      const payable = Math.max(0, Math.min(fromUser.money ?? 0, article.amount));
       fromUser.money = (fromUser.money ?? 0) - payable;
       toUser.money = (toUser.money ?? 0) + payable;
       await manager.save(User, [fromUser, toUser]);

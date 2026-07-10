@@ -77,7 +77,8 @@ export class UpkeepActionService {
       for (const techKey of (user.completed_research ?? [])) {
         UPKEEP_RESEARCH_EFFECTS[techKey]?.(upkeepCtx);
       }
-      user.money = Math.max(0, Number(user.money ?? 0) - upkeepCtx.totalUpkeep);
+      // Money is allowed to go negative here — unpaid upkeep is the primary path into debt/bankruptcy (see BankruptcyService).
+      user.money = Number(user.money ?? 0) - upkeepCtx.totalUpkeep;
       user.piety = Math.max(0, Number(user.piety ?? 0) - pietyUpkeep);
     }
 

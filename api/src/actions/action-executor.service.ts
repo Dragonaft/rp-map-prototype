@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { EntityManager, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { BuildingTypes } from '../buildings/types/building.types';
 import { UserResourcesService } from '../resources/user-resources.service';
 import { UserGoodsService } from '../goods/user-goods.service';
@@ -20,12 +20,14 @@ import { DiplomacyService } from '../diplomacy/diplomacy.service';
 import { OccupationService } from '../diplomacy/occupation.service';
 import {
   ARMY_MIN_SIZE,
+  BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER,
   CASUALTY_FLOOR,
   applyCasualties,
   armyAttackPower,
   armyDefensePower,
   armyTotalTroops,
   computeBuildModifier,
+  isBankruptcyDebuffed,
 } from './combat-calculator';
 
 const REMOVE_COST = 100;
@@ -134,6 +136,9 @@ export class BuildActionHandler implements ActionHandler {
       }
 
       const currentMoney = Number(user.money ?? 0);
+      if (currentMoney < 0) {
+        throw new Error('Cannot build while your treasury is in debt (negative money)');
+      }
       if (currentMoney < cost) {
         throw new Error('Not enough money to build');
       }
@@ -381,6 +386,9 @@ export class UpgradeActionHandler implements ActionHandler {
       }
 
       const currentMoney = Number(user.money ?? 0);
+      if (currentMoney < 0) {
+        throw new Error('Cannot upgrade while your treasury is in debt (negative money)');
+      }
       if (currentMoney < cost) {
         throw new Error('Not enough money to upgrade');
       }
@@ -563,6 +571,10 @@ const executeRecruitment = async (
     lock: { mode: 'pessimistic_write' },
   });
   if (!user) throw new Error('User not found');
+
+  if (Number(user.money ?? 0) < 0) {
+    throw new Error('Cannot recruit troops while your treasury is in debt (negative money)');
+  }
 
   // Validate each recruit entry
   for (const entry of recruits) {
@@ -957,12 +969,18 @@ export class ArmyMoveHandler implements ActionHandler {
       for (const techKey of (attacker?.completed_research ?? [])) {
         BATTLE_RESEARCH_EFFECTS[techKey]?.(attackCtx);
       }
-      const attackerPower = attackCtx.attackingTroops;
+      let attackerPower = attackCtx.attackingTroops;
+      if (isBankruptcyDebuffed(attacker)) attackerPower *= BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER;
 
-      const defenderBasePower = enemyArmies.reduce(
-        (sum, a) => sum + armyDefensePower(a),
-        0,
-      );
+      // Defense power is reduced per-defender if that defender is bankruptcy-debuffed.
+      const defenderUserIds = [...new Set(enemyArmies.map((a) => a.user_id))];
+      const defenderUsers = await manager.find(User, { where: { id: In(defenderUserIds) } });
+      const defenderUserById = new Map(defenderUsers.map((u) => [u.id, u]));
+      const defenderBasePower = enemyArmies.reduce((sum, a) => {
+        const power = armyDefensePower(a);
+        const defender = defenderUserById.get(a.user_id);
+        return sum + (isBankruptcyDebuffed(defender) ? power * BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER : power);
+      }, 0);
       const buildingModifier = computeBuildModifier(toProvince.buildings);
       const defenderPower = defenderBasePower * buildingModifier;
 

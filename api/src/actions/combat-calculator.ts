@@ -11,6 +11,13 @@ export const DEFENSIVE_BUILDING_TYPES = new Set<string>([
 export const ARMY_MIN_SIZE = 100;
 export const CASUALTY_FLOOR = 0.05;
 
+/** Combat power multiplier applied to a bankruptcy-debuffed user's side (attacker or defender). */
+export const BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER = 0.5;
+
+export const isBankruptcyDebuffed = (
+  user: { bankruptcy_debuff_turns?: number | null } | null | undefined,
+): boolean => Number(user?.bankruptcy_debuff_turns ?? 0) > 0;
+
 export interface CombatBuilding {
   type: string;
   modifier?: string | null;

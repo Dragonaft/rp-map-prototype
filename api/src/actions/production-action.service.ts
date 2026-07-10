@@ -3,6 +3,7 @@ import { EntityManager } from 'typeorm';
 import { UserGameState } from './user-state-loader.service';
 import { UserResourcesService } from '../resources/user-resources.service';
 import { UserGoodsService } from '../goods/user-goods.service';
+import { isBankruptcyDebuffed } from './combat-calculator';
 
 /**
  * Runs once per scheduled queue tick alongside income, in two passes:
@@ -37,6 +38,7 @@ export class ProductionActionService {
     if (users.length === 0) return;
 
     for (const user of users) {
+      if (isBankruptcyDebuffed(user)) continue; // post-bankruptcy penalty: no resource production
       const userProvinces = provincesByUser.get(user.id) ?? [];
       for (const province of userProvinces) {
         if (province.occupier_id) continue; // occupied: nobody produces from it
@@ -54,6 +56,7 @@ export class ProductionActionService {
     }
 
     for (const user of users) {
+      if (isBankruptcyDebuffed(user)) continue; // post-bankruptcy penalty: no goods production
       const userProvinces = provincesByUser.get(user.id) ?? [];
       for (const province of userProvinces) {
         if (province.occupier_id) continue; // occupied: nobody produces from it
