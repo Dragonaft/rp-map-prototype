@@ -8,7 +8,7 @@ import { UserRoles } from '../users/types/users.types';
 import { Building } from '../buildings/entities/building.entity';
 import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { BuildingTypes } from '../buildings/types/building.types';
-import { computeBuildingCap } from '../techs/research-effects';
+import { DEFAULT_BUILDING_CAP, LANDSCAPE_BUILDING_CAPS } from '../techs/tech-effects.service';
 import { colors, logger } from '../utils/logger';
 
 const env = process.env.NODE_ENV ?? 'development';
@@ -193,7 +193,9 @@ function findNeighboringClusters(
 }
 
 function randomBuildingsForProvince(province: Province, rng: () => number): BuildingTypes[] {
-  const cap = computeBuildingCap(province.landscape, []);
+  // No completed research for freshly-seeded test countries, so no tech `building_cap`
+  // effect can apply yet — the landscape base cap is the whole answer here.
+  const cap = LANDSCAPE_BUILDING_CAPS[province.landscape?.toLowerCase()] ?? DEFAULT_BUILDING_CAP;
   const selected: BuildingTypes[] = [];
 
   if (cap > 0 && canBuildMine(province)) {

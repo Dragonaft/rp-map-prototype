@@ -4,7 +4,7 @@ import { BuildingTypes } from '../buildings/types/building.types';
 import { User } from '../users/entities/user.entity';
 import { Army } from '../armies/entities/army.entity';
 import { UserGameState } from './user-state-loader.service';
-import { UPKEEP_RESEARCH_EFFECTS } from '../techs/research-effects';
+import { TechEffectsService } from '../techs/tech-effects.service';
 
 function parseUpkeep(upkeep: string | null | undefined): number {
   const n = Number(upkeep);
@@ -21,6 +21,8 @@ const ARMY_UPKEEP_BUILDINGS = new Set<string>([
 @Injectable()
 export class UpkeepActionService {
   private readonly logger = new Logger(UpkeepActionService.name);
+
+  constructor(private readonly techEffects: TechEffectsService) {}
 
   async execute(state: UserGameState, manager: EntityManager): Promise<void> {
     const { users, provincesByUser } = state;
@@ -73,12 +75,14 @@ export class UpkeepActionService {
         }
       }
 
-      const upkeepCtx = { totalUpkeep: buildingUpkeep + armyUpkeep };
-      for (const techKey of (user.completed_research ?? [])) {
-        UPKEEP_RESEARCH_EFFECTS[techKey]?.(upkeepCtx);
-      }
+      const totalUpkeep = this.techEffects.apply(
+        'upkeep',
+        buildingUpkeep + armyUpkeep,
+        {},
+        user.completed_research ?? [],
+      );
       // Money is allowed to go negative here — unpaid upkeep is the primary path into debt/bankruptcy (see BankruptcyService).
-      user.money = Number(user.money ?? 0) - upkeepCtx.totalUpkeep;
+      user.money = Number(user.money ?? 0) - totalUpkeep;
       user.piety = Math.max(0, Number(user.piety ?? 0) - pietyUpkeep);
     }
 

@@ -6,6 +6,8 @@ import { User } from '../users/entities/user.entity';
 import { Building } from '../buildings/entities/building.entity';
 import { Army } from '../armies/entities/army.entity';
 import { Tech } from '../techs/entities/tech.entity';
+import { TechEffectsService } from '../techs/tech-effects.service';
+import { validateEffects } from '../techs/effect-types';
 import { TroopType } from '../armies/entities/troop-type.entity';
 import { Resource } from '../resources/entities/resource.entity';
 import { Good } from '../goods/entities/good.entity';
@@ -35,6 +37,7 @@ export class AdminService {
     private readonly userGoodsService: UserGoodsService,
     private readonly userResourcesService: UserResourcesService,
     private readonly notificationsService: NotificationsService,
+    private readonly techEffectsService: TechEffectsService,
   ) {}
 
   // --- Notifications ---
@@ -139,22 +142,37 @@ export class AdminService {
     return this.techRepo.find();
   }
 
+  /** Throws BadRequestException (not a raw Error) so the admin panel's error snackbar shows the reason. */
+  private validateTechEffectsDto(dto: Record<string, any>): Record<string, any> {
+    if (!('effects' in dto)) return dto;
+    try {
+      return { ...dto, effects: validateEffects(dto.effects) };
+    } catch (e: unknown) {
+      throw new BadRequestException(e instanceof Error ? e.message : String(e));
+    }
+  }
+
   async createTech(dto: Record<string, any>) {
-    const tech = this.techRepo.create(dto);
-    return this.techRepo.save(tech);
+    const tech = this.techRepo.create(this.validateTechEffectsDto(dto));
+    const saved = await this.techRepo.save(tech);
+    await this.techEffectsService.invalidate();
+    return saved;
   }
 
   async updateTech(id: string, dto: Record<string, any>) {
     const tech = await this.techRepo.findOne({ where: { id } });
     if (!tech) throw new NotFoundException(`Tech ${id} not found`);
-    Object.assign(tech, dto);
-    return this.techRepo.save(tech);
+    Object.assign(tech, this.validateTechEffectsDto(dto));
+    const saved = await this.techRepo.save(tech);
+    await this.techEffectsService.invalidate();
+    return saved;
   }
 
   async deleteTech(id: string) {
     const tech = await this.techRepo.findOne({ where: { id } });
     if (!tech) throw new NotFoundException(`Tech ${id} not found`);
     await this.techRepo.remove(tech);
+    await this.techEffectsService.invalidate();
   }
 
   // --- Troop Types ---

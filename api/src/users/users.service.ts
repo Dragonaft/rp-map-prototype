@@ -11,11 +11,7 @@ import { Army } from '../armies/entities/army.entity';
 import { UserGoodsService } from '../goods/user-goods.service';
 import { UserResourcesService } from '../resources/user-resources.service';
 import { parseIncome } from '../utils/parseIncome';
-import {
-  INCOME_RESEARCH_EFFECTS,
-  UPKEEP_RESEARCH_EFFECTS,
-  RESEARCH_POINT_EFFECTS,
-} from '../techs/research-effects';
+import { TechEffectsService } from '../techs/tech-effects.service';
 
 const BUILDING_UPKEEP_TYPES = new Set<string>([
   BuildingTypes.FORT,
@@ -32,6 +28,7 @@ export class UsersService {
     private readonly armyRepository: Repository<Army>,
     private readonly userGoodsService: UserGoodsService,
     private readonly userResourcesService: UserResourcesService,
+    private readonly techEffects: TechEffectsService,
   ) {}
 
   async create(createUserDto: UsersCreateBodyRequest): Promise<User> {
@@ -125,10 +122,7 @@ export class UsersService {
     }
 
     const incomeCtx = { incomeTotal, barracksCount, farmGardenIncome, provinceCount: provinces.length, capitalCount };
-    for (const techKey of completedResearch) {
-      INCOME_RESEARCH_EFFECTS[techKey]?.(incomeCtx);
-    }
-    incomeTotal = incomeCtx.incomeTotal;
+    incomeTotal = this.techEffects.apply('income', incomeTotal, incomeCtx, completedResearch);
 
     // ---- Upkeep projection (mirrors UpkeepActionService) ----
     let buildingUpkeep = 0;
@@ -149,10 +143,7 @@ export class UsersService {
       }
     }
 
-    const upkeepCtx = { totalUpkeep: buildingUpkeep + armyUpkeep };
-    for (const techKey of completedResearch) {
-      UPKEEP_RESEARCH_EFFECTS[techKey]?.(upkeepCtx);
-    }
+    const totalUpkeep = this.techEffects.apply('upkeep', buildingUpkeep + armyUpkeep, {}, completedResearch);
 
     // ---- Research projection (mirrors IncomeActionService) ----
     let researchTotal = 0;
@@ -163,9 +154,7 @@ export class UsersService {
       }
     }
     const rpCtx = { researchTotal, capitalCount };
-    for (const techKey of completedResearch) {
-      RESEARCH_POINT_EFFECTS[techKey]?.(rpCtx);
-    }
+    const projectedResearch = this.techEffects.apply('research_points', researchTotal, rpCtx, completedResearch);
 
     // ---- Piety projection (HOLY class only) ----
     let projectedPiety: number | null = null;
@@ -193,9 +182,9 @@ export class UsersService {
 
     return {
       ...instanceToPlain(user),
-      projectedIncome: incomeTotal - upkeepCtx.totalUpkeep,
+      projectedIncome: incomeTotal - totalUpkeep,
       projectedTroops: barracksCount * 50,
-      projectedResearch: rpCtx.researchTotal,
+      projectedResearch,
       projectedPiety,
     };
   }

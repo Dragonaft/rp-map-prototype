@@ -24,7 +24,10 @@
     "branch": "economy",
     "isClassRoot": false,
     "cost": 2,
-    "prerequisites": []
+    "prerequisites": [],
+    "effects": [
+      { "target": "research_points", "op": "add_scaled", "value": 1, "scaleBy": "capitalCount" }
+    ]
   },
   {
     "key": "economy.agriculture",
@@ -33,7 +36,10 @@
     "branch": "economy",
     "isClassRoot": false,
     "cost": 5,
-    "prerequisites": []
+    "prerequisites": [],
+    "effects": [
+      { "target": "income", "op": "add_scaled", "value": 0.15, "scaleBy": "farmGardenIncome" }
+    ]
   },
   {
     "key": "economy.library_studies",
@@ -69,7 +75,10 @@
     "branch": "economy",
     "isClassRoot": false,
     "cost": 10,
-    "prerequisites": ["economy.banking"]
+    "prerequisites": ["economy.banking"],
+    "effects": [
+      { "target": "income", "op": "add_scaled", "value": 10, "scaleBy": "provinceCount" }
+    ]
   },
   {
     "key": "economy.logistics",
@@ -87,7 +96,10 @@
     "branch": "economy",
     "isClassRoot": false,
     "cost": 25,
-    "prerequisites": ["economy.banking", "economy.advanced_taxation"]
+    "prerequisites": ["economy.banking", "economy.advanced_taxation"],
+    "effects": [
+      { "target": "income", "op": "multiply", "value": 1.1 }
+    ]
   },
   {
     "key": "economy.grand_treasury",
@@ -106,7 +118,10 @@
     "branch": "military",
     "isClassRoot": false,
     "cost": 20,
-    "prerequisites": []
+    "prerequisites": [],
+    "effects": [
+      { "target": "army_attack", "op": "multiply", "value": 1.15 }
+    ]
   },
   {
     "key": "military.ranged_units",
@@ -142,7 +157,10 @@
     "branch": "military",
     "isClassRoot": false,
     "cost": 20,
-    "prerequisites": ["military.sword_training"]
+    "prerequisites": ["military.sword_training"],
+    "effects": [
+      { "target": "army_attack", "op": "multiply", "value": 1.1 }
+    ]
   },
   {
     "key": "military.army_logistics",
@@ -151,7 +169,10 @@
     "branch": "military",
     "isClassRoot": false,
     "cost": 25,
-    "prerequisites": ["military.ranged_units", "military.pikemen", "military.sword_training"]
+    "prerequisites": ["military.ranged_units", "military.pikemen", "military.sword_training"],
+    "effects": [
+      { "target": "upkeep", "op": "multiply", "value": 0.8 }
+    ]
   },
   {
     "key": "military.improved_logistics",
@@ -169,7 +190,10 @@
     "branch": "military",
     "isClassRoot": false,
     "cost": 15,
-    "prerequisites": ["military.improved_logistics"]
+    "prerequisites": ["military.improved_logistics"],
+    "effects": [
+      { "target": "road_hops", "op": "add", "value": 1 }
+    ]
   },
   {
     "key": "guild.merchant_guilds",
@@ -178,7 +202,10 @@
     "branch": "guild",
     "isClassRoot": true,
     "cost": 10,
-    "prerequisites": []
+    "prerequisites": [],
+    "effects": [
+      { "target": "upkeep", "op": "multiply", "value": 0.85 }
+    ]
   },
   {
     "key": "guild.trade_house",
@@ -277,6 +304,9 @@
     "branch": "noble",
     "isClassRoot": false,
     "cost": 25,
-    "prerequisites": ["noble.house"]
+    "prerequisites": ["noble.house"],
+    "effects": [
+      { "target": "army_attack", "op": "multiply", "value": 1.1 }
+    ]
   }
 ]

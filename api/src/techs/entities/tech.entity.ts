@@ -1,4 +1,5 @@
 import { BaseEntity, Column, Entity, PrimaryColumn } from 'typeorm';
+import { TechEffect } from '../effect-types';
 
 @Entity({ name: 'techs' })
 export class Tech extends BaseEntity {
@@ -25,4 +26,8 @@ export class Tech extends BaseEntity {
 
   @Column({ type: 'simple-array', nullable: true })
   public prerequisites: string[];
+
+  /** Data-driven mechanical effect(s) of this tech — see `effect-types.ts`. */
+  @Column({ type: 'json', nullable: true })
+  public effects: TechEffect[] | null;
 }

@@ -9,6 +9,7 @@ import { ActionsModule } from '../actions/actions.module';
 import { UsersModule } from '../users/users.module';
 import { ArmiesModule } from '../armies/armies.module';
 import { GoodsModule } from '../goods/goods.module';
+import { TechsModule } from '../techs/techs.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { GoodsModule } from '../goods/goods.module';
     UsersModule,
     ArmiesModule,
     GoodsModule,
+    TechsModule,
   ],
   controllers: [ProvincesController],
   providers: [ProvincesService],

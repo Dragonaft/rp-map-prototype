@@ -3,13 +3,15 @@ import { EntityManager } from 'typeorm';
 import { BuildingTypes } from '../buildings/types/building.types';
 import { User } from '../users/entities/user.entity';
 import { UserGameState } from './user-state-loader.service';
-import { INCOME_RESEARCH_EFFECTS, RESEARCH_POINT_EFFECTS } from '../techs/research-effects';
+import { TechEffectsService } from '../techs/tech-effects.service';
 import { parseIncome } from "../utils/parseIncome";
 
 /** Runs once per scheduled queue tick before upkeep; credits building income for all users. */
 @Injectable()
 export class IncomeActionService {
   private readonly logger = new Logger(IncomeActionService.name);
+
+  constructor(private readonly techEffects: TechEffectsService) {}
 
   async execute(state: UserGameState, manager: EntityManager): Promise<void> {
     const { users, provincesByUser } = state;
@@ -72,16 +74,10 @@ export class IncomeActionService {
       const completedResearch = user.completed_research ?? [];
 
       const incomeCtx = { incomeTotal, barracksCount, farmGardenIncome, provinceCount: userProvinces.length, capitalCount };
-      for (const techKey of completedResearch) {
-        INCOME_RESEARCH_EFFECTS[techKey]?.(incomeCtx);
-      }
-      incomeTotal = incomeCtx.incomeTotal;
+      incomeTotal = this.techEffects.apply('income', incomeTotal, incomeCtx, completedResearch);
 
       const rpCtx = { researchTotal, capitalCount };
-      for (const techKey of completedResearch) {
-        RESEARCH_POINT_EFFECTS[techKey]?.(rpCtx);
-      }
-      researchTotal = rpCtx.researchTotal;
+      researchTotal = this.techEffects.apply('research_points', researchTotal, rpCtx, completedResearch);
 
       const currentMoney = Number(user.money ?? 0);
       user.money = currentMoney + incomeTotal;

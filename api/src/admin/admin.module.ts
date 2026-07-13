@@ -16,6 +16,7 @@ import { War } from '../diplomacy/entities/war.entity';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { NewsAgency } from '../news/entities/news-agency.entity';
 import { NewsArticle } from '../news/entities/news-article.entity';
+import { TechsModule } from '../techs/techs.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { NewsArticle } from '../news/entities/news-article.entity';
     GoodsModule,
     ResourcesModule,
     NotificationsModule,
+    TechsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

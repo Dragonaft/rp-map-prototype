@@ -10,7 +10,7 @@ import { ProvinceBuilding } from '../buildings/entities/province-building.entity
 import { AuthTokenType } from "../auth/types/auth.types";
 import { ActionsService } from '../actions/actions.service';
 import { UsersService } from '../users/users.service';
-import { computeBuildingCap } from '../techs/research-effects';
+import { TechEffectsService } from '../techs/tech-effects.service';
 import { BuildingTypes } from "../buildings/types/building.types";
 import { Army } from '../armies/entities/army.entity';
 import { GoodsService } from '../goods/goods.service';
@@ -37,6 +37,7 @@ export class ProvincesService {
     private readonly usersService: UsersService,
     private readonly goodsService: GoodsService,
     private readonly userGoodsService: UserGoodsService,
+    private readonly techEffects: TechEffectsService,
   ) {}
 
   async getAll(userId: string) {
@@ -158,7 +159,7 @@ export class ProvincesService {
         buildings: (p.provinceBuildings ?? [])
           .filter((pb) => pb.building && (isOwner || pb.building.visible))
           .map((pb) => ({ ...instanceToPlain(pb.building), instanceId: pb.id })),
-        buildingCap: computeBuildingCap(p.landscape, completedResearch),
+        buildingCap: this.techEffects.computeBuildingCap(p.landscape, p.resource?.key ?? null, completedResearch),
         occupierId: p.occupier_id ?? null,
         occupationTurns: p.occupation_turns ?? 0,
       };

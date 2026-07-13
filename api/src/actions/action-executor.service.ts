@@ -11,7 +11,7 @@ import { Province } from '../provinces/entities/province.entity';
 import { User } from '../users/entities/user.entity';
 import { ActionQueue, ActionType } from './entities/action-queue.entity';
 import { TechsService } from '../techs/techs.service';
-import { BATTLE_RESEARCH_EFFECTS, computeBuildingCap } from '../techs/research-effects';
+import { TechEffectsService } from '../techs/tech-effects.service';
 import { Army } from '../armies/entities/army.entity';
 import { ArmyUnit } from '../armies/entities/army-unit.entity';
 import { TroopType } from '../armies/entities/troop-type.entity';
@@ -62,6 +62,7 @@ export class BuildActionHandler implements ActionHandler {
     private readonly provinceRepo: Repository<Province>,
     private readonly userResourcesService: UserResourcesService,
     private readonly userGoodsService: UserGoodsService,
+    private readonly techEffects: TechEffectsService,
   ) {}
 
   async handle(action: ActionQueue): Promise<void> {
@@ -143,7 +144,9 @@ export class BuildActionHandler implements ActionHandler {
         throw new Error('Not enough money to build');
       }
 
-      const buildingCap = computeBuildingCap(province.landscape, completedResearch);
+      const buildingCap = this.techEffects.computeBuildingCap(
+        province.landscape, province.resource?.key ?? null, completedResearch,
+      );
       if ((province.buildings?.length ?? 0) >= buildingCap) {
         throw new Error(`Building cap reached for this province (max ${buildingCap})`);
       }
@@ -849,6 +852,7 @@ export class ArmyMoveHandler implements ActionHandler {
     private readonly provinceRepo: Repository<Province>,
     private readonly diplomacyService: DiplomacyService,
     private readonly occupationService: OccupationService,
+    private readonly techEffects: TechEffectsService,
   ) {}
 
   handle = async (action: ActionQueue, ctx?: ExecutionContext): Promise<void> => {
@@ -892,8 +896,8 @@ export class ArmyMoveHandler implements ActionHandler {
         if (!hasRoadBuilding(fromProvince)) {
           throw new Error('Target province is not adjacent to the army\'s current province');
         }
-        // Default road reach: 2 hops; extended to 3 with military.best_logistics
-        const maxRoadHops = completedResearch.includes('military.best_logistics') ? 3 : 2;
+        // Default road reach: 2 hops; techs with a `road_hops` effect (e.g. military.best_logistics) extend it.
+        const maxRoadHops = this.techEffects.roadHops(completedResearch);
         const canReach = await isReachableByRoad(manager, fromProvince, toProvinceId, action.userId, maxRoadHops);
         if (!canReach) {
           throw new Error('Target province is not reachable (not adjacent and no valid road path exists)');
@@ -965,20 +969,21 @@ export class ArmyMoveHandler implements ActionHandler {
       }
 
       // Power calculations
-      const attackCtx = { attackingTroops: armyAttackPower(army) };
-      for (const techKey of (attacker?.completed_research ?? [])) {
-        BATTLE_RESEARCH_EFFECTS[techKey]?.(attackCtx);
-      }
-      let attackerPower = attackCtx.attackingTroops;
+      let attackerPower = this.techEffects.apply(
+        'army_attack', armyAttackPower(army), {}, attacker?.completed_research ?? [],
+      );
       if (isBankruptcyDebuffed(attacker)) attackerPower *= BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER;
 
-      // Defense power is reduced per-defender if that defender is bankruptcy-debuffed.
+      // Defense power is boosted per-defender by their own army_defense research, then
+      // reduced if that defender is bankruptcy-debuffed.
       const defenderUserIds = [...new Set(enemyArmies.map((a) => a.user_id))];
       const defenderUsers = await manager.find(User, { where: { id: In(defenderUserIds) } });
       const defenderUserById = new Map(defenderUsers.map((u) => [u.id, u]));
       const defenderBasePower = enemyArmies.reduce((sum, a) => {
-        const power = armyDefensePower(a);
         const defender = defenderUserById.get(a.user_id);
+        const power = this.techEffects.apply(
+          'army_defense', armyDefensePower(a), {}, defender?.completed_research ?? [],
+        );
         return sum + (isBankruptcyDebuffed(defender) ? power * BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER : power);
       }, 0);
       const buildingModifier = computeBuildModifier(toProvince.buildings);

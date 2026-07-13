@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { BATTLE_RESEARCH_EFFECTS } from '../techs/research-effects';
+import { TechEffect } from '../techs/effect-types';
 import {
   ARMY_MIN_SIZE,
   CASUALTY_FLOOR,
@@ -298,12 +298,47 @@ function getScenarioBuildings(
     .filter((building): building is BuildingRow => Boolean(building));
 }
 
-function applyAttackTechs(basePower: number, techs: string[]): number {
-  const ctx = { attackingTroops: basePower };
-  for (const techKey of techs) {
-    BATTLE_RESEARCH_EFFECTS[techKey]?.(ctx);
+/**
+ * Populated once in main() from data/techs.json — this script reads seed data
+ * directly (no DB/NestJS DI), so it mirrors TechEffectsService's `army_attack`
+ * stacking rule (last `set` wins -> sum adds -> multiply) rather than importing
+ * the service itself.
+ */
+let TECH_EFFECTS: Map<string, TechEffect[]> = new Map();
+
+function loadTechEffects(): Map<string, TechEffect[]> {
+  const techs = readJsonArray<{ key: string; effects?: TechEffect[] | null }>(
+    path.join(DATA_DIR, 'techs.json'),
+  );
+  const map = new Map<string, TechEffect[]>();
+  for (const tech of techs) {
+    if (tech.effects?.length) map.set(tech.key, tech.effects);
   }
-  return ctx.attackingTroops;
+  return map;
+}
+
+function applyAttackTechs(basePower: number, techs: string[]): number {
+  const effects = techs.flatMap(
+    (key) => (TECH_EFFECTS.get(key) ?? []).filter((effect) => effect.target === 'army_attack'),
+  );
+  if (!effects.length) return basePower;
+
+  let result = basePower;
+  for (const effect of effects) {
+    if (effect.op === 'set') result = effect.value;
+  }
+
+  let additive = 0;
+  for (const effect of effects) {
+    if (effect.op === 'add' || effect.op === 'add_scaled') additive += effect.value;
+  }
+  result += additive;
+
+  for (const effect of effects) {
+    if (effect.op === 'multiply') result *= effect.value;
+  }
+
+  return Math.round(result);
 }
 
 function makePureArmy(troopType: TroopTypeRow, count: number): SimArmy {
@@ -1025,6 +1060,7 @@ function main(): void {
   const buildingsPath = path.join(DATA_DIR, 'buildings.json');
   const troopTypes = readJsonArray<TroopTypeRow>(troopTypesPath);
   const buildings = readJsonArray<BuildingRow>(buildingsPath);
+  TECH_EFFECTS = loadTechEffects();
 
   const report = buildReport(troopTypes, buildings, options);
   const outPath = resolveOutputPath(options.outPath);
