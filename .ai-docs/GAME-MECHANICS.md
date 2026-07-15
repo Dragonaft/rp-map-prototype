@@ -129,12 +129,34 @@ in a province they occupy (the fort-use carve-out from
 - **Road-based:** up to 2 hops (3 with `military.best_logistics` tech)
   - Every intermediate province must have ROAD building
   - Every intermediate province must be owned by the moving player
+  - The final target itself needs neither a road nor ownership
 - Armies may move onto and fight on **water** provinces, but water can never be owned
 - **Diplomatic gate on entering another player's territory** (see
   [Diplomacy & Occupation](#diplomacy--occupation)): an ally or a troops-pass
   grantee always enters peacefully (no combat, no occupation change); absent
   passage, entry is only allowed while hostile (`NEUTRAL`/`WAR`) — a signed
   `PEACE` with no passage rejects the move outright
+
+### Water & Naval Movement
+- **Armies can't enter water by default.** Embarking (land → water) requires a **Port**
+  building (`BuildingTypes.PORT`) in the army's actual current province — evaluated
+  regardless of whether the move is direct-adjacent or a multi-hop road path, since the
+  road-reach BFS above doesn't require the final target to be owned/roaded. Buildable only
+  in a province with `requires_neighbor_water: true` and at least one neighboring `water`
+  province (checked at BUILD time, `BuildActionHandler` in `action-executor.service.ts`).
+- **Disembarking (water → land) is unrestricted** — no Port needed on either side, land onto
+  any province subject to the normal adjacency/combat/diplomacy rules.
+- **Water → water movement is free** — no Port needed once already at sea (water provinces
+  can never have a Road building either, since they're never ownable/buildable, so
+  departures from water always resolve via direct adjacency).
+- **Time limit:** an army may spend `DEFAULT_WATER_TURNS` (6, `tech-effects.service.ts`)
+  consecutive turns on water before it is lost. A `water_turns_bonus` tech effect (see
+  [Tech Tree](#tech-tree), e.g. `military.seafaring`, +4) extends this. `Army.water_turns`
+  increments once per turn while on water and resets to 0 on landing
+  (`tickArmyWaterResidency`, scheduler's post-combat diplomacy-tick phase, modeled on
+  `Province.occupation_turns`/`tickOccupations`). Exceeding the allowance
+  (`water_turns > allowed`) deletes the army — it survives exactly the allowed number of
+  turns, dying on the turn after.
 
 ### Visibility (Fog of War)
 - Own armies: always visible with full unit composition, regardless of location
@@ -156,33 +178,49 @@ Final Defense = Defense Power * max(Building Modifier, 1.0)
 
 **Attacker wins** (attackPower > defenderPower):
 - Attacker casualty rate = `defenderPower / (attackerPower + defenderPower)`
-- Defender loses ALL armies
-- Attacker gains **control** of the province via `OccupationService.applyControlResult` —
-  empty land is claimed outright, but a province with a different legal owner is
-  **occupied**, not annexed. See [Diplomacy & Occupation](#diplomacy--occupation)
+- Defender loses ALL armies (this "loser fully wipes" rule predates the water feature —
+  it already applied here for land)
+- Attacker gains **control** of the province via `OccupationService.applyControlResult` on
+  land — empty land is claimed outright, but a province with a different legal owner is
+  **occupied**, not annexed (skipped on water, which has no ownership). See
+  [Diplomacy & Occupation](#diplomacy--occupation)
 - If attacker < 100 troops after casualties → army disbanded
 
 **Defender wins** (defenderPower >= attackerPower):
-- Attacker retreats to source province
-- Attacker casualty rate: `min(0.8, (defenderPower / (attackerPower + defenderPower)) * 1.4)` (capped at 80%)
-- Defender casualty rate: `(attackerPower / (attackerPower + defenderPower)) * 0.7`
-- Minimum 5% casualties per battle (`CASUALTY_FLOOR = 0.05`, prevents stalemates)
-- If defender < 100 troops → army disbanded
+- **On land:** attacker retreats to source province with partial casualties —
+  `min(0.8, (defenderPower / (attackerPower + defenderPower)) * 1.4)` (capped at 80%);
+  defender takes `(attackerPower / (attackerPower + defenderPower)) * 0.7`. Minimum 5%
+  casualties per battle either way (`CASUALTY_FLOOR = 0.05`, prevents stalemates). Either
+  side is disbanded if it drops below 100 troops.
+- **On water:** the attacker (loser) is **always fully deleted** — no partial-casualty
+  survival at sea, regardless of casualty math. The defender (winner) still takes the same
+  partial casualties as on land.
+
+### Water Combat Modifiers
+Fighting on a water province scales every unit's attack/defense by its `TroopType.
+water_combat_modifier` (default 1.0, admin-editable in the Troop Types tab) before the power
+comparison above — e.g. Cavalry seeded at 0.2 (−80%) fights at a fraction of its land
+strength at sea; other categories have smaller seeded penalties (Infantry/Pikemen 0.6,
+Ranged 0.55, Special/class troops 0.5). This composes with the existing bankruptcy penalty
+and tech `army_attack`/`army_defense` effects exactly like the land power calculation.
 
 ### Multi-Faction Combat
-When 2+ users have armies in the same province (resolved in post-processing,
-skipped on water provinces — this catches co-located armies that didn't fight
-during a move; `resolveArmyConflicts` triggers when `userIds.size > 1`):
-1. Province owner is initial defender (if no owner army present, the
-   lowest-sorted user id takes provisional **defender**, without changing
-   legal ownership)
+When 2+ users have armies in the same province — including **water**, where combat only
+resolves here (there's no per-turn "owner defends" concept, and this is the only path that
+catches hostility arising *without* a move, e.g. an alliance breaking while armies are
+already co-located at sea) — resolved in post-processing (`resolveArmyConflicts` triggers
+when `userIds.size > 1`):
+1. Province owner is initial defender (if no owner army present — always true on water — the
+   lowest-sorted user id takes provisional **defender**, without changing legal ownership)
 2. Only armies **hostile** to the defender count as attackers — an ally's or
    troops-pass grantee's army co-locates peacefully and is ignored here
 3. Attackers engage in a **deterministic order** — strongest total attack power
-   first, ties broken by user id
+   first (water-modified, see above), ties broken by user id
 4. Each attacker fights the defender sequentially; the winner becomes the new
-   defender for the next attacker and gains control via `applyControlResult`
-   (occupy, not annex, if the province belongs to someone else)
+   defender for the next attacker. On land the winner gains control via
+   `applyControlResult` (occupy, not annex, if the province belongs to someone else); water
+   has no ownership to claim, so this step is skipped there. The same water-only
+   "loser is always fully deleted" rule from Outcomes above applies here too.
 
 ## Diplomacy & Occupation
 
@@ -288,7 +326,7 @@ generically by `TechEffectsService` (`api/src/techs/tech-effects.service.ts`). T
 
 Each `TechEffect` is `{ target, op, value, scaleBy?, when?, note? }`:
 - **`target`**: `income` | `upkeep` | `research_points` | `building_cap` | `army_attack` |
-  `army_defense` | `road_hops`
+  `army_defense` | `road_hops` | `water_turns_bonus`
 - **`op`**: `add` | `add_scaled` (value × a whitelisted ctx quantity, e.g. `provinceCount`,
   `capitalCount`, `barracksCount`, `farmGardenIncome`) | `multiply` | `set`
 - **`when`**: `{ landscape?, resource? }` — `building_cap` only, filters by province
@@ -300,9 +338,11 @@ Each `TechEffect` is `{ target, op, value, scaleBy?, when?, note? }`:
 `TechEffectsService.apply(target, base, ctx, completedResearch[])` is called from every
 consumption site: `income-action.service.ts` (income + `research_points`),
 `upkeep-action.service.ts` (upkeep), `action-executor.service.ts` (`army_attack`/
-`army_defense`/road hops/building cap), `provinces.service.ts` (building-cap display), and
+`army_defense`/road hops/building cap), `provinces.service.ts` (building-cap display),
 `users.service.ts` (income/upkeep/RP **projections**, routed through the same `apply(...)`
-calls so they can't drift from the real turn logic). `computeBuildingCap()` and
+calls so they can't drift from the real turn logic), and `action-scheduler.service.ts`'s
+`tickArmyWaterResidency` (`water_turns_bonus`, via the `waterTurnsAllowed()` wrapper — see
+[Water & Naval Movement](#water--naval-movement)). `computeBuildingCap()` and
 `LANDSCAPE_BUILDING_CAPS` (base cap per landscape) also live in this service.
 
 ### Research progress (per-turn accrual, not instant-complete)

@@ -13,6 +13,7 @@ import { UserStateLoaderService } from './user-state-loader.service';
 import { DiplomacyService } from '../diplomacy/diplomacy.service';
 import { OccupationService } from '../diplomacy/occupation.service';
 import { TreatyService } from '../diplomacy/treaty.service';
+import { TechEffectsService } from '../techs/tech-effects.service';
 import { OCCUPATION_CORE_THRESHOLD } from '../diplomacy/types/diplomacy.types';
 import { ActionsLog, ExecutedAction } from './entities/actions-log.entity';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -32,6 +33,7 @@ import {
   armyDefensePower,
   armyTotalTroops,
   computeBuildModifier,
+  deleteArmy,
   isBankruptcyDebuffed,
 } from './combat-calculator';
 import * as os from 'os';
@@ -60,6 +62,7 @@ export class ActionSchedulerService {
     private readonly diplomacyService: DiplomacyService,
     private readonly occupationService: OccupationService,
     private readonly treatyService: TreatyService,
+    private readonly techEffects: TechEffectsService,
     private readonly notificationsService: NotificationsService,
     private readonly dataSource: DataSource,
   ) {
@@ -261,6 +264,10 @@ export class ActionSchedulerService {
       await this.dataSource.transaction((manager) => this.diplomacyService.tickPeaceDecay(manager));
       await this.dataSource.transaction((manager) => this.treatyService.tickPendingExpiry(manager));
 
+      // Water residency tick: only armies that survived this turn's combat should have
+      // their time-at-sea evaluated.
+      await this.tickArmyWaterResidency();
+
       // Bankruptcy tick: runs last so it sees this turn's final money (income,
       // upkeep, recurring trade, and every queued action's cost have all applied by now).
       await this.dataSource.transaction((manager) => this.bankruptcyService.tick(manager));
@@ -338,8 +345,7 @@ export class ActionSchedulerService {
         let disbanded = 0;
         for (const army of armies) {
           if (armyTotalTroops(army) < ARMY_MIN_SIZE) {
-            await manager.delete(ArmyUnit, { army_id: army.id });
-            await manager.delete(Army, army.id);
+            await deleteArmy(manager, army.id);
             disbanded++;
             this.logger.warn(
               `Army ${army.id} (user ${army.user_id}) disbanded – only ${armyTotalTroops(army)} troops`,
@@ -391,7 +397,8 @@ export class ActionSchedulerService {
             where: { id: provinceId },
             relations: ['provinceBuildings', 'provinceBuildings.building'],
           });
-          if (!province || province.type === 'water') continue;
+          if (!province) continue;
+          const isWater = province.type?.toLowerCase() === 'water';
 
           this.logger.warn(
             `Province ${provinceId}: ${userIds.size} users' armies detected – resolving combat`,
@@ -433,20 +440,23 @@ export class ActionSchedulerService {
             isBankruptcyDebuffed(usersById.get(userId)) ? BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER : 1;
 
           const orderedAttackers = [...attackerGroups.entries()].sort((a, b) => {
-            const powerA = a[1].reduce((sum, x) => sum + armyAttackPower(x), 0) * powerMultiplier(a[0]);
-            const powerB = b[1].reduce((sum, x) => sum + armyAttackPower(x), 0) * powerMultiplier(b[0]);
+            const powerA = a[1].reduce((sum, x) => sum + armyAttackPower(x, isWater), 0) * powerMultiplier(a[0]);
+            const powerB = b[1].reduce((sum, x) => sum + armyAttackPower(x, isWater), 0) * powerMultiplier(b[0]);
             if (powerB !== powerA) return powerB - powerA;
             return a[0].localeCompare(b[0]);
           });
 
-          // Process each attacker group sequentially
+          // Process each attacker group sequentially. Note: unlike the single-move combat
+          // path in ArmyMoveHandler, this batch resolution doesn't apply tech
+          // army_attack/army_defense effects — an existing asymmetry preserved here rather
+          // than fixed as part of the water feature.
           for (const [attackerUserId, attackerArmies] of orderedAttackers) {
             const attackerPower = attackerArmies.reduce(
-              (sum, a) => sum + armyAttackPower(a), 0,
+              (sum, a) => sum + armyAttackPower(a, isWater), 0,
             ) * powerMultiplier(attackerUserId);
 
             const defenderBasePower = defenderArmies.reduce(
-              (sum, a) => sum + armyDefensePower(a), 0,
+              (sum, a) => sum + armyDefensePower(a, isWater), 0,
             ) * powerMultiplier(defenderUserId);
             const buildingModifier = computeBuildModifier(province.buildings);
             const defenderPower = defenderBasePower * buildingModifier;
@@ -459,18 +469,17 @@ export class ActionSchedulerService {
               );
               for (const a of attackerArmies) applyCasualties(a, attackerCasualtyRate);
 
-              // Destroy all defender armies
+              // Destroy all defender armies (this "loser always wipes" rule predates the
+              // water feature — it already applied to land attacker-wins outcomes).
               for (const da of defenderArmies) {
-                await manager.delete(ArmyUnit, { army_id: da.id });
-                await manager.delete(Army, da.id);
+                await deleteArmy(manager, da.id);
               }
 
               // Save surviving attacker armies, disband if too weak
               const survivingAttackers: Army[] = [];
               for (const a of attackerArmies) {
                 if (armyTotalTroops(a) < ARMY_MIN_SIZE) {
-                  await manager.delete(ArmyUnit, { army_id: a.id });
-                  await manager.delete(Army, a.id);
+                  await deleteArmy(manager, a.id);
                 } else {
                   await manager.save(ArmyUnit, a.units);
                   await manager.save(Army, a);
@@ -478,16 +487,43 @@ export class ActionSchedulerService {
                 }
               }
 
-              // Claim / occupy the province per the standard control-result rules.
-              await this.occupationService.applyControlResult(manager, province, attackerUserId);
+              // Water has no ownership/occupation to claim — control-result only applies on land.
+              if (!isWater) {
+                await this.occupationService.applyControlResult(manager, province, attackerUserId);
+              }
               defenderArmies = survivingAttackers;
 
               this.logger.log(
                 `Province ${provinceId}: user ${attackerUserId} defeated defender ${defenderUserId}`,
               );
               defenderUserId = attackerUserId;
+            } else if (isWater) {
+              // Defender wins, on water: loser (attacker) is always fully wiped — no
+              // partial-casualty survival at sea. Winner (defender) still takes normal
+              // partial casualties below.
+              for (const a of attackerArmies) {
+                await deleteArmy(manager, a.id);
+              }
+
+              const baseDefenderRateCoeff = 0.7;
+              const baseDefenderRate =
+                (attackerPower / (attackerPower + defenderPower)) * baseDefenderRateCoeff;
+              const defenderCasualtyRate = Math.max(CASUALTY_FLOOR, baseDefenderRate);
+
+              const survivingDefenders: Army[] = [];
+              for (const da of defenderArmies) {
+                applyCasualties(da, defenderCasualtyRate);
+                if (armyTotalTroops(da) < ARMY_MIN_SIZE) {
+                  await deleteArmy(manager, da.id);
+                } else {
+                  await manager.save(ArmyUnit, da.units);
+                  await manager.save(Army, da);
+                  survivingDefenders.push(da);
+                }
+              }
+              defenderArmies = survivingDefenders;
             } else {
-              // Defender wins
+              // Defender wins, on land
               const maxAttackerLoseRate = 0.8;
               const baseAttackerRateCoeff = 1.4;
               const attackerRate =
@@ -499,8 +535,7 @@ export class ActionSchedulerService {
               for (const a of attackerArmies) {
                 applyCasualties(a, attackerCasualtyRate);
                 if (armyTotalTroops(a) < ARMY_MIN_SIZE) {
-                  await manager.delete(ArmyUnit, { army_id: a.id });
-                  await manager.delete(Army, a.id);
+                  await deleteArmy(manager, a.id);
                 } else {
                   await manager.save(ArmyUnit, a.units);
                   await manager.save(Army, a);
@@ -517,8 +552,7 @@ export class ActionSchedulerService {
               for (const da of defenderArmies) {
                 applyCasualties(da, defenderCasualtyRate);
                 if (armyTotalTroops(da) < ARMY_MIN_SIZE) {
-                  await manager.delete(ArmyUnit, { army_id: da.id });
-                  await manager.delete(Army, da.id);
+                  await deleteArmy(manager, da.id);
                 } else {
                   await manager.save(ArmyUnit, da.units);
                   await manager.save(Army, da);
@@ -609,6 +643,43 @@ export class ActionSchedulerService {
       });
     } catch (error) {
       this.logger.error('Error during occupation tick:', error);
+    }
+  }
+
+  /**
+   * Every army on a water province ages by one turn; armies off water have their counter
+   * reset. An army that exceeds its owner's tech-adjusted water allowance (base
+   * DEFAULT_WATER_TURNS + any `water_turns_bonus` tech effects) is lost at sea.
+   */
+  private async tickArmyWaterResidency(): Promise<void> {
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        const armies = await manager.find(Army, { relations: ['province', 'user'] });
+
+        for (const army of armies) {
+          const onWater = army.province?.type?.toLowerCase() === 'water';
+
+          if (!onWater) {
+            if (army.water_turns !== 0) {
+              army.water_turns = 0;
+              await manager.save(Army, army);
+            }
+            continue;
+          }
+
+          army.water_turns += 1;
+          const allowed = this.techEffects.waterTurnsAllowed(army.user?.completed_research ?? []);
+
+          if (army.water_turns > allowed) {
+            await deleteArmy(manager, army.id);
+            this.logger.log(`Army ${army.id} lost at sea after ${army.water_turns} turns on water`);
+          } else {
+            await manager.save(Army, army);
+          }
+        }
+      });
+    } catch (error) {
+      this.logger.error('Error during water residency tick:', error);
     }
   }
 

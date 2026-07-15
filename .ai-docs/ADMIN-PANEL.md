@@ -25,7 +25,7 @@ single browsable list to grid-edit):
 - Inline edit, delete with confirmation
 
 ### Buildings Tab
-- Fields: type (enum of 20 building types, incl. SAWMILL/BRICKYARD/BARN), name, description, income, upkeep, cost, modifier, upgrade_to, requirement_tech (array), requirement_building, isProduction (boolean, default false), production_good_id (dropdown sourced from Goods tab), production_requirement_resource (dropdown sourced from Resources tab, same as requirement_resource), production_requirement_resource_amount (per-turn spend, default 1), production_amount (units of the good credited per turn, default 1), resource_production_amount (per-turn raw-resource credit for MINE/FORESTRY/BARN — this is what feeds the whole chain), requirement_good_id + requirement_good_amount (one-time BUILD cost paid in goods, dropdown sourced from Goods tab, same mechanic as requirement_resource)
+- Fields: type (enum of building types, incl. SAWMILL/BRICKYARD/BARN/PORT), name, description, income, upkeep, cost, modifier, upgrade_to, requirement_tech (array), requirement_building, requires_neighbor_water (boolean, default false — buildable only if a neighboring province is water; PORT sets this true), isProduction (boolean, default false), production_good_id (dropdown sourced from Goods tab), production_requirement_resource (dropdown sourced from Resources tab, same as requirement_resource), production_requirement_resource_amount (per-turn spend, default 1), production_amount (units of the good credited per turn, default 1), resource_production_amount (per-turn raw-resource credit for MINE/FORESTRY/BARN — this is what feeds the whole chain), requirement_good_id + requirement_good_amount (one-time BUILD cost paid in goods, dropdown sourced from Goods tab, same mechanic as requirement_resource)
 - Create via modal (type + name + description required)
 
 ### Armies Tab
@@ -47,7 +47,7 @@ single browsable list to grid-edit):
     (`validateEffects`) with an error snackbar.
 
 ### Troop Types Tab
-- Fields: key (unique), name, description, category, cost_per_100, attack, defense, upkeep_per_100, tech_requirement, building_requirement, required_goods (dropdown sourced from Goods tab), goods_amount (goods consumed per 100 troops recruited, one-time — same mechanic as a Building's requirement_good)
+- Fields: key (unique), name, description, category, cost_per_100, attack, defense, water_combat_modifier (power multiplier while fighting on water, default 1.0 — e.g. 0.2 = -80%), upkeep_per_100, tech_requirement, building_requirement, required_goods (dropdown sourced from Goods tab), goods_amount (goods consumed per 100 troops recruited, one-time — same mechanic as a Building's requirement_good)
 
 ### Resources Tab
 - Fields: key (unique), name, type (plain/consumable), plain_income

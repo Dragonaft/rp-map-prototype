@@ -108,6 +108,12 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
   const isOwnerArmy = user.id === army.user_id;
   const armyOwner = useMemo(() => otherUsers.find((u) => u.id === army.user_id), [otherUsers, army.user_id]);
 
+  const currentProvince = useMemo(
+    () => provinces.find((p) => p.id === army.province_id),
+    [provinces, army.province_id],
+  );
+  const isAtSea = currentProvince?.type === 'water';
+
   const userBuildingTypes = useMemo(
     () => new Set(provinces.flatMap((p) => p.buildings?.map((b) => b.type) ?? [])),
     [provinces],
@@ -301,6 +307,15 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
         )}
         <button className="text-gray-600 hover:text-gray-900 text-lg leading-none ml-1" onClick={onClose}>✕</button>
       </div>
+
+      {/* At-sea countdown */}
+      {isAtSea && (
+        <Tooltip title="Armies lost at sea after too many turns on water (base 6 turns; some techs extend this). Return to land to reset the counter.">
+          <div className="text-xs bg-blue-100 border border-blue-400 rounded px-2 py-1 flex justify-between items-center">
+            <span className="text-blue-700 font-semibold">🌊 At sea: {army.water_turns} turn{army.water_turns === 1 ? '' : 's'}</span>
+          </div>
+        </Tooltip>
+      )}
 
       {/* Disband indicator */}
       {isOwnerArmy && pendingDisbandAction && (

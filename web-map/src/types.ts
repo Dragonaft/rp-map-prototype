@@ -82,6 +82,7 @@ export interface Building {
   buildable: boolean;
   destructible: boolean;
   uniquePerProvince: boolean;
+  requiresNeighborWater: boolean;
   allowedProvinceResources: string[] | null;
   requirementResource: string | null;
   requirementResourceAmount: number | null;
@@ -206,6 +207,8 @@ export interface TroopType {
   cost_per_100: number;
   attack: number;
   defense: number;
+  /** Power multiplier applied while fighting on a water province (1 = no penalty). */
+  water_combat_modifier: number;
   upkeep_per_100: number;
   tech_requirement: string | null;
   building_requirement: string | null;
@@ -229,6 +232,8 @@ export interface Army {
   user_id: string;
   province_id: string;
   flat_upkeep: number;
+  /** Consecutive turns this army has spent on a water province (0 when on land). */
+  water_turns: number;
   units: ArmyUnit[];
   /** Only present for enemy armies. null = present but count unknown; number = spy network revealed total. */
   totalTroops?: number | null;

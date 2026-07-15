@@ -37,6 +37,10 @@ export class Army extends BaseEntity {
   @Column({ default: 100 })
   public flat_upkeep: number;
 
+  /** Consecutive turns this army has spent on a water province (reset to 0 on land). Deleted once it exceeds the tech-adjusted allowance. */
+  @Column({ default: 0 })
+  public water_turns: number;
+
   @OneToMany(() => ArmyUnit, (unit) => unit.army, { eager: true, cascade: true })
   public units: ArmyUnit[];
 

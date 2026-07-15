@@ -14,6 +14,8 @@ export const LANDSCAPE_BUILDING_CAPS: Record<string, number> = {
   desert: 2,
 };
 export const DEFAULT_ROAD_HOPS = 2;
+/** Base number of consecutive turns an army may spend on a water province before being lost. */
+export const DEFAULT_WATER_TURNS = 6;
 
 /** Targets whose result is floored instead of rounded (money-like quantities). */
 const FLOOR_TARGETS: EffectTarget[] = ['upkeep'];
@@ -129,5 +131,10 @@ export class TechEffectsService implements OnModuleInit {
   /** Max road hops an army may move in one turn. */
   roadHops(completedResearch: string[]): number {
     return this.apply('road_hops', DEFAULT_ROAD_HOPS, {}, completedResearch);
+  }
+
+  /** Max consecutive turns an army may spend on water before being lost, given the owner's completed research. */
+  waterTurnsAllowed(completedResearch: string[]): number {
+    return this.apply('water_turns_bonus', DEFAULT_WATER_TURNS, {}, completedResearch);
   }
 }

@@ -196,6 +196,18 @@
     ]
   },
   {
+    "key": "military.seafaring",
+    "name": "Seafaring",
+    "description": "Experienced crews can keep an army at sea longer before it is lost.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 10,
+    "prerequisites": [],
+    "effects": [
+      { "target": "water_turns_bonus", "op": "add", "value": 4 }
+    ]
+  },
+  {
     "key": "guild.merchant_guilds",
     "name": "Merchant Guild Charter",
     "description": "A formal charter establishes the Merchant Guild as the ruling class. Streamlined economic administration reduces all upkeep by 15%. Commits your nation to the Merchant Guild path.",

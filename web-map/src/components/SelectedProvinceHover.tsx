@@ -34,6 +34,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
   const actions = useAppSelector((state: RootState) => state.actions.actions);
   const techs = useAppSelector((state: RootState) => state.techs.techs);
   const armies = useAppSelector((state: RootState) => state.armies.armies);
+  const provinces = useAppSelector((state: RootState) => state.provinces.provinces);
   const { mutate } = useMutation(provincesApi.setupUser);
 
   const isUserOwner = user.id === selectedProvince?.userId;
@@ -172,6 +173,14 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     const userProvinceIds = new Set(user.provinces.map(p => p.id));
     return selectedProvince.neighbors.some(nId => userProvinceIds.has(nId));
   }, [selectedProvince, user.provinces]);
+
+  // Client-side hint only — the backend (BuildActionHandler) is the source of truth for
+  // whether a building requiring a neighboring water province can actually be built here.
+  const hasWaterNeighbor = useMemo(() => {
+    if (!selectedProvince?.neighbors) return false;
+    const provinceTypeById = new Map(provinces.map(p => [p.id, p.type]));
+    return selectedProvince.neighbors.some(nId => provinceTypeById.get(nId) === 'water');
+  }, [selectedProvince, provinces]);
 
   const pendingColonizeAction = useMemo(
     () => selectedProvince
@@ -655,6 +664,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         onClose={() => setIsOpenBuildMenu(false)}
         loading={loading}
         buildings={directlyBuildableBuildings}
+        hasWaterNeighbor={hasWaterNeighbor}
         provinceResourceType={selectedProvince.resourceType}
         userMoney={user.money}
         userCompletedResearch={user.completedResearch}

@@ -8,6 +8,7 @@ interface Props {
   onClose: () => void;
   loading: boolean;
   buildings: Building[];
+  hasWaterNeighbor: boolean;
   provinceResourceType: string;
   userMoney: number;
   userCompletedResearch: string[];
@@ -28,6 +29,7 @@ export const BuildMenuModal: React.FC<Props> = ({
   onClose,
   loading,
   buildings,
+  hasWaterNeighbor,
   provinceResourceType,
   userMoney,
   userCompletedResearch,
@@ -74,18 +76,21 @@ export const BuildMenuModal: React.FC<Props> = ({
           const goodInsufficient = goodCost ? goodAvailable < goodAmount : false;
 
           const uniqueAlreadyBuilt = building.uniquePerProvince && builtTypesInProvince.has(building.type);
+          const missingWaterNeighbor = building.requiresNeighborWater && !hasWaterNeighbor;
 
           const disabledReason = resourceMismatch
             ? `Requires a province with ${allowedResources!.join(' or ')} resource (this province: ${provinceResourceType || 'none'})`
             : uniqueAlreadyBuilt
               ? `Only one ${building.name} allowed per province`
-              : resourceInsufficient
-                ? `Not enough ${resourceCost}: ${(resourceCost && userResourcesByKey[resourceCost]) ?? 0} available, ${totalResourceUsed} queued, ${Math.max(0, resourceAvailable)} free`
-                : goodInsufficient
-                  ? `Not enough of the required good: ${(goodCost && userGoodsById[goodCost]) ?? 0} available, ${totalGoodUsed} queued, ${Math.max(0, goodAvailable)} free`
-                  : missingTechName
-                    ? `Missing required technology: ${missingTechName}`
-                    : null;
+              : missingWaterNeighbor
+                ? 'Requires a province adjacent to water'
+                : resourceInsufficient
+                  ? `Not enough ${resourceCost}: ${(resourceCost && userResourcesByKey[resourceCost]) ?? 0} available, ${totalResourceUsed} queued, ${Math.max(0, resourceAvailable)} free`
+                  : goodInsufficient
+                    ? `Not enough of the required good: ${(goodCost && userGoodsById[goodCost]) ?? 0} available, ${totalGoodUsed} queued, ${Math.max(0, goodAvailable)} free`
+                    : missingTechName
+                      ? `Missing required technology: ${missingTechName}`
+                      : null;
 
           return (
             <Tooltip key={building.id} title={
@@ -110,6 +115,7 @@ export const BuildMenuModal: React.FC<Props> = ({
                     resourceInsufficient ||
                     goodInsufficient ||
                     uniqueAlreadyBuilt ||
+                    missingWaterNeighbor ||
                     !!missingTechKey
                   }
                   onClick={() => onBuild(building.id)}

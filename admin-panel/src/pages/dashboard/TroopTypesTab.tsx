@@ -18,7 +18,7 @@ const CATEGORIES = ['INFANTRY', 'RANGED', 'CAVALRY', 'SPECIAL', 'PEASANT'];
 
 const EMPTY_NEW_TROOP_TYPE = {
   key: '', name: '', description: '', category: 'INFANTRY',
-  cost_per_100: 0, attack: 1, defense: 1, upkeep_per_100: 100,
+  cost_per_100: 0, attack: 1, defense: 1, water_combat_modifier: 1, upkeep_per_100: 100,
   tech_requirement: '', building_requirement: '',
   required_goods: '', goods_amount: 0,
 };
@@ -95,6 +95,7 @@ export const TroopTypesTab = () => {
     { field: 'cost_per_100', headerName: 'Cost/100', type: 'number', width: 90, editable: true },
     { field: 'attack', headerName: 'Attack', type: 'number', width: 80, editable: true },
     { field: 'defense', headerName: 'Defense', type: 'number', width: 80, editable: true },
+    { field: 'water_combat_modifier', headerName: 'Water Combat ×', type: 'number', width: 130, editable: true },
     { field: 'upkeep_per_100', headerName: 'Upkeep/100', type: 'number', width: 100, editable: true },
     { field: 'tech_requirement', headerName: 'Tech Req.', width: 160, editable: true },
     { field: 'building_requirement', headerName: 'Building Req.', width: 140, editable: true },
@@ -153,6 +154,7 @@ export const TroopTypesTab = () => {
           <TextField label="Cost / 100" type="number" value={newTroopType.cost_per_100} onChange={(e) => setNewTroopType((p) => ({ ...p, cost_per_100: Number(e.target.value) }))} />
           <TextField label="Attack" type="number" value={newTroopType.attack} onChange={(e) => setNewTroopType((p) => ({ ...p, attack: Number(e.target.value) }))} />
           <TextField label="Defense" type="number" value={newTroopType.defense} onChange={(e) => setNewTroopType((p) => ({ ...p, defense: Number(e.target.value) }))} />
+          <TextField label="Water Combat Modifier" type="number" value={newTroopType.water_combat_modifier} onChange={(e) => setNewTroopType((p) => ({ ...p, water_combat_modifier: Number(e.target.value) }))} helperText="Power multiplier while fighting on water (1 = no penalty, e.g. 0.2 = -80%)" />
           <TextField label="Upkeep / 100" type="number" value={newTroopType.upkeep_per_100} onChange={(e) => setNewTroopType((p) => ({ ...p, upkeep_per_100: Number(e.target.value) }))} />
           <TextField label="Tech Requirement" value={newTroopType.tech_requirement} onChange={(e) => setNewTroopType((p) => ({ ...p, tech_requirement: e.target.value }))} helperText="Tech key, e.g. military.archery" />
           <TextField label="Building Requirement" value={newTroopType.building_requirement} onChange={(e) => setNewTroopType((p) => ({ ...p, building_requirement: e.target.value }))} helperText="Building type, e.g. BARRACKS" />

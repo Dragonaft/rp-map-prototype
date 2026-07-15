@@ -58,6 +58,11 @@ export class Building extends BaseEntity {
   @Expose({ name: 'uniquePerProvince' })
   public unique_per_province: boolean;
 
+  /** True if this building can only be built in a province with at least one neighboring water province (e.g. Port). */
+  @Column({ default: false })
+  @Expose({ name: 'requiresNeighborWater' })
+  public requires_neighbor_water: boolean;
+
   @Column({ type: 'simple-array', nullable: true })
   @Expose({ name: 'allowedProvinceResources' })
   public allowed_province_resources: string[] | null;

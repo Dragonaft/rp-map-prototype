@@ -68,7 +68,8 @@ Cron fires (13:00 & 20:00 Kyiv time prod; every 2min AND 5min dev)
   │   ├─ Disband armies < 100 troops
   │   ├─ Resolve multi-faction combat in same province (occupies, not annexes)
   │   └─ Sync province control with army presence (diplomacy-gated)
-  ├─ Diplomacy tick: occupation counters, treaty expiry (4 turns), peace-truce decay (4 turns)
+  ├─ Diplomacy tick: occupation counters, treaty expiry (4 turns), peace-truce decay (4 turns),
+  │                  army water-residency (lost at sea past the tech-adjusted allowance)
   ├─ Cleanup executed actions, write log
   └─ SSE broadcast → frontends auto-reload
 ```

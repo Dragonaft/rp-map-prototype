@@ -19,4 +19,5 @@ export enum BuildingTypes {
   SAWMILL = 'SAWMILL',
   BRICKYARD = 'BRICKYARD',
   BARN = 'BARN',
+  PORT = 'PORT',
 }

@@ -15,7 +15,8 @@ export type EffectTarget =
   | 'building_cap'
   | 'army_attack'
   | 'army_defense'
-  | 'road_hops';
+  | 'road_hops'
+  | 'water_turns_bonus';
 
 export type EffectOp = 'add' | 'add_scaled' | 'multiply' | 'set';
 
@@ -44,6 +45,7 @@ export const EFFECT_TARGETS: EffectTarget[] = [
   'army_attack',
   'army_defense',
   'road_hops',
+  'water_turns_bonus',
 ];
 
 export const EFFECT_OPS: EffectOp[] = ['add', 'add_scaled', 'multiply', 'set'];

@@ -23,6 +23,8 @@ interface TroopTypeSeedRow {
   cost_per_100: number;
   attack: number;
   defense: number;
+  /** Power multiplier applied while fighting on water (default 1.0 = no penalty). */
+  water_combat_modifier?: number;
   upkeep_per_100: number;
   tech_requirement: string | null;
   building_requirement: string | null;
@@ -140,6 +142,7 @@ async function seedTroopTypes() {
       cost_per_100: row.cost_per_100,
       attack: row.attack,
       defense: row.defense,
+      water_combat_modifier: row.water_combat_modifier ?? 1.0,
       upkeep_per_100: row.upkeep_per_100,
       tech_requirement: row.tech_requirement ?? null,
       building_requirement: row.building_requirement ?? null,

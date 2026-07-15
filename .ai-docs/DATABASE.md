@@ -105,7 +105,8 @@ ExecutionLock (standalone, distributed locking)
 | resource_production_amount  | int          | Nullable. Per-turn amount of the **province's own resource** (`province.resource.key`) credited into the owner's `UserResource` stockpile — this is what MINE/FORESTRY actually do each turn now (replaced a one-time "+1 capacity at build" grant) |
 | buildable                   | boolean      | Whether players can construct this (default true). CAPITAL/CAPITOL = false |
 | destructible                | boolean      | Whether players can demolish this (default true). CAPITAL = false |
-| unique_per_province         | boolean      | Only one per province allowed (default false). MINE, BRICKYARD, FORESTRY, SAWMILL, ARMORY, BARN, FARM, FORT, CASTLE = true |
+| unique_per_province         | boolean      | Only one per province allowed (default false). MINE, BRICKYARD, FORESTRY, SAWMILL, ARMORY, BARN, FARM, FORT, CASTLE, PORT = true |
+| requires_neighbor_water     | boolean      | Buildable only if at least one neighboring province is `type: water` (default false; checked in `BuildActionHandler` by loading the target province's neighbor rows — the only building-placement check that inspects neighbors rather than the province itself). PORT = true |
 | allowed_province_resources  | simple-array | Province resource key filter (nullable), references `Resource.key`. MINE=['iron','gold','stone'], BRICKYARD=['stone'], FORESTRY/SAWMILL=['wood'], BARN/FARM=['grain']. Null = any province |
 | requirement_resource        | varchar      | User resource reserved from the `UserResource` stockpile **once**, at build/upgrade time (nullable), references `Resource.key`. ARMORY='iron', FORT/CASTLE='stone' |
 | requirement_resource_amount | int          | How much of that resource is reserved at build time (nullable). Usually 1 |
@@ -131,6 +132,7 @@ Join entity linking provinces and buildings (replaced the old ManyToMany join ta
 | user_id     | uuid (FK)     | Owner |
 | province_id | uuid (FK)     | Current location |
 | flat_upkeep | int           | Base cost per turn (default 100) |
+| water_turns | int           | Consecutive turns spent on a `type: water` province (default 0). Incremented per turn while on water, reset to 0 on landing, by `tickArmyWaterResidency` (scheduler). Army is deleted once it exceeds `TechEffectsService.waterTurnsAllowed()` (base 6 + any `water_turns_bonus` tech effects) |
 | units       | OneToMany     | → ArmyUnit (eager, cascade) |
 | createdAt   | timestamp     | |
 
@@ -154,6 +156,7 @@ Join entity linking provinces and buildings (replaced the old ManyToMany join ta
 | cost_per_100       | int       | Money per 100 recruited |
 | attack             | float     | Combat attack stat |
 | defense            | float     | Combat defense stat |
+| water_combat_modifier | float  | Power multiplier applied to attack/defense while fighting on a water province (default 1.0 = no penalty; seeded e.g. Cavalry 0.2, Infantry 0.6, Ranged 0.55, Special 0.5) |
 | upkeep_per_100     | int       | Money per 100 per turn |
 | tech_requirement   | varchar   | Tech key required to recruit |
 | building_requirement| varchar  | Building type required in province (nullable; not a DB enum) |

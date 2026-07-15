@@ -17,13 +17,13 @@ import { adminApi } from '../../api/admin';
 const BUILDING_TYPES = [
   '', 'CAPITOL', 'CAPITAL', 'FARM', 'BARRACKS', 'FORT', 'MARKET', 'LIBRARY',
   'MINE', 'FORESTRY', 'SAWMILL', 'BRICKYARD', 'BARN', 'GARDEN', 'BAZAAR', 'ARMORY', 'ROAD', 'TEMPLE',
-  'CATHEDRAL', 'TRADE_HOUSE', 'CASTLE',
+  'CATHEDRAL', 'TRADE_HOUSE', 'CASTLE', 'PORT',
 ];
 
 const EMPTY_NEW_BUILDING = {
   type: '', name: '', description: '', income: 0, upkeep: 0,
   modifier: '', cost: 0, upgrade_to: '', requirement_tech: '', requirement_building: '',
-  buildable: true, destructible: true, unique_per_province: false,
+  buildable: true, destructible: true, unique_per_province: false, requires_neighbor_water: false,
   allowed_province_resources: [] as string[], requirement_resource: '', requirement_resource_amount: 0,
   visible: false, can_recruit: false, isProduction: false,
   production_good_id: '', production_requirement_resource: '', production_requirement_resource_amount: 0,
@@ -139,6 +139,7 @@ export const BuildingsTab = () => {
     { field: 'buildable', headerName: 'Buildable', width: 90, editable: true, type: 'boolean' },
     { field: 'destructible', headerName: 'Destructible', width: 100, editable: true, type: 'boolean' },
     { field: 'unique_per_province', headerName: 'Unique/Prov', width: 100, editable: true, type: 'boolean' },
+    { field: 'requires_neighbor_water', headerName: 'Needs Water Neighbor', width: 160, editable: true, type: 'boolean' },
     { field: 'visible', headerName: 'Visible', width: 90, editable: true, type: 'boolean' },
     { field: 'can_recruit', headerName: 'Can Recruit', width: 100, editable: true, type: 'boolean' },
     { field: 'isProduction', headerName: 'Production', width: 100, editable: true, type: 'boolean' },
@@ -238,6 +239,13 @@ export const BuildingsTab = () => {
           <FormControl>
             <InputLabel>Unique per Province</InputLabel>
             <Select label="Unique per Province" value={newBuilding.unique_per_province ? 'true' : 'false'} onChange={(e) => setNewBuilding((p) => ({ ...p, unique_per_province: e.target.value === 'true' }))}>
+              <MenuItem value="true">Yes</MenuItem>
+              <MenuItem value="false">No</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl>
+            <InputLabel>Needs Water Neighbor</InputLabel>
+            <Select label="Needs Water Neighbor" value={newBuilding.requires_neighbor_water ? 'true' : 'false'} onChange={(e) => setNewBuilding((p) => ({ ...p, requires_neighbor_water: e.target.value === 'true' }))}>
               <MenuItem value="true">Yes</MenuItem>
               <MenuItem value="false">No</MenuItem>
             </Select>

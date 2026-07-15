@@ -36,6 +36,10 @@ export class TroopType extends BaseEntity {
   @Column({ type: 'float', default: 1.0 })
   public defense: number;
 
+  /** Power multiplier applied to this troop type's attack/defense while fighting on a water province (default 1.0 = no penalty). */
+  @Column({ type: 'float', default: 1.0 })
+  public water_combat_modifier: number;
+
   @Column({ default: 100 })
   public upkeep_per_100: number;
 

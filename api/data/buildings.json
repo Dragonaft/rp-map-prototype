@@ -419,5 +419,26 @@
     "requirement_resource_amount": null,
     "visible": false,
     "can_recruit": false
+  },
+  {
+    "type": "PORT",
+    "name": "Port",
+    "description": "A harbor for launching ships. Armies can only embark onto adjacent water tiles from a province with a Port.",
+    "income": 0,
+    "upkeep": 10,
+    "modifier": null,
+    "cost": 150,
+    "upgrade_to": null,
+    "requirement_tech": [],
+    "requirement_building": null,
+    "buildable": true,
+    "destructible": true,
+    "unique_per_province": true,
+    "requires_neighbor_water": true,
+    "allowed_province_resources": null,
+    "requirement_resource": null,
+    "requirement_resource_amount": null,
+    "visible": true,
+    "can_recruit": false
   }
 ]

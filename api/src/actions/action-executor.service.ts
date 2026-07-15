@@ -26,6 +26,7 @@ import {
   armyDefensePower,
   armyTotalTroops,
   computeBuildModifier,
+  deleteArmy,
   isBankruptcyDebuffed,
 } from './combat-calculator';
 
@@ -105,6 +106,17 @@ export class BuildActionHandler implements ActionHandler {
         throw new Error(
           `${buildingTemplate.name} requires ${buildingTemplate.requirement_building} and must be obtained through upgrading, not direct construction`,
         );
+      }
+
+      if (buildingTemplate.requires_neighbor_water) {
+        const neighborIds = province.neighbor_ids ?? [];
+        const neighbors = neighborIds.length
+          ? await manager.find(Province, { where: { id: In(neighborIds) } })
+          : [];
+        const hasWaterNeighbor = neighbors.some((n) => n.type?.toLowerCase() === 'water');
+        if (!hasWaterNeighbor) {
+          throw new Error(`${buildingTemplate.name} can only be built in a province adjacent to water`);
+        }
       }
 
       const user = await manager.findOne(User, {
@@ -603,10 +615,13 @@ const executeRecruitment = async (
   await manager.save(User, user);
 }
 
-/** Returns true if the province has a Road building. */
-const hasRoadBuilding = (province: Province): boolean => {
-  return (province.buildings ?? []).some((b) => b.type === BuildingTypes.ROAD);
+/** Returns true if the province has a building of the given type. */
+const hasBuildingType = (province: Province, type: BuildingTypes): boolean => {
+  return (province.buildings ?? []).some((b) => b.type === type);
 }
+
+/** Returns true if the province has a Road building. */
+const hasRoadBuilding = (province: Province): boolean => hasBuildingType(province, BuildingTypes.ROAD);
 
 /**
  * BFS: returns true if `targetId` is reachable from `from` within `maxHops` steps via roads.
@@ -831,6 +846,18 @@ export class ArmyMoveHandler implements ActionHandler {
       });
       if (!toProvince) throw new Error('Target province not found');
 
+      // ── Embarkation gate ─────────────────────────────────────────────────
+      // Armies can't enter water by default. Embarking (land -> water) requires a Port
+      // in the army's actual current province — regardless of whether the move resolved
+      // via direct adjacency or a multi-hop road path, since road reachability doesn't
+      // require the final target itself to be owned/roaded (only the intermediates).
+      // Already being on water (water -> water) or disembarking (water -> land) need no Port.
+      const movingOntoWater = toProvince.type?.toLowerCase() === 'water';
+      const alreadyOnWater = fromProvince.type?.toLowerCase() === 'water';
+      if (movingOntoWater && !alreadyOnWater && !hasBuildingType(fromProvince, BuildingTypes.PORT)) {
+        throw new Error('Armies can only embark onto water from a province with a Port');
+      }
+
       // ── Friendly move ────────────────────────────────────────────────────
       if (toProvince.user_id === action.userId) {
         army.province_id = toProvinceId;
@@ -876,11 +903,12 @@ export class ArmyMoveHandler implements ActionHandler {
         }
       }
 
+      const isWater = toProvince.type?.toLowerCase() === 'water';
+
       // Uncontested: no hostile armies present (empty land, or the owner's
       // defenses have already been driven off).
       if (enemyArmies.length === 0) {
         army.province_id = toProvinceId;
-        const isWater = toProvince.type?.toLowerCase() === 'water';
         if (!isWater) {
           await this.occupationService.applyControlResult(manager, toProvince, action.userId);
         }
@@ -888,9 +916,11 @@ export class ArmyMoveHandler implements ActionHandler {
         return;
       }
 
-      // Power calculations
+      // Power calculations — on water, each side's per-unit power is scaled by that
+      // troop type's water_combat_modifier (e.g. cavalry fights at a fraction of its
+      // strength at sea).
       let attackerPower = this.techEffects.apply(
-        'army_attack', armyAttackPower(army), {}, attacker?.completed_research ?? [],
+        'army_attack', armyAttackPower(army, isWater), {}, attacker?.completed_research ?? [],
       );
       if (isBankruptcyDebuffed(attacker)) attackerPower *= BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER;
 
@@ -902,7 +932,7 @@ export class ArmyMoveHandler implements ActionHandler {
       const defenderBasePower = enemyArmies.reduce((sum, a) => {
         const defender = defenderUserById.get(a.user_id);
         const power = this.techEffects.apply(
-          'army_defense', armyDefensePower(a), {}, defender?.completed_research ?? [],
+          'army_defense', armyDefensePower(a, isWater), {}, defender?.completed_research ?? [],
         );
         return sum + (isBankruptcyDebuffed(defender) ? power * BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER : power);
       }, 0);
@@ -917,19 +947,18 @@ export class ArmyMoveHandler implements ActionHandler {
         );
         applyCasualties(army, attackerCasualtyRate);
 
-        // Destroy all defending armies
+        // Destroy all defending armies (land and water alike — the defender-wipe rule
+        // here predates the water feature; water just adds the equivalent rule below
+        // for when the defender wins instead).
         for (const da of enemyArmies) {
-          await manager.delete(ArmyUnit, { army_id: da.id });
-          await manager.delete(Army, da.id);
+          await deleteArmy(manager, da.id);
         }
 
         if (armyTotalTroops(army) < ARMY_MIN_SIZE) {
           // Army took too many casualties even in victory – disband it
           this.logger.log(`Army ${army.id} fell below min size after victory – disbanding`);
-          await manager.delete(ArmyUnit, { army_id: army.id });
-          await manager.delete(Army, army.id);
+          await deleteArmy(manager, army.id);
         } else {
-          const isWater = toProvince.type?.toLowerCase() === 'water';
           if (!isWater) {
             await this.occupationService.applyControlResult(manager, toProvince, action.userId);
           }
@@ -937,8 +966,27 @@ export class ArmyMoveHandler implements ActionHandler {
           await manager.save(ArmyUnit, army.units);
           await manager.save(Army, army);
         }
+      } else if (isWater) {
+        // ── Defender wins, on water: loser (attacker) is always fully wiped — no
+        // partial-casualty survival at sea. Winner (defenders) still take normal
+        // partial casualties. ──────────────────────────────────────────────────
+        await deleteArmy(manager, army.id);
+
+        const baseDefenderRateCoeff = 0.7;
+        const baseDefenderRate = attackerPower / (attackerPower + defenderPower) * baseDefenderRateCoeff;
+        const defenderCasualtyRate = Math.max(CASUALTY_FLOOR, baseDefenderRate);
+
+        for (const da of enemyArmies) {
+          applyCasualties(da, defenderCasualtyRate);
+          if (armyTotalTroops(da) < ARMY_MIN_SIZE) {
+            await deleteArmy(manager, da.id);
+          } else {
+            await manager.save(ArmyUnit, da.units);
+            await manager.save(Army, da);
+          }
+        }
       } else {
-        // ── Defender wins ─────────────────────────────────────────────────
+        // ── Defender wins, on land ───────────────────────────────────────────
         // Attacker takes heavy losses and retreats to source province
         const maxAtttakerLoseRate = 0.8;
         const baseAttackerRateCoeff = 1.4;
@@ -957,8 +1005,7 @@ export class ArmyMoveHandler implements ActionHandler {
         for (const da of enemyArmies) {
           applyCasualties(da, defenderCasualtyRate);
           if (armyTotalTroops(da) < ARMY_MIN_SIZE) {
-            await manager.delete(ArmyUnit, { army_id: da.id });
-            await manager.delete(Army, da.id);
+            await deleteArmy(manager, da.id);
           } else {
             await manager.save(ArmyUnit, da.units);
             await manager.save(Army, da);
@@ -967,8 +1014,7 @@ export class ArmyMoveHandler implements ActionHandler {
 
         if (armyTotalTroops(army) < ARMY_MIN_SIZE) {
           this.logger.log(`Army ${army.id} fell below min size after retreat – disbanding`);
-          await manager.delete(ArmyUnit, { army_id: army.id });
-          await manager.delete(Army, army.id);
+          await deleteArmy(manager, army.id);
         } else {
           // Retreat: army stays in source province
           await manager.save(ArmyUnit, army.units);
@@ -1042,8 +1088,7 @@ export class ArmyMergeHandler implements ActionHandler {
       }
 
       await manager.save(ArmyUnit, target.units);
-      await manager.delete(ArmyUnit, { army_id: source.id });
-      await manager.delete(Army, source.id);
+      await deleteArmy(manager, source.id);
     });
   }
 }
@@ -1071,8 +1116,7 @@ export class ArmyDisbandHandler implements ActionHandler {
       if (!army) throw new Error('Army not found');
       if (army.user_id !== action.userId) throw new Error('User does not own this army');
 
-      await manager.delete(ArmyUnit, { army_id: armyId });
-      await manager.delete(Army, armyId);
+      await deleteArmy(manager, armyId);
     });
   }
 }
