@@ -197,6 +197,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         provinces: response.user.provinces,
         completedResearch: [],
         researchPoints: response.user.researchPoints,
+        activeResearch: null,
         piety: 0,
         class: null,
         projectedIncome: response.user.projectedIncome,

@@ -4,6 +4,9 @@ import { BuildingTypes } from '../buildings/types/building.types';
 import { User } from '../users/entities/user.entity';
 import { UserGameState } from './user-state-loader.service';
 import { TechEffectsService } from '../techs/tech-effects.service';
+import { TechsService } from '../techs/techs.service';
+import { UserTechProgressService } from '../techs/user-tech-progress.service';
+import { UserClasses } from '../users/types/users.types';
 import { parseIncome } from "../utils/parseIncome";
 
 /** Runs once per scheduled queue tick before upkeep; credits building income for all users. */
@@ -11,11 +14,17 @@ import { parseIncome } from "../utils/parseIncome";
 export class IncomeActionService {
   private readonly logger = new Logger(IncomeActionService.name);
 
-  constructor(private readonly techEffects: TechEffectsService) {}
+  constructor(
+    private readonly techEffects: TechEffectsService,
+    private readonly techsService: TechsService,
+    private readonly userTechProgressService: UserTechProgressService,
+  ) {}
 
   async execute(state: UserGameState, manager: EntityManager): Promise<void> {
     const { users, provincesByUser } = state;
     if (users.length === 0) return;
+
+    const techByKey = new Map((await this.techsService.getAll()).map((t) => [t.key, t]));
 
     for (const user of users) {
       const userProvinces = provincesByUser.get(user.id) ?? [];
@@ -88,11 +97,36 @@ export class IncomeActionService {
         user.troops = Number(user.troops ?? 0) + barracksCount * barracksTroopsIncome;
       }
 
-      user.research_points = Number(user.research_points ?? 0) + researchTotal;
+      // research_points is now a per-turn rate (research speed), not a bankable stockpile —
+      // set it fresh each turn rather than accumulating.
+      user.research_points = researchTotal;
 
-      const basePietyIncome = 10; 
+      const basePietyIncome = 10;
 
       user.piety = Number(user.piety + pietyCount * basePietyIncome)
+
+      // Accrue this turn's research speed into whichever tech the user has selected as
+      // their active research. Completes the tech (and clears the slot) once its saved
+      // progress reaches the tech's cost.
+      if (user.active_research_key) {
+        const activeTech = techByKey.get(user.active_research_key);
+        if (!activeTech) {
+          // Tech was deleted (e.g. by an admin) out from under an active selection.
+          user.active_research_key = null;
+        } else {
+          const progress = await this.userTechProgressService.addProgress(
+            manager, user.id, user.active_research_key, researchTotal,
+          );
+          if (progress >= activeTech.cost) {
+            user.completed_research = [...(user.completed_research ?? []), user.active_research_key];
+            await this.userTechProgressService.clearProgress(manager, user.id, user.active_research_key);
+            user.active_research_key = null;
+            if (activeTech.isClassRoot) {
+              user.class = activeTech.branch as UserClasses;
+            }
+          }
+        }
+      }
     }
 
     for (const user of users) {
@@ -101,6 +135,9 @@ export class IncomeActionService {
         troops: user.troops,
         research_points: user.research_points,
         piety: user.piety,
+        completed_research: user.completed_research,
+        active_research_key: user.active_research_key,
+        class: user.class,
       });
     }
 

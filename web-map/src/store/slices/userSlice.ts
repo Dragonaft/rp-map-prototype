@@ -18,6 +18,7 @@ interface UserState {
   provinces: Province[];
   completedResearch: string[];
   researchPoints: number;
+  activeResearch: string | null;
 }
 
 const initialState: UserState = {
@@ -37,6 +38,7 @@ const initialState: UserState = {
   provinces: [],
   completedResearch: [],
   researchPoints: 0,
+  activeResearch: null,
 };
 
 const userSlice = createSlice({
@@ -60,6 +62,7 @@ const userSlice = createSlice({
       state.provinces = action.payload.provinces;
       state.completedResearch = action.payload.completedResearch ?? [];
       state.researchPoints = action.payload.researchPoints;
+      state.activeResearch = action.payload.activeResearch ?? null;
     },
     updateUserTroops: (state, action: PayloadAction<number>) => {
       state.troops = action.payload;
@@ -70,6 +73,9 @@ const userSlice = createSlice({
     updateUserProfile: (state, action: PayloadAction<{ countryName: string; color: string }>) => {
       state.countryName = action.payload.countryName;
       state.color = action.payload.color;
+    },
+    setActiveResearch: (state, action: PayloadAction<string>) => {
+      state.activeResearch = action.payload;
     },
     resetUserState: (state) => {
       state.id = '';
@@ -84,9 +90,10 @@ const userSlice = createSlice({
       state.provinces = [];
       state.completedResearch = [];
       state.researchPoints = 0;
+      state.activeResearch = null;
     },
   },
 });
 
-export const { setUser, updateUserTroops, updateUserMoney, updateUserProfile, resetUserState } = userSlice.actions;
+export const { setUser, updateUserTroops, updateUserMoney, updateUserProfile, setActiveResearch, resetUserState } = userSlice.actions;
 export default userSlice.reducer;

@@ -38,6 +38,8 @@ export interface Tech {
   isClassRoot: boolean;
   cost: number;
   prerequisites: string[];
+  /** Caller's saved research progress toward `cost` (0 if never started). */
+  progress: number;
 }
 
 
@@ -176,6 +178,8 @@ export interface User {
   provinces: Province[];
   researchPoints: number;
   completedResearch: string[];
+  /** Tech key currently accruing progress each turn; null = idle. */
+  activeResearch: string | null;
 }
 
 export interface UserActive extends User {

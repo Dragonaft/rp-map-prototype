@@ -41,6 +41,7 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   public troops: number;
 
+  /** Research speed (points generated per turn) — not a bankable stockpile; recomputed and overwritten every turn. */
   @Column({ default: 0 })
   @Expose({ name: 'researchPoints' })
   public research_points: number;
@@ -48,6 +49,11 @@ export class User extends BaseEntity {
   @Column({ type: 'simple-array', nullable: true })
   @Expose({ name: 'completedResearch' })
   public completed_research: string[];
+
+  /** Tech key currently accruing progress each turn (single active slot). Null = idle. */
+  @Column({ type: 'varchar', nullable: true })
+  @Expose({ name: 'activeResearch' })
+  public active_research_key: string | null;
 
   @Column({ type: 'varchar', nullable: true })
   public class: UserClasses | null;

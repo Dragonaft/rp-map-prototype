@@ -32,12 +32,12 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 
 | Slice        | Key Fields                                                        |
 |--------------|-------------------------------------------------------------------|
-| `user`       | id, login, countryName, color, money, troops, piety, class, researchPoints, completedResearch, isNew, provinces, projectedIncome/Troops/Research/Piety |
+| `user`       | id, login, countryName, color, money, troops, piety, class, researchPoints (per-turn rate, not a stockpile), completedResearch, activeResearch (tech key or null), isNew, provinces, projectedIncome/Troops/Research/Piety |
 | `provinces`  | provinces[], selectedProvinceId, selectedTroops, provinceCentersById, provinceBBoxById, mapWidth/Height |
 | `armies`     | armies[], troopTypes[]                                            |
 | `buildings`  | buildings[]                                                       |
 | `techs`      | techs[]                                                           |
-| `actions`    | actions[] (pending BUILD, ARMY_MOVE, RESEARCH, COLONIZE, etc.)   |
+| `actions`    | actions[] (pending BUILD, ARMY_MOVE, COLONIZE, etc. — RESEARCH is no longer queued, see `techsApi.selectResearch`) |
 | `otherUsers` | otherUsers[] (id, countryName, color)                            |
 | `resources`  | resources[] (catalog, `/resources`), mine[] (`UserResourceHolding[]`, `/resources/mine`) |
 | `goods`      | mine[] (`UserGoodHolding[]`, `/goods/mine`)                       |

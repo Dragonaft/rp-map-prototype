@@ -15,6 +15,7 @@ import { RESOURCE_ICONS } from "../constants/buildingIcons.ts";
 export const TopBar = () => {
   const dispatch = useAppDispatch();
   const user = useAppSelector(state => state.user);
+  const techs = useAppSelector(state => state.techs.techs);
   const actions = useAppSelector(state => state.actions.actions);
   const buildings = useAppSelector(state => state.buildings.buildings);
   const provinces = useAppSelector(state => state.provinces.provinces);
@@ -36,6 +37,10 @@ export const TopBar = () => {
   const unreadNotificationCount = useMemo(
     () => notifications.filter(n => !n.is_read).length,
     [notifications],
+  );
+  const activeResearchTech = useMemo(
+    () => techs.find(t => t.key === user.activeResearch) ?? null,
+    [techs, user.activeResearch],
   );
   const [mapModeAnchorEl, setMapModeAnchorEl] = useState<HTMLElement | null>(null);
   const activeMapModeLabel = MAP_MODE_OPTIONS.find(option => option.value === mapMode)?.label ?? 'Normal';
@@ -211,6 +216,16 @@ export const TopBar = () => {
                 <span className="material-symbols-outlined text-tertiary text-sm" data-icon="science">science</span>
                 <span className="font-headline font-bold text-tertiary text-xs uppercase tracking-wider">Research: {user.researchPoints}</span>
                 <span className={`${user.projectedResearch > 0 ? "text-green-500" : "text-red-500"} font-headline font-bold text-xs uppercase tracking-wider`}>({user.projectedResearch > 0 ? + user.projectedResearch : user.projectedResearch})</span>
+                {activeResearchTech && (
+                  <Tooltip title={`${activeResearchTech.name}: ${activeResearchTech.progress}/${activeResearchTech.cost}`}>
+                    <div className="w-16 h-1.5 bg-outline-variant/30 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-tertiary rounded-full"
+                        style={{ width: `${Math.min(100, (activeResearchTech.progress / activeResearchTech.cost) * 100)}%` }}
+                      />
+                    </div>
+                  </Tooltip>
+                )}
               </div>
               <div className="w-px h-4 bg-outline-variant/30"></div>
               <div className="flex items-center gap-2">

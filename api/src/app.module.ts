@@ -23,6 +23,7 @@ import { ActionQueue } from './actions/entities/action-queue.entity';
 import { ActionsLog } from './actions/entities/actions-log.entity';
 import { ExecutionLock } from './actions/entities/execution-lock.entity';
 import { Tech } from './techs/entities/tech.entity';
+import { UserTechProgress } from './techs/entities/user-tech-progress.entity';
 import { Army } from './armies/entities/army.entity';
 import { ArmyUnit } from './armies/entities/army-unit.entity';
 import { TroopType } from './armies/entities/troop-type.entity';
@@ -53,6 +54,7 @@ import { NewsArticle } from './news/entities/news-article.entity';
       database: process.env.DB_NAME,
       entities: [
         Province, User, Building, ProvinceBuilding, ActionQueue, ActionsLog, ExecutionLock, Tech,
+        UserTechProgress,
         Army, ArmyUnit, TroopType, Resource, Good, UserGood, UserResource,
         DiplomaticRelation, War, WarParticipant, Treaty,
         Notification,

@@ -280,16 +280,51 @@ province, else nearest owned province, else stays put if the owner holds no prov
 - **HOLY** — Paladins (piety-based), temples/cathedrals
 - **GUILD** — Mercenaries (no draft consumption), spy network, trade
 
-### Research Effects (Modifiers)
-Defined in `api/src/techs/research-effects.ts`:
+### Research Effects (Modifiers) — data-driven engine
+A tech's mechanical effect is **data**, not code: a nullable JSON `effects: TechEffect[]`
+column on `Tech`, edited via the admin panel's Effects builder (or raw JSON), interpreted
+generically by `TechEffectsService` (`api/src/techs/tech-effects.service.ts`). Types live in
+`api/src/techs/effect-types.ts`.
 
-| Category | Example | Effect |
-|----------|---------|--------|
-| `INCOME_RESEARCH_EFFECTS` | `economy.trade_routes` | +20% income |
-| `UPKEEP_RESEARCH_EFFECTS` | `guild.merchant_guilds` | -15% upkeep |
-| `BATTLE_RESEARCH_EFFECTS` | Various military techs | Combat stat bonuses |
-| `RESEARCH_POINT_EFFECTS` | Library techs | Additional RP/turn |
-| `computeBuildingCap()` | Various | Max buildings per landscape |
+Each `TechEffect` is `{ target, op, value, scaleBy?, when?, note? }`:
+- **`target`**: `income` | `upkeep` | `research_points` | `building_cap` | `army_attack` |
+  `army_defense` | `road_hops`
+- **`op`**: `add` | `add_scaled` (value × a whitelisted ctx quantity, e.g. `provinceCount`,
+  `capitalCount`, `barracksCount`, `farmGardenIncome`) | `multiply` | `set`
+- **`when`**: `{ landscape?, resource? }` — `building_cap` only, filters by province
+- Application order per hook: `base` → last `set` wins → sum all `add`/`add_scaled` → apply
+  all `multiply` (product) → round (`Math.round` for income/army/RP, `Math.floor` for upkeep,
+  integer for building_cap/road_hops). Adds are applied **before** multiplies — this is an
+  intentional stacking-order change from the old hardcoded maps.
+
+`TechEffectsService.apply(target, base, ctx, completedResearch[])` is called from every
+consumption site: `income-action.service.ts` (income + `research_points`),
+`upkeep-action.service.ts` (upkeep), `action-executor.service.ts` (`army_attack`/
+`army_defense`/road hops/building cap), `provinces.service.ts` (building-cap display), and
+`users.service.ts` (income/upkeep/RP **projections**, routed through the same `apply(...)`
+calls so they can't drift from the real turn logic). `computeBuildingCap()` and
+`LANDSCAPE_BUILDING_CAPS` (base cap per landscape) also live in this service.
+
+### Research progress (per-turn accrual, not instant-complete)
+Selecting a tech no longer pays a cost out of a stockpile and completes instantly — it just
+sets `User.active_research_key` (a single active research slot; selecting a different tech
+switches the slot, **not** losing progress on the old one). Unlike every other player action,
+this is **not** a queued `ActionQueue` row: `POST /techs/select` (`TechsService.
+selectActiveResearch`) applies immediately, synchronously, in its own transaction — the same
+"can't wait for a turn tick" reasoning as instant CAPITAL placement on province setup. If it
+were queued like `BUILD`/`ARMY_MOVE`, the selection itself would take a full tick to be picked
+up before `active_research_key` even changes, on top of the tick income already runs before
+actions execute — costing up to two wasted turns of research before accrual starts. `RESEARCH`
+is a retired/rejected `ActionType` (see API.md) for this reason. `research_points` is now a
+**per-turn rate** (research speed from CAPITAL/LIBRARY buildings + `research_points` tech
+effects), recomputed and overwritten every income tick rather than accumulated.
+
+Each income tick, `IncomeActionService` adds that turn's research rate to a per-`(user, tech)`
+`UserTechProgress.progress` row (`UserTechProgressService`, lazily created, one row per tech
+ever started). Once `progress >= tech.cost`, the tech completes: added to
+`completed_research`, the progress row is deleted, `active_research_key` is cleared, and
+class is assigned if `tech.isClassRoot`. `GET /techs` annotates every tech with the caller's
+saved `progress` (`0` if never started) for the tech-tree UI to render partial-progress bars.
 
 ### Prerequisite System
 - Each tech has a `prerequisites` array of tech keys

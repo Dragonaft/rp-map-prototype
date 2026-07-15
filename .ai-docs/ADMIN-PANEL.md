@@ -20,7 +20,7 @@ Notifications is a compose-and-send utility instead (broadcast rows fan out per-
 single browsable list to grid-edit):
 
 ### Users Tab
-- Fields: login, password, country_name, color, money, troops, piety, research_points, is_new, completed_research, class (guild/holy/noble), role (ADMIN/MODERATOR/PLAYER)
+- Fields: login, password, country_name, color, money, troops, piety, research_points (per-turn rate, not a stockpile), is_new, completed_research, active_research_key, class (guild/holy/noble), role (ADMIN/MODERATOR/PLAYER)
 - Create via modal dialog (login + password required)
 - Inline edit, delete with confirmation
 
@@ -33,8 +33,18 @@ single browsable list to grid-edit):
 - Create via modal (user_id + province_id required)
 
 ### Techs Tab
-- Fields: key (unique), name, description, branch (economy/military/guild/holy/noble), cost, isClassRoot (boolean), prerequisites (comma-separated tech keys)
+- Fields: key (unique), name, description, branch (economy/military/guild/holy/noble), cost, isClassRoot (boolean), prerequisites (multi-select of other techs' keys), effects (see below)
 - Create via modal (key + name + description + branch required)
+- **Effects column**: read-only compact summary per row (e.g. `income ×1.2, building_cap +1 (plains)`),
+  plus an "Edit Effects" action (`EffectsEditorModal.tsx`) opening a dialog with two tabs bound to the
+  same `effects` array:
+  - **Builder tab** (default): repeatable rows — `Target` + `Operation` dropdowns, numeric `Value`, a
+    `Scale by` dropdown (only for `add_scaled`, options depend on target), `When landscape`/`When
+    resource` dropdowns (only for `building_cap`); add/remove row buttons. Options are constrained by
+    `effectsSchema.ts` (frontend mirror of `api/src/techs/effect-types.ts`).
+  - **JSON tab**: textarea bound to the same array, parsed/validated on switch.
+  - Save PATCHes the tech with `{ effects }`; invalid effects are rejected server-side
+    (`validateEffects`) with an error snackbar.
 
 ### Troop Types Tab
 - Fields: key (unique), name, description, category, cost_per_100, attack, defense, upkeep_per_100, tech_requirement, building_requirement, required_goods (dropdown sourced from Goods tab), goods_amount (goods consumed per 100 troops recruited, one-time — same mechanic as a Building's requirement_good)

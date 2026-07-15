@@ -86,7 +86,8 @@ During execution, the API returns **503** on most endpoints (ActionExecutionBloc
 | Combat calculator        | `api/src/actions/combat-calculator.ts`            |
 | Income logic             | `api/src/actions/income-action.service.ts`        |
 | Upkeep logic             | `api/src/actions/upkeep-action.service.ts`        |
-| Research effect modifiers| `api/src/techs/research-effects.ts`               |
+| Tech effect engine       | `api/src/techs/tech-effects.service.ts`, `effect-types.ts` |
+| Research progress accrual| `api/src/techs/user-tech-progress.service.ts`     |
 | Diplomacy/wars/treaties  | `api/src/diplomacy/diplomacy.service.ts`, `treaty.service.ts` |
 | Occupation control logic | `api/src/diplomacy/occupation.service.ts`         |
 | Map rendering            | `web-map/src/components/MapView.tsx`              |

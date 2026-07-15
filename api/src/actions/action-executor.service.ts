@@ -10,7 +10,6 @@ import { ProvinceBuilding } from '../buildings/entities/province-building.entity
 import { Province } from '../provinces/entities/province.entity';
 import { User } from '../users/entities/user.entity';
 import { ActionQueue, ActionType } from './entities/action-queue.entity';
-import { TechsService } from '../techs/techs.service';
 import { TechEffectsService } from '../techs/tech-effects.service';
 import { Army } from '../armies/entities/army.entity';
 import { ArmyUnit } from '../armies/entities/army-unit.entity';
@@ -31,13 +30,6 @@ import {
 } from './combat-calculator';
 
 const REMOVE_COST = 100;
-
-/** Tech branches that are gated behind selecting a matching player class. */
-const CLASS_BRANCHES = new Set<string>([
-  UserClasses.GUILD,
-  UserClasses.HOLY,
-  UserClasses.NOBLE,
-]);
 
 /**
  * Per-turn execution context shared across all action handlers within a single
@@ -464,78 +456,6 @@ export class TransferTroopsActionHandler implements ActionHandler {
 
     // Simulated execution
     await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-}
-
-@Injectable()
-export class ResearchActionHandler implements ActionHandler {
-  private readonly logger = new Logger(ResearchActionHandler.name);
-
-  constructor(
-    @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
-    private readonly techsService: TechsService,
-  ) {}
-
-  async handle(action: ActionQueue): Promise<void> {
-    this.logger.log(
-      `Executing RESEARCH action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
-    );
-
-    const techKey = action.actionData?.tech_key as string | undefined;
-    if (!techKey) {
-      throw new Error('tech_key is required');
-    }
-
-    await this.userRepo.manager.transaction(async (manager) => {
-      const user = await manager.findOne(User, {
-        where: { id: action.userId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!user) {
-        throw new Error('User not found');
-      }
-
-      const tech = await this.techsService.getByKey(techKey);
-
-      const completed = user.completed_research ?? [];
-
-      if (completed.includes(techKey)) {
-        throw new Error(`Tech already researched: ${techKey}`);
-      }
-
-      const missingPrereq = (tech.prerequisites ?? []).find(
-        (prereq) => !completed.includes(prereq),
-      );
-      if (missingPrereq) {
-        throw new Error(`Missing prerequisite tech: ${missingPrereq}`);
-      }
-
-      if (tech.isClassRoot) {
-        if (user.class !== null && user.class !== undefined) {
-          throw new Error('Class already selected, cannot research another class root tech');
-        }
-      } else if (CLASS_BRANCHES.has(tech.branch)) {
-        if (!user.class || user.class !== tech.branch) {
-          throw new Error(`This tech requires class: ${tech.branch}`);
-        }
-      }
-
-      const currentPoints = Number(user.research_points ?? 0);
-      if (currentPoints < tech.cost) {
-        throw new Error(`Not enough research points (have ${currentPoints}, need ${tech.cost})`);
-      }
-
-      user.research_points = currentPoints - tech.cost;
-      user.completed_research = [...completed, techKey];
-
-      if (tech.isClassRoot) {
-        user.class = tech.branch as UserClasses;
-      }
-
-      await manager.save(User, user);
-    });
   }
 }
 
@@ -1283,7 +1203,6 @@ export class ActionExecutorService {
     private buildHandler: BuildActionHandler,
     private upgradeHandler: UpgradeActionHandler,
     private transferTroopsHandler: TransferTroopsActionHandler,
-    private researchHandler: ResearchActionHandler,
     private removeHandler: RemoveActionHandler,
     private armyCreateHandler: ArmyCreateHandler,
     private armyRecruitHandler: ArmyRecruitHandler,
@@ -1296,7 +1215,6 @@ export class ActionExecutorService {
     this.handlers.set(ActionType.BUILD, buildHandler);
     this.handlers.set(ActionType.UPGRADE, upgradeHandler);
     this.handlers.set(ActionType.TRANSFER_TROOPS, transferTroopsHandler);
-    this.handlers.set(ActionType.RESEARCH, researchHandler);
     this.handlers.set(ActionType.REMOVE, removeHandler);
     this.handlers.set(ActionType.ARMY_CREATE, armyCreateHandler);
     this.handlers.set(ActionType.ARMY_RECRUIT, armyRecruitHandler);

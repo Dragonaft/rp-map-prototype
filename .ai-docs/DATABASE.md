@@ -52,8 +52,9 @@ ExecutionLock (standalone, distributed locking)
 | money              | int           | Currency resource |
 | troops             | int           | Global troop pool |
 | piety              | int           | HOLY class resource |
-| research_points    | int           | Spent on tech research |
+| research_points    | int           | Research **speed** (points/turn), not a stockpile — recomputed and overwritten every income tick from CAPITAL/LIBRARY buildings + tech effects |
 | completed_research | simple-array  | Array of tech key strings |
+| active_research_key| varchar       | Nullable. Tech key currently accruing progress each turn (single active slot); null = idle. Saved progress lives in `UserTechProgress`, not here |
 | class              | varchar       | Lowercase string: `noble`, `holy`, `guild`, or null (not a DB enum) |
 | role               | varchar       | `ADMIN`, `MODERATOR`, `PLAYER` (first user = ADMIN; not a DB enum) |
 
@@ -241,8 +242,21 @@ Seed data (`api/data/buildings.json`):
 | description   | text          | |
 | branch        | varchar       | economy, military, noble, holy, guild |
 | isClassRoot   | boolean       | DB column `is_class_root`, default false. True if researching selects a class |
-| cost          | int           | Research points to unlock |
+| cost          | int           | Research points required to complete (compared against accrued `UserTechProgress.progress`) |
 | prerequisites | simple-array  | Array of tech keys required first |
+| effects       | json          | Nullable `TechEffect[]` — see [GAME-MECHANICS.md](GAME-MECHANICS.md#tech-tree) for the schema and interpreter |
+
+### UserTechProgress
+| Column     | Type          | Notes |
+|------------|---------------|-------|
+| id         | uuid (PK)     | |
+| user_id    | uuid (FK)     | → User, `ON DELETE CASCADE` |
+| tech_key   | varchar       | Not an FK to `Tech.key` — the row is keyed by string |
+| progress   | float         | Accumulated research points toward this tech's `cost`. Row is lazily created on first accrual and deleted on completion |
+
+Unique on `(user_id, tech_key)`. One row per tech a user has ever put points into — not just
+the currently-active one — so switching `active_research_key` away and back later resumes
+from the saved value instead of losing progress.
 
 ### ActionQueue
 | Column        | Type      | Notes |
@@ -250,7 +264,7 @@ Seed data (`api/data/buildings.json`):
 | id            | uuid (PK) | |
 | userId        | uuid (FK) | Queuing player (also exposed as eager `user` relation) |
 | order         | int       | Execution priority (lower = earlier) |
-| actionType    | enum      | BUILD, UPGRADE, RESEARCH, REMOVE, COLONIZE, ARMY_CREATE/MOVE/RECRUIT/MERGE/DISBAND/EDIT (13 enum values incl. legacy TRANSFER_TROOPS, DISBAND) |
+| actionType    | enum      | BUILD, UPGRADE, REMOVE, COLONIZE, ARMY_CREATE/MOVE/RECRUIT/MERGE/DISBAND/EDIT (13 enum values incl. legacy TRANSFER_TROOPS, DISBAND, RESEARCH — the latter rejected at queue time, see [API.md](API.md)) |
 | actionData    | json      | Flexible payload per action type |
 | status        | enum      | PENDING, PROCESSING, COMPLETED, FAILED, RETRACTED (default PENDING) |
 | failureReason | text      | Nullable, set on failure |

@@ -24,7 +24,7 @@ AppModule
 ├── UsersModule         Player profiles, resources, projections
 ├── ProvincesModule     Map tiles, ownership, buildings, setup
 ├── BuildingsModule     Building template definitions
-├── TechsModule         Tech tree definitions + research effects
+├── TechsModule         Tech tree definitions + data-driven effects engine + per-user research progress
 ├── ArmiesModule        Army CRUD, troop types, visibility rules
 ├── ActionsModule       Action queue, executor, scheduler, income, upkeep
 ├── ResourcesModule     Resource definitions + per-user UserResource capacity ledger (drives build gating + MINE income)
@@ -82,9 +82,10 @@ AppModule
 | GET    | /mine | JWT  | Caller's UserGood inventory rows (good + quantity). No spend/trade endpoints yet |
 
 ### Techs (`/techs`)
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET    | /    | JWT  | Available techs (filtered by user class + completed research) |
+| Method | Path     | Auth | Description |
+|--------|----------|------|-------------|
+| GET    | /        | JWT  | Available techs (filtered by user class + completed research), each annotated with the caller's saved `progress` (0 if never started) toward `cost` |
+| POST   | /select  | JWT  | `{tech_key}` — sets `active_research_key` **immediately** (not queued/turn-delayed like other actions — see [GAME-MECHANICS.md](GAME-MECHANICS.md#tech-tree)); re-validates prerequisites/class same as the old RESEARCH action |
 
 ### Diplomacy (`/diplomacy`)
 Real-time REST, **not** queued actions — treaty offers must persist across turns awaiting a reply, and the
@@ -133,7 +134,7 @@ Notifications Center's "System Logs" tab, `admin` → "News" tab.
 ### Actions (`/actions`)
 | Method | Path              | Auth  | Description |
 |--------|-------------------|-------|-------------|
-| POST   | /                 | JWT   | Queue action (BUILD, UPGRADE, RESEARCH, ARMY_MOVE, COLONIZE, etc.) |
+| POST   | /                 | JWT   | Queue action (BUILD, UPGRADE, ARMY_MOVE, COLONIZE, etc. — not RESEARCH, see Techs) |
 | GET    | /                 | JWT   | User's actions (all statuses) |
 | GET    | /pending          | JWT   | User's pending actions only |
 | DELETE | /pending/:id      | JWT   | Retract pending action |
@@ -196,7 +197,6 @@ by `ActionsService.validateActionPayload` (see Key Services).
 | BUILD             | province_id, building_id                                   |
 | UPGRADE           | province_id, province_building_id                          |
 | REMOVE            | province_id, province_building_id                          |
-| RESEARCH          | tech_key                                                   |
 | COLONIZE          | province_id (land-province check enforced by executor, not at queue time) |
 | ARMY_CREATE       | province_id, name?, units: [{ troop_type_key, count }]     |
 | ARMY_MOVE         | army_id, to_province_id (one move per army per turn; diplomacy-gated — see [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation)) |
@@ -205,17 +205,19 @@ by `ActionsService.validateActionPayload` (see Key Services).
 | ARMY_DISBAND      | army_id                                                    |
 | ARMY_EDIT         | army_id, troop_type_key, count                             |
 
-**Legacy/unused enum values:** `TRANSFER_TROOPS` (stub handler, nothing queues it)
-and `DISBAND` (no handler). `INVADE` and `DEPLOY` were removed. Troop counts must
-be integers in `[1, 1_000_000]`.
+**Legacy/unused enum values:** `TRANSFER_TROOPS` (stub handler, nothing queues it),
+`DISBAND` (no handler), and `RESEARCH` (explicitly rejected by `ActionsService.createAction`
+— tech selection is `POST /techs/select` now, since research can't afford to wait a turn just
+for the selection itself to take effect). `INVADE` and `DEPLOY` were removed. Troop counts
+must be integers in `[1, 1_000_000]`.
 
 ## Key Services
 
 ### ActionsService (queue-time validation)
-- `createAction` validates payload shape per action type, enforces a per-user
-  cap (`MAX_PENDING_ACTIONS_PER_USER = 200` pending), and rejects duplicates
-  (one ARMY_MOVE per army, one RESEARCH per tech_key). The executor re-checks
-  everything at turn time — queue validation is just fast feedback.
+- `createAction` rejects `RESEARCH` outright (400 — use `POST /techs/select`), validates
+  payload shape per action type, enforces a per-user cap (`MAX_PENDING_ACTIONS_PER_USER = 200`
+  pending), and rejects duplicates (one ARMY_MOVE per army). The executor re-checks everything
+  at turn time — queue validation is just fast feedback.
 - `POST /actions` body is validated by `CreateActionDto` (`@IsEnum(ActionType)`),
   so unknown action types are rejected with 400.
 - All action creation funnels through here, including ARMY_CREATE / ARMY_DISBAND
@@ -304,9 +306,10 @@ api/src/
 ├── users/          controller, service, entity, request DTOs
 ├── provinces/      controller, service, entity, request DTOs
 ├── buildings/      controller, service, entity, types
-├── techs/          controller, service, entity, research-effects.ts
+├── techs/          controller, service, entity, tech-effects.service.ts, effect-types.ts,
+│                   user-tech-progress.service.ts, entities (tech, user-tech-progress), dto/
 ├── armies/         controller, service, entities (army, army-unit, troop-type)
-├── actions/        controller, service, executor (12 handlers), scheduler,
+├── actions/        controller, service, executor (11 handlers), scheduler,
 │                   combat-calculator, income, upkeep, state-loader, middleware
 ├── resources/      controller, service (Resource), user-resources.service (UserResource ledger),
 │                   entities (resource, user-resource), types (plain/consumable)

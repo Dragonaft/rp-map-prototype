@@ -24,6 +24,13 @@ export class ActionsService {
     actionType: ActionType,
     actionData: any,
   ): Promise<any> {
+    // RESEARCH is no longer a queued/turn-delayed action — selecting a tech applies
+    // immediately via POST /techs/select, so its progress starts accruing the very next
+    // income tick instead of waiting for this queue to be processed first.
+    if (actionType === ActionType.RESEARCH) {
+      throw new BadRequestException('RESEARCH is no longer queued — use POST /techs/select instead');
+    }
+
     // 1) Reject malformed payloads up front (cheap, clear 400s instead of
     //    obscure failures deep in the turn executor).
     this.validateActionPayload(actionType, actionData);
@@ -80,10 +87,6 @@ export class ActionsService {
         this.requireString(actionData, 'province_id');
         break;
 
-      case ActionType.RESEARCH:
-        this.requireString(actionData, 'tech_key');
-        break;
-
       case ActionType.ARMY_MOVE:
         this.requireString(actionData, 'army_id');
         this.requireString(actionData, 'to_province_id');
@@ -121,7 +124,8 @@ export class ActionsService {
         break;
 
       // TRANSFER_TROOPS / DISBAND are legacy/unimplemented stubs with no payload
-      // contract and nothing queues them, so no shape is enforced here.
+      // contract and nothing queues them, so no shape is enforced here. RESEARCH is
+      // rejected earlier in createAction (see the guard above) and never reaches here.
       default:
         break;
     }
@@ -178,14 +182,6 @@ export class ActionsService {
       }
     }
 
-    if (actionType === ActionType.RESEARCH) {
-      const pending = await this.actionQueueRepo.find({
-        where: { userId, actionType: ActionType.RESEARCH, status: ActionStatus.PENDING },
-      });
-      if (pending.some((a) => a.actionData?.tech_key === actionData.tech_key)) {
-        throw new BadRequestException('This technology is already queued for research');
-      }
-    }
   }
 
   async getUserActions(userId: string): Promise<ActionQueue[]> {
