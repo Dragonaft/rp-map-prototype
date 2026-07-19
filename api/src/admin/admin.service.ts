@@ -22,11 +22,13 @@ import { NewsAgency } from '../news/entities/news-agency.entity';
 import { NewsArticle } from '../news/entities/news-article.entity';
 import { Province } from '../provinces/entities/province.entity';
 import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class AdminService {
   constructor(
     @InjectRepository(User) private readonly userRepo: Repository<User>,
+    private readonly usersService: UsersService,
     @InjectRepository(Building) private readonly buildingRepo: Repository<Building>,
     @InjectRepository(Army) private readonly armyRepo: Repository<Army>,
     @InjectRepository(Tech) private readonly techRepo: Repository<Tech>,
@@ -67,6 +69,7 @@ export class AdminService {
     if (actorRole !== UserRoles.ADMIN) {
       rest.role = UserRoles.PLAYER;
     }
+    await this.usersService.assertCountryIdentityAvailable(rest.country_name, rest.color);
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = this.userRepo.create({ ...rest, password: hashedPassword, is_new: rest.is_new ?? true });
     const saved = await this.userRepo.save(user);
@@ -85,6 +88,7 @@ export class AdminService {
       delete safeDto.role;
       delete safeDto.is_npc;
     }
+    await this.usersService.assertCountryIdentityAvailable(safeDto.country_name, safeDto.color, id);
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException(`User ${id} not found`);
     Object.assign(user, safeDto);

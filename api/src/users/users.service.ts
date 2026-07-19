@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { instanceToPlain } from 'class-transformer';
@@ -12,6 +12,7 @@ import { UserGoodsService } from '../goods/user-goods.service';
 import { UserResourcesService } from '../resources/user-resources.service';
 import { parseIncome } from '../utils/parseIncome';
 import { TechEffectsService } from '../techs/tech-effects.service';
+import { colorsTooSimilar } from '../utils/colorDistance';
 
 const BUILDING_UPKEEP_TYPES = new Set<string>([
   BuildingTypes.FORT,
@@ -31,7 +32,32 @@ export class UsersService {
     private readonly techEffects: TechEffectsService,
   ) {}
 
+  async assertCountryIdentityAvailable(
+    countryName: string | undefined, color: string | undefined, excludeUserId?: string,
+  ): Promise<void> {
+    if (countryName) {
+      const existing = await this.usersRepository.findOne({ where: { country_name: countryName } });
+      if (existing && existing.id !== excludeUserId) {
+        throw new ConflictException(`Country name "${countryName}" is already taken`);
+      }
+    }
+
+    if (color) {
+      const others = await this.usersRepository.find({ select: ['id', 'color'] });
+      for (const other of others) {
+        if (other.id === excludeUserId || !other.color) continue;
+        if (colorsTooSimilar(color, other.color)) {
+          throw new ConflictException(
+            `Color ${color} is too close to another country's color (${other.color}) to tell apart on the map`,
+          );
+        }
+      }
+    }
+  }
+
   async create(createUserDto: UsersCreateBodyRequest): Promise<User> {
+    await this.assertCountryIdentityAvailable(createUserDto.country_name, createUserDto.color);
+
     const count = await this.usersRepository.count();
     const role = count === 0 ? UserRoles.ADMIN : UserRoles.PLAYER;
 
@@ -196,6 +222,8 @@ export class UsersService {
     if (callerId !== id) {
       throw new Error('User id dont match caller id');
     }
+
+    await this.assertCountryIdentityAvailable(updateUserDto.country_name, updateUserDto.color, id);
 
     Object.assign(user, updateUserDto);
 

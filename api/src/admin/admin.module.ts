@@ -17,6 +17,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { NewsAgency } from '../news/entities/news-agency.entity';
 import { NewsArticle } from '../news/entities/news-article.entity';
 import { TechsModule } from '../techs/techs.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { TechsModule } from '../techs/techs.module';
     ResourcesModule,
     NotificationsModule,
     TechsModule,
+    UsersModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

@@ -18,6 +18,7 @@ import { UserResourcesService } from '../resources/user-resources.service';
 import { UserGood } from '../goods/entities/user-good.entity';
 import { UserResource } from '../resources/entities/user-resource.entity';
 import { Resource } from '../resources/entities/resource.entity';
+import { UsersService } from '../users/users.service';
 
 interface SpawnArmyUnitDto {
   troop_type_key: string;
@@ -50,6 +51,7 @@ export class ModService {
     private readonly occupationService: OccupationService,
     private readonly userGoodsService: UserGoodsService,
     private readonly userResourcesService: UserResourcesService,
+    private readonly usersService: UsersService,
   ) {}
 
   // --- NPC countries ---
@@ -58,6 +60,7 @@ export class ModService {
     if (!dto.login?.trim()) throw new BadRequestException('login is required');
     const existing = await this.userRepo.findOne({ where: { login: dto.login } });
     if (existing) throw new BadRequestException(`login "${dto.login}" is already taken`);
+    await this.usersService.assertCountryIdentityAvailable(dto.country_name, dto.color);
 
     // NPCs never log in, so the password just needs to be unguessable, not memorable.
     const randomPassword = crypto.randomBytes(24).toString('hex');

@@ -10,6 +10,7 @@ import { TroopType } from '../armies/entities/troop-type.entity';
 import { GoodsModule } from '../goods/goods.module';
 import { ResourcesModule } from '../resources/resources.module';
 import { DiplomacyModule } from '../diplomacy/diplomacy.module';
+import { UsersModule } from '../users/users.module';
 import { ModService } from './mod.service';
 import { ModController } from './mod.controller';
 
@@ -19,6 +20,7 @@ import { ModController } from './mod.controller';
     GoodsModule,
     ResourcesModule,
     DiplomacyModule,
+    UsersModule,
   ],
   controllers: [ModController],
   providers: [ModService],
