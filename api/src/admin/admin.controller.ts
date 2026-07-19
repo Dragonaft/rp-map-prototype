@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Body, Param, UseGuards, HttpCode, HttpStatus,
+  Body, Param, Request, UseGuards, HttpCode, HttpStatus,
 } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -10,7 +10,7 @@ import { UserRoles } from '../users/types/users.types';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRoles.ADMIN)
+@Roles(UserRoles.ADMIN, UserRoles.MODERATOR)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
@@ -22,19 +22,19 @@ export class AdminController {
   }
 
   @Post('users')
-  createUser(@Body() body: Record<string, any>) {
-    return this.adminService.createUser(body);
+  createUser(@Request() req, @Body() body: Record<string, any>) {
+    return this.adminService.createUser(body, req.user.role);
   }
 
   @Patch('users/:id')
-  updateUser(@Param('id') id: string, @Body() body: Record<string, any>) {
-    return this.adminService.updateUser(id, body);
+  updateUser(@Request() req, @Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateUser(id, body, req.user.role);
   }
 
   @Delete('users/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteUser(@Param('id') id: string) {
-    return this.adminService.deleteUser(id);
+  deleteUser(@Request() req, @Param('id') id: string) {
+    return this.adminService.deleteUser(id, req.user.role);
   }
 
   // --- Buildings ---

@@ -1,4 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { store } from '../store/store.ts';
 
 // Set by useSnackbarInterceptor hook; called for every non-401 API error
 let _onApiError: ((msg: string) => void) | null = null;
@@ -12,6 +13,17 @@ export const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
   withCredentials: true,
+});
+
+// Mod layer: while a mod is "playing" an NPC country, every game request is attributed to
+// that NPC server-side (ActAsInterceptor). Never attached to /auth/* — impersonation must
+// never affect the mod's own login/refresh/session.
+apiClient.interceptors.request.use((config) => {
+  const actingAsUserId = store.getState().mod.actingAsUserId;
+  if (actingAsUserId && !config.url?.startsWith('/auth')) {
+    config.headers['X-Act-As-User'] = actingAsUserId;
+  }
+  return config;
 });
 
 let isRefreshing = false;

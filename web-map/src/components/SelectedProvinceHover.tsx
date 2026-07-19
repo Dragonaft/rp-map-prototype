@@ -2,7 +2,7 @@ import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { selectSelectedProvince, updateProvinceById } from "../store/slices/provincesSlice.ts";
 import { setUser } from "../store/slices/userSlice.ts";
 import type { RootState } from "../store/store.ts";
-import { Button } from "@mui/material";
+import { Button, MenuItem, Select, TextField } from "@mui/material";
 import { useMutation, useQuery } from "../hooks/useApi.ts";
 import { provincesApi } from "../api/provinces.ts";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -16,6 +16,8 @@ import { BuildingActionsModal } from "./Modals/BuildingActionsModal.tsx";
 import { CancelActionModal } from "./Modals/CancelActionModal.tsx";
 import { DeleteBuildingModal } from "./Modals/DeleteBuildingModal.tsx";
 import { PlayerTreatiesModal } from "./Modals/PlayerTreatiesModal.tsx";
+import { ModStocksModal } from "./Modals/ModStocksModal.tsx";
+import { modApi } from "../api/mod.ts";
 
 /** Must match OCCUPATION_CORE_THRESHOLD in api/src/diplomacy/types/diplomacy.types.ts */
 const OCCUPATION_CORE_THRESHOLD = 10;
@@ -68,6 +70,17 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [cancelPendingTarget, setCancelPendingTarget] = useState<{ id: string; type: string } | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // --- Mod layer (instant god-mode tools, only rendered when the MOD switch is ON) ---
+  const modSwitchOn = useAppSelector((state: RootState) => state.mod.switchOn);
+  const troopTypes = useAppSelector((state: RootState) => state.armies.troopTypes);
+  const [modTargetUserId, setModTargetUserId] = useState('');
+  const [modBuildingId, setModBuildingId] = useState('');
+  const [modTroopTypeKey, setModTroopTypeKey] = useState('');
+  const [modTroopCount, setModTroopCount] = useState(100);
+  const [modBusy, setModBusy] = useState(false);
+  const [modError, setModError] = useState<string | null>(null);
+  const [openModStocks, setOpenModStocks] = useState(false);
 
   const fetchBuildings = useCallback(() => buildingsApi.getAll(), []);
   const { data: buildings, loading } = useQuery(fetchBuildings, []);
@@ -292,6 +305,64 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
       console.log(err.response?.data?.message || 'Failed to create upgrade action');
     } finally {
       setIsUpgrading(false);
+    }
+  };
+
+  // Every instant mod mutation reloads the page afterward — the same pattern already used
+  // for logout/turn-tick reloads/country-switch, and the simplest way to guarantee every
+  // dependent view (province state, ownership, army list) picks up the change.
+  const handleModSetOwner = async () => {
+    if (!selectedProvince) return;
+    setModBusy(true);
+    setModError(null);
+    try {
+      await modApi.setProvinceOwner(selectedProvince.id, modTargetUserId || null);
+      window.location.reload();
+    } catch (err: any) {
+      setModError(err.response?.data?.message || 'Failed to set province owner');
+      setModBusy(false);
+    }
+  };
+
+  const handleModPlaceBuilding = async () => {
+    if (!selectedProvince || !modBuildingId) return;
+    setModBusy(true);
+    setModError(null);
+    try {
+      await modApi.placeBuilding(selectedProvince.id, modBuildingId);
+      window.location.reload();
+    } catch (err: any) {
+      setModError(err.response?.data?.message || 'Failed to place building');
+      setModBusy(false);
+    }
+  };
+
+  const handleModRemoveBuilding = async (provinceBuildingInstanceId: string) => {
+    setModBusy(true);
+    setModError(null);
+    try {
+      await modApi.removeBuilding(provinceBuildingInstanceId);
+      window.location.reload();
+    } catch (err: any) {
+      setModError(err.response?.data?.message || 'Failed to remove building');
+      setModBusy(false);
+    }
+  };
+
+  const handleModSpawnArmy = async () => {
+    if (!selectedProvince || !modTargetUserId || !modTroopTypeKey || modTroopCount <= 0) return;
+    setModBusy(true);
+    setModError(null);
+    try {
+      await modApi.spawnArmy({
+        userId: modTargetUserId,
+        provinceId: selectedProvince.id,
+        units: [{ troop_type_key: modTroopTypeKey, count: modTroopCount }],
+      });
+      window.location.reload();
+    } catch (err: any) {
+      setModError(err.response?.data?.message || 'Failed to spawn army');
+      setModBusy(false);
     }
   };
 
@@ -659,6 +730,117 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         </div>
       )}
 
+      {/* Mod Tools — instant god-mode, only visible while the TopBar MOD switch is ON.
+          Unlike the views above, this isn't gated on ownership: a DM needs to act on any
+          selected province regardless of who currently controls it. */}
+      {modSwitchOn && (
+        <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-dashed border-gray-600">
+          <h3 className="text-xs font-bold uppercase text-purple-700 tracking-wide">Mod Tools</h3>
+
+          <Select
+            size="small"
+            displayEmpty
+            value={modTargetUserId}
+            onChange={(e) => setModTargetUserId(e.target.value)}
+            disabled={modBusy}
+          >
+            <MenuItem value="">— Unclaimed / no target —</MenuItem>
+            {otherUsers.map((u) => (
+              <MenuItem key={u.id} value={u.id}>{u.countryName}</MenuItem>
+            ))}
+          </Select>
+
+          <Button size="small" variant="outlined" disabled={modBusy} onClick={() => void handleModSetOwner()}>
+            Set Province Owner
+          </Button>
+
+          <div className="flex gap-1">
+            <Select
+              size="small"
+              displayEmpty
+              value={modBuildingId}
+              onChange={(e) => setModBuildingId(e.target.value)}
+              disabled={modBusy}
+              sx={{ flex: 1 }}
+            >
+              <MenuItem value="">— Building —</MenuItem>
+              {(buildings ?? []).map((b) => (
+                <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+              ))}
+            </Select>
+            <Button size="small" variant="outlined" disabled={modBusy || !modBuildingId} onClick={() => void handleModPlaceBuilding()}>
+              Place
+            </Button>
+          </div>
+
+          {builtInProvince.length > 0 && (
+            <div className="flex flex-col gap-1">
+              {builtInProvince.map((b) => (
+                <div
+                  key={b.instanceId}
+                  className="flex items-center justify-between text-xs px-2 py-1 rounded border border-gray-500 bg-gray-200/40"
+                >
+                  <span className="truncate">{BUILDING_ICONS[b.type] ?? '🏗️'} {b.name}</span>
+                  <button
+                    className="text-red-600 font-bold px-1 disabled:opacity-40"
+                    disabled={modBusy}
+                    title="Remove instantly"
+                    onClick={() => void handleModRemoveBuilding(b.instanceId)}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-1">
+            <Select
+              size="small"
+              displayEmpty
+              value={modTroopTypeKey}
+              onChange={(e) => setModTroopTypeKey(e.target.value)}
+              disabled={modBusy}
+              sx={{ flex: 1 }}
+            >
+              <MenuItem value="">— Troop type —</MenuItem>
+              {troopTypes.map((t) => (
+                <MenuItem key={t.key} value={t.key}>{t.name}</MenuItem>
+              ))}
+            </Select>
+            <TextField
+              size="small"
+              type="number"
+              value={modTroopCount}
+              onChange={(e) => setModTroopCount(Number(e.target.value))}
+              disabled={modBusy}
+              sx={{ width: 80 }}
+            />
+          </div>
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={modBusy || !modTargetUserId || !modTroopTypeKey}
+            title={!modTargetUserId ? 'Pick a target country above first' : undefined}
+            onClick={() => void handleModSpawnArmy()}
+          >
+            Spawn Army
+          </Button>
+
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={!modTargetUserId}
+            title={!modTargetUserId ? 'Pick a target country above first' : undefined}
+            onClick={() => setOpenModStocks(true)}
+          >
+            Edit Stocks
+          </Button>
+
+          {modError && <p className="text-xs text-red-500">{modError}</p>}
+        </div>
+      )}
+
       <BuildMenuModal
         open={isOpenBuildMenu}
         onClose={() => setIsOpenBuildMenu(false)}
@@ -709,6 +891,15 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
           onClose={() => setOpenPlayerTreaties(false)}
           userId={selectedProvince.userId}
           userName={provinceOwner?.countryName ?? 'This player'}
+        />
+      )}
+
+      {modTargetUserId && (
+        <ModStocksModal
+          open={openModStocks}
+          onClose={() => setOpenModStocks(false)}
+          userId={modTargetUserId}
+          userName={otherUsers.find(u => u.id === modTargetUserId)?.countryName ?? 'this country'}
         />
       )}
     </div>

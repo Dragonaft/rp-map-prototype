@@ -1,20 +1,31 @@
-import { AppBar, Badge, Button, Menu, MenuItem, Toolbar, Tooltip } from "@mui/material";
+import { AppBar, Badge, Button, Menu, MenuItem, Switch, Toolbar, Tooltip } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { useMutation } from "../hooks/useApi.ts";
 import { authApi } from "../api/auth.ts";
-import { useMemo, useState } from "react";
+import { useAuth } from "../context/AuthContext.tsx";
+import { useEffect, useMemo, useState } from "react";
 import { TechsModal } from "./Modals/TechsModal.tsx";
 import { ProfileModal } from "./Modals/ProfileModal.tsx";
 import { NotificationsModal } from "./Modals/NotificationsModal.tsx";
 import { DiplomacyModal } from "./Modals/DiplomacyModal.tsx";
+import { CreateNpcModal } from "./Modals/CreateNpcModal.tsx";
 import { ActionType, ProvinceBuilding, TreatyStatus, UserClasses } from "../types.ts";
 import { MAP_MODE_OPTIONS } from "../utils/mapModes.ts";
 import { setMapMode } from "../store/slices/provincesSlice.ts";
 import { RESOURCE_ICONS } from "../constants/buildingIcons.ts";
+import { modApi } from "../api/mod.ts";
+import { setActingAsUserId, setModSwitch, setNpcs } from "../store/slices/modSlice.ts";
 
 export const TopBar = () => {
   const dispatch = useAppDispatch();
+  const { user: authUser } = useAuth();
   const user = useAppSelector(state => state.user);
+  const modSwitchOn = useAppSelector(state => state.mod.switchOn);
+  const actingAsUserId = useAppSelector(state => state.mod.actingAsUserId);
+  const npcs = useAppSelector(state => state.mod.npcs);
+  const isMod = authUser?.role === 'ADMIN' || authUser?.role === 'MODERATOR';
+  const [countryMenuAnchorEl, setCountryMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [openCreateNpcModal, setOpenCreateNpcModal] = useState(false);
   const techs = useAppSelector(state => state.techs.techs);
   const actions = useAppSelector(state => state.actions.actions);
   const buildings = useAppSelector(state => state.buildings.buildings);
@@ -97,6 +108,28 @@ export const TopBar = () => {
     }
   }
 
+  // The mod toolbar (country switcher, Create NPC, instant tools) only shows while the
+  // switch is ON — but once a country is picked, playing "as" it persists across the
+  // switch toggling off (see modSlice.ts / GamePage's effectiveUserId).
+  useEffect(() => {
+    if (!isMod || !modSwitchOn) return;
+    modApi.listNpcs().then((data) => dispatch(setNpcs(data))).catch(() => {});
+  }, [isMod, modSwitchOn, dispatch]);
+
+  const handleToggleModSwitch = (checked: boolean) => {
+    dispatch(setModSwitch(checked));
+  };
+
+  const handleSwitchCountry = (targetUserId: string | null) => {
+    setCountryMenuAnchorEl(null);
+    if (targetUserId === actingAsUserId) return;
+    dispatch(setActingAsUserId(targetUserId));
+    // Every fetch on GamePage mounts once ([] dep array) — a reload is the simplest way to
+    // guarantee the whole page re-loads state for the newly-selected country, same pattern
+    // already used for turn-tick reloads (useActionExecutionReload) and logout above.
+    window.location.reload();
+  };
+
   return (
     <AppBar position="static">
       <Toolbar
@@ -147,6 +180,50 @@ export const TopBar = () => {
                 </MenuItem>
               ))}
             </Menu>
+            {isMod && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container border border-outline-variant/20 rounded">
+                <span className="font-headline font-bold text-white text-[10px] uppercase tracking-widest">Mod</span>
+                <Switch
+                  size="small"
+                  checked={modSwitchOn}
+                  onChange={(e) => handleToggleModSwitch(e.target.checked)}
+                />
+              </div>
+            )}
+            {isMod && modSwitchOn && (
+              <>
+                <Button
+                  id="mod-country-button"
+                  className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+                  onClick={(event) => setCountryMenuAnchorEl(event.currentTarget)}
+                  aria-controls={countryMenuAnchorEl ? 'mod-country-menu' : undefined}
+                  aria-haspopup="menu"
+                  aria-expanded={countryMenuAnchorEl ? 'true' : undefined}
+                >
+                  <span className="material-symbols-outlined text-sm" data-icon="theater_comedy">theater_comedy</span>
+                  Playing: {actingAsUserId ? (npcs.find(n => n.id === actingAsUserId)?.country_name ?? '…') : `${authUser?.login} (me)`}
+                </Button>
+                <Menu
+                  id="mod-country-menu"
+                  anchorEl={countryMenuAnchorEl}
+                  open={Boolean(countryMenuAnchorEl)}
+                  onClose={() => setCountryMenuAnchorEl(null)}
+                  MenuListProps={{ 'aria-labelledby': 'mod-country-button' }}
+                >
+                  <MenuItem selected={!actingAsUserId} onClick={() => handleSwitchCountry(null)}>
+                    My Country ({authUser?.login})
+                  </MenuItem>
+                  {npcs.map((npc) => (
+                    <MenuItem key={npc.id} selected={npc.id === actingAsUserId} onClick={() => handleSwitchCountry(npc.id)}>
+                      {npc.country_name} (NPC)
+                    </MenuItem>
+                  ))}
+                  <MenuItem onClick={() => { setCountryMenuAnchorEl(null); setOpenCreateNpcModal(true); }}>
+                    + Create NPC Country
+                  </MenuItem>
+                </Menu>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-6">
             <Tooltip
@@ -288,6 +365,13 @@ export const TopBar = () => {
       <DiplomacyModal
         open={openDiplomacyModal}
         onClose={() => setOpenDiplomacyModal(false)}
+      />
+      <CreateNpcModal
+        open={openCreateNpcModal}
+        onClose={() => setOpenCreateNpcModal(false)}
+        onCreated={(npc) => {
+          dispatch(setNpcs([...npcs, npc]));
+        }}
       />
     </AppBar>
   )

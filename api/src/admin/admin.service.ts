@@ -1,8 +1,9 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
+import { UserRoles } from '../users/types/users.types';
 import { Building } from '../buildings/entities/building.entity';
 import { Army } from '../armies/entities/army.entity';
 import { Tech } from '../techs/entities/tech.entity';
@@ -19,6 +20,8 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationSeverity } from '../notifications/entities/notification.entity';
 import { NewsAgency } from '../news/entities/news-agency.entity';
 import { NewsArticle } from '../news/entities/news-article.entity';
+import { Province } from '../provinces/entities/province.entity';
+import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 
 @Injectable()
 export class AdminService {
@@ -57,8 +60,13 @@ export class AdminService {
     return users.map(({ password: _, ...rest }) => rest);
   }
 
-  async createUser(dto: Record<string, any>) {
+  async createUser(dto: Record<string, any>, actorRole?: UserRoles) {
     const { password, ...rest } = dto;
+    // Only an ADMIN may hand out ADMIN/MODERATOR on creation too — otherwise a MODERATOR could
+    // mint themselves a fellow admin via a raw request even though the panel UI hides the field.
+    if (actorRole !== UserRoles.ADMIN) {
+      rest.role = UserRoles.PLAYER;
+    }
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = this.userRepo.create({ ...rest, password: hashedPassword, is_new: rest.is_new ?? true });
     const saved = await this.userRepo.save(user);
@@ -68,8 +76,15 @@ export class AdminService {
     return result;
   }
 
-  async updateUser(id: string, dto: Record<string, any>) {
+  async updateUser(id: string, dto: Record<string, any>, actorRole?: UserRoles) {
     const { password: _, provinces: __, ...safeDto } = dto;
+    // Only an ADMIN may reassign roles or flip is_npc — a MODERATOR editing a user's other
+    // fields keeps both untouched. NPC creation for moderators goes through POST /mod/npc
+    // instead, which always sets is_npc itself.
+    if (actorRole !== UserRoles.ADMIN) {
+      delete safeDto.role;
+      delete safeDto.is_npc;
+    }
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException(`User ${id} not found`);
     Object.assign(user, safeDto);
@@ -78,10 +93,37 @@ export class AdminService {
     return result;
   }
 
-  async deleteUser(id: string) {
+  /**
+   * Deletes a user (real player or NPC) and everything that would otherwise be orphaned or
+   * left dangling. Armies, resource/goods/tech-progress ledgers, notifications, news
+   * agencies/articles, diplomatic relations, wars (as leader), war participation, and treaties
+   * (as proposer/receiver) all cascade automatically at the DB level via ON DELETE CASCADE
+   * foreign keys on their respective entities. Provinces are the one relation with no cascade
+   * (a deleted user's territory must NOT vanish) — they're explicitly unclaimed here, and their
+   * buildings demolished, before the user row itself is removed.
+   */
+  async deleteUser(id: string, actorRole?: UserRoles) {
     const user = await this.userRepo.findOne({ where: { id } });
     if (!user) throw new NotFoundException(`User ${id} not found`);
-    await this.userRepo.remove(user);
+    if (
+      actorRole !== UserRoles.ADMIN &&
+      (user.role === UserRoles.ADMIN || user.role === UserRoles.MODERATOR)
+    ) {
+      throw new ForbiddenException('Only an ADMIN can delete an ADMIN or MODERATOR account');
+    }
+
+    await this.userRepo.manager.transaction(async (manager) => {
+      const ownedProvinces = await manager.find(Province, { where: { user_id: id } });
+      const ownedProvinceIds = ownedProvinces.map((p) => p.id);
+      if (ownedProvinceIds.length) {
+        await manager.delete(ProvinceBuilding, { province_id: In(ownedProvinceIds) });
+      }
+      // Unclaim: tile goes back to a blank, freshly claimable slate (mirrors seed-test-countries.ts's reset).
+      await manager.update(Province, { user_id: id }, { user_id: null, local_troops: 0 } as any);
+      await manager.update(Province, { occupier_id: id }, { occupier_id: null, occupation_turns: 0 });
+
+      await manager.remove(user);
+    });
   }
 
   // --- Buildings ---

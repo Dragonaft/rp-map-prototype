@@ -6,6 +6,9 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  isModerator: boolean;
+  /** ADMIN or MODERATOR — anyone allowed into the panel at all. */
+  canAccessPanel: boolean;
   login: (userData: AuthUser) => void;
   logout: () => Promise<void>;
 }
@@ -43,12 +46,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setUser(null);
   };
 
+  const isAdmin = user?.role === 'ADMIN';
+  const isModerator = user?.role === 'MODERATOR';
+
   return (
     <AuthContext.Provider value={{
       user,
       isLoading,
       isAuthenticated: !!user,
-      isAdmin: user?.role === 'ADMIN',
+      isAdmin,
+      isModerator,
+      canAccessPanel: isAdmin || isModerator,
       login,
       logout,
     }}>

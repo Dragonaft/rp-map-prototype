@@ -55,6 +55,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.is_npc) {
+      throw new UnauthorizedException('This is an NPC country and cannot be logged into');
+    }
+
     const tokens = await this.generateTokens(user);
     return {
       user: {

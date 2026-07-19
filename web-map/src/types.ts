@@ -181,6 +181,9 @@ export interface User {
   completedResearch: string[];
   /** Tech key currently accruing progress each turn; null = idle. */
   activeResearch: string | null;
+  role?: string | null;
+  /** Non-playable "DM" country — created via the mod layer, cannot log in. */
+  isNpc?: boolean;
 }
 
 export interface UserActive extends User {

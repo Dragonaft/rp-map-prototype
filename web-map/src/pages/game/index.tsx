@@ -4,7 +4,7 @@ import { MapView } from "../../components/MapView.tsx";
 import { useAuth } from "../../context/AuthContext.tsx";
 import { useQuery } from "../../hooks/useApi.ts";
 import { usersApi } from "../../api/users.ts";
-import { useAppDispatch } from "../../store/hooks.ts";
+import { useAppDispatch, useAppSelector } from "../../store/hooks.ts";
 import { setUser } from "../../store/slices/userSlice.ts";
 import { provincesApi } from "../../api/provinces.ts";
 import { setProvinces } from "../../store/slices/provincesSlice.ts";
@@ -48,7 +48,12 @@ export const GamePage: React.FC = () => {
   useActionExecutionReload();
   const [openIsNewModal, setOpenIsNewModal] = useState(false);
 
-  const userId = authUser?.id || "";
+  // Mod layer: while "playing" an NPC country, load that country's state instead of the
+  // mod's own — the X-Act-As-User header (api/config.ts) makes every other request already
+  // act as the NPC server-side, but /users/:id specifically compares the path id against the
+  // requester's own id to decide full-vs-partial state, so the id itself must switch too.
+  const actingAsUserId = useAppSelector(state => state.mod.actingAsUserId);
+  const userId = actingAsUserId || authUser?.id || "";
   const fetchUser = useCallback(() => usersApi.getOne(userId), [userId]);
   const { data: userData } = useQuery(fetchUser);
   const fetchOtherUsers = useCallback(() => usersApi.getAll(), []);

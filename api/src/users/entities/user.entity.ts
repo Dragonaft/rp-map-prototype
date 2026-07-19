@@ -61,6 +61,10 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   public role: UserRoles | null;
 
+  @Column({ default: false })
+  @Expose({ name: 'isNpc' })
+  public is_npc: boolean;
+
   /** Consecutive turns money has ended negative; resets to 0 the moment money is >= 0. Triggers bankruptcy above BANKRUPTCY_TRIGGER_TURNS. */
   @Column({ default: 0 })
   public negative_money_turns: number;

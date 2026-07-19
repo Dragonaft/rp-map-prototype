@@ -37,6 +37,7 @@ import { WarParticipant } from './diplomacy/entities/war-participant.entity';
 import { Treaty } from './diplomacy/entities/treaty.entity';
 import { Notification } from './notifications/entities/notification.entity';
 import { NewsModule } from './news/news.module';
+import { ModModule } from './mod/mod.module';
 import { NewsAgency } from './news/entities/news-agency.entity';
 import { NewsArticle } from './news/entities/news-article.entity';
 
@@ -75,6 +76,7 @@ import { NewsArticle } from './news/entities/news-article.entity';
     DiplomacyModule,
     NotificationsModule,
     NewsModule,
+    ModModule,
   ],
   controllers: [AppController],
   providers: [AppService],

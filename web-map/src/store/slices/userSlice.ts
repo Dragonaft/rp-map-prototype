@@ -19,6 +19,8 @@ interface UserState {
   completedResearch: string[];
   researchPoints: number;
   activeResearch: string | null;
+  role?: string | null;
+  isNpc?: boolean;
 }
 
 const initialState: UserState = {
@@ -39,6 +41,8 @@ const initialState: UserState = {
   completedResearch: [],
   researchPoints: 0,
   activeResearch: null,
+  role: null,
+  isNpc: false,
 };
 
 const userSlice = createSlice({
@@ -63,6 +67,8 @@ const userSlice = createSlice({
       state.completedResearch = action.payload.completedResearch ?? [];
       state.researchPoints = action.payload.researchPoints;
       state.activeResearch = action.payload.activeResearch ?? null;
+      state.role = action.payload.role ?? null;
+      state.isNpc = action.payload.isNpc ?? false;
     },
     updateUserTroops: (state, action: PayloadAction<number>) => {
       state.troops = action.payload;
@@ -91,6 +97,8 @@ const userSlice = createSlice({
       state.completedResearch = [];
       state.researchPoints = 0;
       state.activeResearch = null;
+      state.role = null;
+      state.isNpc = false;
     },
   },
 });
