@@ -15,7 +15,6 @@ import CancelIcon from '@mui/icons-material/Cancel';
 import { adminApi } from '../../api/admin';
 import { useAuth } from '../../context/AuthContext';
 
-const CLASS_OPTIONS = ['', 'guild', 'holy', 'noble'];
 const ROLE_OPTIONS = ['', 'ADMIN', 'MODERATOR', 'PLAYER'];
 const PROTECTED_ROLES = ['ADMIN', 'MODERATOR'];
 
@@ -31,9 +30,15 @@ export const UsersTab = () => {
   const [addOpen, setAddOpen] = useState(false);
   const [newUser, setNewUser] = useState({ ...EMPTY_NEW_USER });
   const [snackbar, setSnackbar] = useState<{ msg: string; severity: 'success' | 'error' } | null>(null);
+  // Sourced from the Classes tab's table (key = the back-compat string stored on user.class,
+  // name = display label) rather than a hard-coded list, so admin-created classes show up here too.
+  const [classOptions, setClassOptions] = useState<{ value: string; label: string }[]>([{ value: '', label: '(none)' }]);
 
   useEffect(() => {
     adminApi.getUsers().then((res) => setRows(res.data));
+    adminApi.getClasses().then((res) =>
+      setClassOptions([{ value: '', label: '(none)' }, ...res.data.map((c: any) => ({ value: c.key, label: c.name }))]),
+    );
   }, []);
 
   const handleSaveClick = (id: GridRowId) => () =>
@@ -112,7 +117,7 @@ export const UsersTab = () => {
       width: 90,
       editable: true,
       type: 'singleSelect',
-      valueOptions: CLASS_OPTIONS,
+      valueOptions: classOptions,
     },
     {
       // Only an ADMIN may reassign roles; a MODERATOR sees the value but can't edit it
@@ -189,7 +194,7 @@ export const UsersTab = () => {
           <FormControl>
             <InputLabel>Class</InputLabel>
             <Select label="Class" value={newUser.class} onChange={(e) => setNewUser((p) => ({ ...p, class: e.target.value }))}>
-              {CLASS_OPTIONS.map((o) => <MenuItem key={o} value={o}>{o || '(none)'}</MenuItem>)}
+              {classOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
             </Select>
           </FormControl>
           <FormControlLabel

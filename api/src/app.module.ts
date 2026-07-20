@@ -40,6 +40,8 @@ import { NewsModule } from './news/news.module';
 import { ModModule } from './mod/mod.module';
 import { NewsAgency } from './news/entities/news-agency.entity';
 import { NewsArticle } from './news/entities/news-article.entity';
+import { ClassesModule } from './classes/classes.module';
+import { PlayerClass } from './classes/entities/player-class.entity';
 
 @Module({
   imports: [
@@ -60,6 +62,7 @@ import { NewsArticle } from './news/entities/news-article.entity';
         DiplomaticRelation, War, WarParticipant, Treaty,
         Notification,
         NewsAgency, NewsArticle,
+        PlayerClass,
       ],
       synchronize: false,
     }),
@@ -77,6 +80,7 @@ import { NewsArticle } from './news/entities/news-article.entity';
     NotificationsModule,
     NewsModule,
     ModModule,
+    ClassesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

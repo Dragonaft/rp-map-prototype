@@ -77,8 +77,10 @@ invented buildings): `CAPITAL`, `CAPITOL`, `FORT`, `CASTLE`, `BARRACKS`, `ARMORY
 
 **Troop categories:** `INFANTRY`, `RANGED`, `CAVALRY`, `SPECIAL`, `PEASANT`.
 
-**Player classes:** `NOBLE`, `HOLY`, `GUILD` — unlock Knights, Paladins, and
-Mercenaries respectively.
+**Player classes:** `NOBLE`, `HOLY`, `GUILD` by default — unlock Knights, Paladins, and
+Mercenaries respectively. No longer a fixed set: classes are admin-editable rows (name/key/
+visibility) via the admin panel's Classes tab, so treat this as the *default* closed vocabulary
+rather than an immutable one — a shipped campaign could add or hide classes.
 
 **Resource bar labels** (`TopBar.tsx`, exact casing): `Research`, `Money`, `Troops`,
 `Piety` (Piety only shown for `HOLY`-class players). Each shows a projected delta in

@@ -43,6 +43,12 @@ export const adminApi = {
   updateGood: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/goods/${id}`, data),
   deleteGood: (id: string) => apiClient.delete(`/admin/goods/${id}`),
 
+  // Classes
+  getClasses: () => apiClient.get('/admin/classes'),
+  createClass: (data: Record<string, any>) => apiClient.post('/admin/classes', data),
+  updateClass: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/classes/${id}`, data),
+  deleteClass: (id: string) => apiClient.delete(`/admin/classes/${id}`),
+
   // Notifications
   broadcastNotification: (data: { title: string; message: string; severity: string }) =>
     apiClient.post('/admin/notifications/broadcast', data),

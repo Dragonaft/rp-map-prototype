@@ -3,15 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tech } from './entities/tech.entity';
 import { User } from "../users/entities/user.entity";
-import { UserClasses } from '../users/types/users.types';
 import { UserTechProgressService } from './user-tech-progress.service';
-
-/** Tech branches that are gated behind selecting a matching player class. */
-const CLASS_BRANCHES = new Set<string>([
-  UserClasses.GUILD,
-  UserClasses.HOLY,
-  UserClasses.NOBLE,
-]);
+import { ClassesService } from '../classes/classes.service';
 
 @Injectable()
 export class TechsService {
@@ -21,6 +14,7 @@ export class TechsService {
     @InjectRepository(User)
     private readonly usersRepository: Repository<User>,
     private readonly userTechProgressService: UserTechProgressService,
+    private readonly classesService: ClassesService,
   ) {}
 
   async getAll(): Promise<Tech[]> {
@@ -29,13 +23,16 @@ export class TechsService {
 
   /** Returns techs visible to a user based on their current class, each annotated with the
    *  caller's saved research progress (0 if never started).
-   *  - common branch: always visible
+   *  - hidden classes (is_visible = false): their branch's techs are never returned, to anyone
+   *  - common branch (not a class key at all, e.g. economy/military): always visible
    *  - class root techs: visible only if user has no class yet
    *  - class-specific branch: visible only if it matches user's class
    */
   async getAvailableForUser(userData): Promise<Array<Record<string, unknown>>> {
-    const all = await this.techRepo.find();
-    const [user, progressRows] = await Promise.all([
+    const [all, classKeys, hiddenKeys, user, progressRows] = await Promise.all([
+      this.techRepo.find(),
+      this.classesService.getClassKeys(),
+      this.classesService.getHiddenKeys(),
       this.usersRepository.findOne({ where: { id: userData.id } }),
       this.userTechProgressService.getForUser(userData.id),
     ]);
@@ -43,11 +40,13 @@ export class TechsService {
     const progressByKey = new Map(progressRows.map((row) => [row.tech_key, row.progress]));
     const withProgress = (tech: Tech) => ({ ...tech, progress: progressByKey.get(tech.key) ?? 0 });
 
-    if (user.class === null) return all.map(withProgress);
+    const visible = all.filter((tech) => !hiddenKeys.has(tech.branch));
 
-    return all
+    if (user.class === null) return visible.map(withProgress);
+
+    return visible
       .filter((tech) => {
-        if (tech.branch === 'economy' || tech.branch === 'military') return true;
+        if (!classKeys.has(tech.branch)) return true;
         if (tech.isClassRoot) return (user.completed_research ?? []).includes(tech.key);
         return tech.branch === user.class;
       })
@@ -69,6 +68,11 @@ export class TechsService {
    * happen turn-by-turn in `IncomeActionService`.
    */
   async selectActiveResearch(userId: string, techKey: string): Promise<string> {
+    const [classKeys, hiddenKeys] = await Promise.all([
+      this.classesService.getClassKeys(),
+      this.classesService.getHiddenKeys(),
+    ]);
+
     return this.usersRepository.manager.transaction(async (manager) => {
       const user = await manager.findOne(User, {
         where: { id: userId },
@@ -85,6 +89,12 @@ export class TechsService {
         throw new BadRequestException(`Tech already researched: ${techKey}`);
       }
 
+      // Defends the direct API path — hidden-class techs aren't sent to the client at all,
+      // but a caller could still try to POST the key directly.
+      if (hiddenKeys.has(tech.branch)) {
+        throw new BadRequestException(`This tech's class is not currently available: ${tech.branch}`);
+      }
+
       const missingPrereq = (tech.prerequisites ?? []).find((prereq) => !completed.includes(prereq));
       if (missingPrereq) {
         throw new BadRequestException(`Missing prerequisite tech: ${missingPrereq}`);
@@ -94,7 +104,7 @@ export class TechsService {
         if (user.class !== null && user.class !== undefined) {
           throw new BadRequestException('Class already selected, cannot research another class root tech');
         }
-      } else if (CLASS_BRANCHES.has(tech.branch)) {
+      } else if (classKeys.has(tech.branch)) {
         if (!user.class || user.class !== tech.branch) {
           throw new BadRequestException(`This tech requires class: ${tech.branch}`);
         }

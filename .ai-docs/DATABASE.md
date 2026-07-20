@@ -34,6 +34,8 @@ User (1) ──── (*) Province ──── (*:1) Resource
 User (1) ──── (*) ActionQueue
 
 Tech (standalone, referenced by key strings in user.completed_research)
+PlayerClass (standalone table `classes`; referenced by key string in User.class and Tech.branch —
+             no FK either direction, see User.class and PlayerClass below)
 ActionsLog (standalone, JSON blob)
 ExecutionLock (standalone, distributed locking)
 ```
@@ -55,8 +57,11 @@ ExecutionLock (standalone, distributed locking)
 | research_points    | int           | Research **speed** (points/turn), not a stockpile — recomputed and overwritten every income tick from CAPITAL/LIBRARY buildings + tech effects |
 | completed_research | simple-array  | Array of tech key strings |
 | active_research_key| varchar       | Nullable. Tech key currently accruing progress each turn (single active slot); null = idle. Saved progress lives in `UserTechProgress`, not here |
-| class              | varchar       | Lowercase string: `noble`, `holy`, `guild`, or null (not a DB enum) |
+| class              | varchar       | Nullable class **key** (e.g. `noble`/`holy`/`guild`, or any admin-created class) — a free string, not a DB enum, not an FK to `PlayerClass`. Stays in lockstep with `Tech.branch` by pure string-equality convention, not a constraint — see [PlayerClass](#playerclass) and [GAME-MECHANICS.md](GAME-MECHANICS.md#class-system) |
 | role               | varchar       | `ADMIN`, `MODERATOR`, `PLAYER` (first user = ADMIN; not a DB enum) |
+| is_npc             | boolean       | Default false. NPC countries (created via the mod layer's `POST /mod/npc`) can't log in and are the only accounts an ADMIN/MODERATOR may "act as" — see [API.md](API.md#auth--mod-impersonation) |
+| negative_money_turns | int         | Default 0. Consecutive turns money has ended negative; resets to 0 the moment money is ≥ 0. Triggers bankruptcy above `BANKRUPTCY_TRIGGER_TURNS` |
+| bankruptcy_debuff_turns | int      | Default 0. Turns remaining on the post-bankruptcy penalty (-50% combat power, no goods/resource production); 0 = not debuffed |
 
 ### Province
 | Column         | Type          | Notes |
@@ -243,11 +248,30 @@ Seed data (`api/data/buildings.json`):
 | key           | varchar       | Unique (e.g., economy.agriculture) |
 | name          | varchar       | Display name |
 | description   | text          | |
-| branch        | varchar       | economy, military, noble, holy, guild |
+| branch        | varchar       | economy, military, or a `PlayerClass.key` (noble, holy, guild, or any admin-created class) |
 | isClassRoot   | boolean       | DB column `is_class_root`, default false. True if researching selects a class |
 | cost          | int           | Research points required to complete (compared against accrued `UserTechProgress.progress`) |
 | prerequisites | simple-array  | Array of tech keys required first |
 | effects       | json          | Nullable `TechEffect[]` — see [GAME-MECHANICS.md](GAME-MECHANICS.md#tech-tree) for the schema and interpreter |
+
+> `branch` is a free-form string, not an FK — a class-gated branch is any value that matches a
+> `PlayerClass.key` (see below); `TechsService` treats every other branch (economy, military) as
+> common/always-visible.
+
+### PlayerClass
+Table name `classes`. Player classes (noble/holy/guild, plus any admin-created ones) — moved off
+a hard-coded enum so admins can add classes and control their visibility without a deploy.
+
+| Column     | Type      | Notes |
+|------------|-----------|-------|
+| id         | uuid (PK) | |
+| key        | varchar   | Unique. The back-compat string stored on `User.class` and matched against `Tech.branch` — must be kept equal to the branch it's meant to gate, since that coupling is pure string equality (`TechsService`), not an FK |
+| name       | varchar   | Display name, editable in admin panel |
+| is_visible | boolean   | Default true. When false, every tech whose `branch` equals this class's `key` is dropped from `GET /techs` for **every** user (even one already assigned to that class) — see [GAME-MECHANICS.md](GAME-MECHANICS.md#class-system) |
+
+> No relation to `User` or `Tech` — both reference it only by the `key` string, by convention.
+> Editable via the admin panel's Classes tab (create/rename/toggle `is_visible`/delete); seeded
+> rows (noble/holy/guild) come from `api/data/classes.json` via `npm run seed:classes`.
 
 ### UserTechProgress
 | Column     | Type          | Notes |

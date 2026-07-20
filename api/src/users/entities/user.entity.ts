@@ -7,7 +7,7 @@ import {
 } from 'typeorm';
 import { Expose, Exclude } from 'class-transformer';
 import { Province } from '../../provinces/entities/province.entity';
-import { UserClasses, UserRoles } from "../types/users.types";
+import { UserRoles } from "../types/users.types";
 
 @Entity({ name: 'users' })
 export class User extends BaseEntity {
@@ -55,8 +55,10 @@ export class User extends BaseEntity {
   @Expose({ name: 'activeResearch' })
   public active_research_key: string | null;
 
+  /** Class key (e.g. 'noble'/'holy'/'guild', or any admin-created class) — a free string,
+   *  not an FK, so it stays in lockstep with Tech.branch by convention (see ClassesService). */
   @Column({ type: 'varchar', nullable: true })
-  public class: UserClasses | null;
+  public class: string | null;
 
   @Column({ type: 'varchar', nullable: true })
   public role: UserRoles | null;

@@ -175,6 +175,29 @@ export class AdminController {
     return this.adminService.deleteGood(id);
   }
 
+  // --- Classes ---
+
+  @Get('classes')
+  getClasses() {
+    return this.adminService.findAllClasses();
+  }
+
+  @Post('classes')
+  createClass(@Body() body: Record<string, any>) {
+    return this.adminService.createClass(body);
+  }
+
+  @Patch('classes/:id')
+  updateClass(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateClass(id, body);
+  }
+
+  @Delete('classes/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteClass(@Param('id') id: string) {
+    return this.adminService.deleteClass(id);
+  }
+
   // --- Diplomatic Relations ---
 
   @Get('diplomacy-relations')

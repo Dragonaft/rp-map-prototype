@@ -231,7 +231,6 @@ export class ProvincesService {
       foundUser.is_new = false;
       foundUser.troops = 3000;
       foundUser.money = 5000;
-      foundUser.research_points = 10;
 
       await manager.save(User, foundUser);
       await manager.save(Province, province);

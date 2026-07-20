@@ -1,5 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { store } from '../store/store.ts';
+import { setActingAsUserId, setModSwitch } from '../store/slices/modSlice.ts';
 
 // Set by useSnackbarInterceptor hook; called for every non-401 API error
 let _onApiError: ((msg: string) => void) | null = null;
@@ -77,6 +78,11 @@ apiClient.interceptors.response.use(
         } catch (logoutError) {
           // Ignore logout errors
         }
+        // Same reasoning as TopBar's handleLogout: mod.actingAsUserId/switchOn persist in
+        // localStorage independently of the auth session, so a different account logging in
+        // on this browser must not inherit a stale "acting as an NPC" header.
+        store.dispatch(setActingAsUserId(null));
+        store.dispatch(setModSwitch(false));
         window.location.href = '/login';
         return Promise.reject(refreshError);
       } finally {

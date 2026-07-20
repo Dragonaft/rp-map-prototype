@@ -23,6 +23,7 @@ import { NewsArticle } from '../news/entities/news-article.entity';
 import { Province } from '../provinces/entities/province.entity';
 import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { UsersService } from '../users/users.service';
+import { PlayerClass } from '../classes/entities/player-class.entity';
 
 @Injectable()
 export class AdminService {
@@ -39,6 +40,7 @@ export class AdminService {
     @InjectRepository(War) private readonly warRepo: Repository<War>,
     @InjectRepository(NewsAgency) private readonly newsAgencyRepo: Repository<NewsAgency>,
     @InjectRepository(NewsArticle) private readonly newsArticleRepo: Repository<NewsArticle>,
+    @InjectRepository(PlayerClass) private readonly classRepo: Repository<PlayerClass>,
     private readonly userGoodsService: UserGoodsService,
     private readonly userResourcesService: UserResourcesService,
     private readonly notificationsService: NotificationsService,
@@ -297,6 +299,30 @@ export class AdminService {
     const good = await this.goodRepo.findOne({ where: { id } });
     if (!good) throw new NotFoundException(`Good ${id} not found`);
     await this.goodRepo.remove(good);
+  }
+
+  // --- Classes ---
+
+  findAllClasses() {
+    return this.classRepo.find();
+  }
+
+  async createClass(dto: Record<string, any>) {
+    const playerClass = this.classRepo.create(dto);
+    return this.classRepo.save(playerClass);
+  }
+
+  async updateClass(id: string, dto: Record<string, any>) {
+    const playerClass = await this.classRepo.findOne({ where: { id } });
+    if (!playerClass) throw new NotFoundException(`Class ${id} not found`);
+    Object.assign(playerClass, dto);
+    return this.classRepo.save(playerClass);
+  }
+
+  async deleteClass(id: string) {
+    const playerClass = await this.classRepo.findOne({ where: { id } });
+    if (!playerClass) throw new NotFoundException(`Class ${id} not found`);
+    await this.classRepo.remove(playerClass);
   }
 
   // --- Diplomatic Relations ---

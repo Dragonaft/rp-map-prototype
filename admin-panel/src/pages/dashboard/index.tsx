@@ -10,6 +10,7 @@ import { ResourcesTab } from './ResourcesTab';
 import { GoodsTab } from './GoodsTab';
 import { NotificationsTab } from './NotificationsTab';
 import { NewsWallTab } from './NewsWallTab';
+import { ClassesTab } from './ClassesTab';
 
 export const DashboardPage = () => {
   const [tab, setTab] = useState(0);
@@ -42,6 +43,7 @@ export const DashboardPage = () => {
           <Tab label="Goods" />
           <Tab label="Notifications" />
           <Tab label="News Wall" />
+          <Tab label="Classes" />
         </Tabs>
       </Box>
 
@@ -55,6 +57,7 @@ export const DashboardPage = () => {
         {tab === 6 && <GoodsTab />}
         {tab === 7 && <NotificationsTab />}
         {tab === 8 && <NewsWallTab />}
+        {tab === 9 && <ClassesTab />}
       </Box>
     </Box>
   );

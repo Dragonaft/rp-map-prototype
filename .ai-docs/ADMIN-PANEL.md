@@ -10,17 +10,21 @@
 ## Access
 
 - Port **8081** (Docker) or Vite dev server locally
-- **Admin-only**: login checks `role === 'ADMIN'`, blocks non-admin users
+- **ADMIN or MODERATOR only**: `AuthContext.canAccessPanel = isAdmin || isModerator`, blocks
+  PLAYER accounts. A few actions inside the panel (deleting/reassigning an ADMIN or MODERATOR
+  account, editing `is_npc`/`role` on an existing user) are further restricted to ADMIN — see
+  Users Tab
 - Same JWT cookie auth as web-map (shares cookies with API)
 
 ## Features
 
-Eight tabs in the dashboard — seven manage one entity each via MUI DataGrid with inline row editing;
-Notifications is a compose-and-send utility instead (broadcast rows fan out per-user, so there's no
-single browsable list to grid-edit):
+Ten tabs in the dashboard — eight manage one entity each via MUI DataGrid with inline row
+editing; Notifications is a compose-and-send utility instead (broadcast rows fan out per-user,
+so there's no single browsable list to grid-edit), and News Wall is read/delete-only (agencies
+and articles are player-authored in-game, not admin-created):
 
 ### Users Tab
-- Fields: login, password, country_name, color, money, troops, piety, research_points (per-turn rate, not a stockpile), is_new, completed_research, active_research_key, class (guild/holy/noble), role (ADMIN/MODERATOR/PLAYER)
+- Fields: login, password, country_name, color, money, troops, piety, research_points (per-turn rate, not a stockpile), is_new, is_npc (NPC country, can't log in — settable here on create, or via the separate Mod layer's "Create NPC" tool; only an ADMIN, not a MODERATOR, may flip it on an *existing* user), completed_research, active_research_key, class (dropdown sourced from the **Classes tab** below — any `PlayerClass.key`, not a hard-coded list), role (ADMIN/MODERATOR/PLAYER)
 - Create via modal dialog (login + password required)
 - Inline edit, delete with confirmation
 
@@ -66,19 +70,35 @@ single browsable list to grid-edit):
   /admin/notifications/broadcast`); reports how many players it was sent to. Shows up for players in the
   Notifications Center's News tab (see [WEB-MAP.md](WEB-MAP.md))
 
+### News Wall Tab
+- Two read-only DataGrids: News Agencies and News Articles (player-authored in-game content —
+  this tab exists for moderation, not authoring). Delete-only; deleting an agency cascades to
+  its articles.
+
+### Classes Tab
+- Fields: key (unique, must equal the `Tech.branch` string it's meant to gate — no enforced
+  constraint, just convention), name, is_visible (boolean, default true)
+- Create via modal (key + name required)
+- `is_visible = false` hides every tech in that class's branch from `GET /techs` for **all**
+  players (including ones already assigned to that class) — see
+  [GAME-MECHANICS.md](GAME-MECHANICS.md#class-system). Deleting a class here does not retroactively
+  clear it off any `User.class` or `Tech.branch` — those are plain strings, not FKs
+- Backs the **Users tab**'s `class` dropdown (sourced live from this list instead of a hard-coded
+  `guild`/`holy`/`noble` array)
+
 ## API Communication
 
 - Base URL: `VITE_API_BASE_URL` (default `http://localhost:3000`, Docker: `/api`)
 - `withCredentials: true`
 - 401 interceptor with token refresh queue (identical pattern to web-map)
-- Endpoints: `/admin/users`, `/admin/buildings`, `/admin/armies`, `/admin/techs`, `/admin/troop-types`, `/admin/resources`, `/admin/goods` (GET, POST, PATCH, DELETE), `/admin/notifications/broadcast` (POST only)
+- Endpoints: `/admin/users`, `/admin/buildings`, `/admin/armies`, `/admin/techs`, `/admin/troop-types`, `/admin/resources`, `/admin/goods`, `/admin/classes` (GET, POST, PATCH, DELETE), `/admin/notifications/broadcast` (POST only), `/admin/news-agencies`, `/admin/news-articles` (GET, DELETE only)
 
 ## Auth Flow
 
 1. Login page → POST `/auth/login`
-2. Verify `role === 'ADMIN'`
+2. Verify `role === 'ADMIN'` or `role === 'MODERATOR'`
 3. GET `/auth/me` to hydrate user context
-4. ProtectedRoute checks `isAuthenticated && isAdmin`
+4. ProtectedRoute checks `isAuthenticated && canAccessPanel`
 5. Redirect to `/login` if unauthorized
 
 ## File Structure
@@ -91,7 +111,8 @@ admin-panel/src/
 ├── pages/
 │   ├── login/        LoginPage.tsx
 │   └── dashboard/    index.tsx, UsersTab.tsx, BuildingsTab.tsx, ArmiesTab.tsx, TechsTab.tsx,
-│                     TroopTypesTab.tsx, ResourcesTab.tsx, GoodsTab.tsx
+│                     TroopTypesTab.tsx, ResourcesTab.tsx, GoodsTab.tsx, NotificationsTab.tsx,
+│                     NewsWallTab.tsx, ClassesTab.tsx
 ├── App.tsx           Router setup
 └── main.tsx          Entry point
 ```

@@ -1,0 +1,17 @@
+[
+  {
+    "key": "noble",
+    "name": "Noble",
+    "is_visible": true
+  },
+  {
+    "key": "holy",
+    "name": "Holy",
+    "is_visible": true
+  },
+  {
+    "key": "guild",
+    "name": "Guild",
+    "is_visible": true
+  }
+]

@@ -18,10 +18,11 @@ import { NewsAgency } from '../news/entities/news-agency.entity';
 import { NewsArticle } from '../news/entities/news-article.entity';
 import { TechsModule } from '../techs/techs.module';
 import { UsersModule } from '../users/users.module';
+import { PlayerClass } from '../classes/entities/player-class.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Building, Army, Tech, TroopType, Resource, Good, DiplomaticRelation, War, NewsAgency, NewsArticle]),
+    TypeOrmModule.forFeature([User, Building, Army, Tech, TroopType, Resource, Good, DiplomaticRelation, War, NewsAgency, NewsArticle, PlayerClass]),
     GoodsModule,
     ResourcesModule,
     NotificationsModule,

@@ -91,6 +91,7 @@ During execution, the API returns **503** on most endpoints (ActionExecutionBloc
 | Research progress accrual| `api/src/techs/user-tech-progress.service.ts`     |
 | Diplomacy/wars/treaties  | `api/src/diplomacy/diplomacy.service.ts`, `treaty.service.ts` |
 | Occupation control logic | `api/src/diplomacy/occupation.service.ts`         |
+| Player classes (DB-driven, gates tech branches) | `api/src/classes/classes.service.ts` |
 | Map rendering            | `web-map/src/components/MapView.tsx`              |
 | Province rendering       | `web-map/src/components/ProvinceShape.tsx`        |
 | Redux store              | `web-map/src/store/store.ts`                      |

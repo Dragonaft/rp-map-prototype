@@ -102,6 +102,12 @@ export const TopBar = () => {
   const handleLogout = async () => {
     try {
       await mutate();
+      // mod.actingAsUserId/switchOn persist in localStorage across reloads (see modSlice.ts)
+      // so they survive this reload's remount otherwise — clear them here, not just on the
+      // in-memory Redux state, so a different account logging in on this browser never
+      // inherits a stale "acting as an NPC" header (X-Act-As-User, api/config.ts).
+      dispatch(setActingAsUserId(null));
+      dispatch(setModSwitch(false));
       window.location.reload();
     } catch (error) {
       console.error('Logout failed:', error);

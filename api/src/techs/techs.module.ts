@@ -7,9 +7,10 @@ import { TechsController } from './techs.controller';
 import { TechEffectsService } from './tech-effects.service';
 import { UserTechProgressService } from './user-tech-progress.service';
 import { User } from "../users/entities/user.entity";
+import { ClassesModule } from '../classes/classes.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Tech, User, UserTechProgress])],
+  imports: [TypeOrmModule.forFeature([Tech, User, UserTechProgress]), ClassesModule],
   controllers: [TechsController],
   providers: [TechsService, TechEffectsService, UserTechProgressService],
   exports: [TechsService, TechEffectsService, UserTechProgressService],

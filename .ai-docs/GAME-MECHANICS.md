@@ -310,10 +310,26 @@ province, else nearest owned province, else stays put if the owner holds no prov
 ### Branches
 - **Economy** — income bonuses, upkeep reduction, building cap increases
 - **Military** — combat bonuses, logistics (road range), troop unlocks
-- **Class-specific** (noble/holy/guild) — exclusive units, abilities, buildings
+- **Class-specific** (any branch whose string equals a `PlayerClass.key` — noble/holy/guild by
+  default, plus any admin-created class) — exclusive units, abilities, buildings
 
 ### Class System
-- Players start classless; researching a "class root" tech selects specialization
+Classes (`noble`/`holy`/`guild` by default) live in the DB (`classes` table, `PlayerClass`
+entity, `api/src/classes/`) rather than a hard-coded enum, so an admin can add new ones or hide
+existing ones from the Classes tab without a deploy. A class's `key` must equal the `Tech.branch`
+string it gates — that coupling (here, `CLASS_RESTRICTED_TROOPS` in `armies.service.ts`/
+`action-executor.service.ts`, and the HOLY piety projection in `users.service.ts`) is pure string
+equality, not a foreign key. See [DATABASE.md](DATABASE.md#playerclass).
+
+- Players start classless; researching a **class root** tech selects specialization (unchanged).
+  An admin can *also* set `User.class` directly in the Users tab — both paths are equally valid
+  and either one locks in the class the same way.
+- **Visibility (`PlayerClass.is_visible`, default true)** — a hidden class's branch techs are
+  dropped from `GET /techs` for **every** user, including one already assigned to it
+  (`TechsService.getAvailableForUser`); `POST /techs/select` also rejects selecting one directly.
+  Because the research modal's tabs are just the distinct branches present in whatever `GET
+  /techs` returns ([WEB-MAP.md](WEB-MAP.md#research-modal--branch-tabs)), hiding a class makes
+  its tab and tree disappear on the frontend with no frontend change needed.
 - **NOBLE** — Knights (cavalry), political buildings
 - **HOLY** — Paladins (piety-based), temples/cathedrals
 - **GUILD** — Mercenaries (no draft consumption), spy network, trade
@@ -370,8 +386,10 @@ saved `progress` (`0` if never started) for the tech-tree UI to render partial-p
 - Each tech has a `prerequisites` array of tech keys
 - Must research all prerequisites before unlocking
 - Class-root techs only visible if not yet classed or already that class
-- Non-root techs in a class branch (`noble`/`holy`/`guild`) require the player to
-  already hold that class
+- Non-root techs in a class branch (any branch matching a `PlayerClass.key`) require the player
+  to already hold that class
+- Techs in a **hidden** class branch (`PlayerClass.is_visible = false`) are never visible or
+  selectable, by anyone — see [Class System](#class-system)
 
 ## Province Setup (New Player)
 1. Player selects unclaimed province

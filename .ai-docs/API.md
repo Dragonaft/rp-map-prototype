@@ -31,6 +31,8 @@ AppModule
 ├── GoodsModule         Good definitions + per-user UserGood inventory ledger — economy rework, step 3
 ├── DiplomacyModule     Diplomatic states, wars, treaties, province occupation
 ├── NotificationsModule Per-user durable notifications (action failures, admin broadcasts)
+├── ClassesModule       Player class definitions (`classes` table) + visibility gating for TechsModule
+├── ModModule           ADMIN/MODERATOR "god-mode" tools (spawn NPCs/armies/buildings, edit stocks) + act-as impersonation
 └── AdminModule         Admin CRUD for all entities
 ```
 
@@ -84,8 +86,8 @@ AppModule
 ### Techs (`/techs`)
 | Method | Path     | Auth | Description |
 |--------|----------|------|-------------|
-| GET    | /        | JWT  | Available techs (filtered by user class + completed research), each annotated with the caller's saved `progress` (0 if never started) toward `cost` |
-| POST   | /select  | JWT  | `{tech_key}` — sets `active_research_key` **immediately** (not queued/turn-delayed like other actions — see [GAME-MECHANICS.md](GAME-MECHANICS.md#tech-tree)); re-validates prerequisites/class same as the old RESEARCH action |
+| GET    | /        | JWT  | Available techs (filtered by user class + completed research + `PlayerClass.is_visible`), each annotated with the caller's saved `progress` (0 if never started) toward `cost` |
+| POST   | /select  | JWT  | `{tech_key}` — sets `active_research_key` **immediately** (not queued/turn-delayed like other actions — see [GAME-MECHANICS.md](GAME-MECHANICS.md#tech-tree)); re-validates prerequisites/class/visibility same as the old RESEARCH action |
 
 ### Diplomacy (`/diplomacy`)
 Real-time REST, **not** queued actions — treaty offers must persist across turns awaiting a reply, and the
@@ -175,6 +177,10 @@ Notifications Center's "System Logs" tab, `admin` → "News" tab.
 | POST   | /goods         | Admin | Create good |
 | PATCH  | /goods/:id     | Admin | Update good |
 | DELETE | /goods/:id     | Admin | Delete good |
+| GET    | /classes       | Admin | List player classes (full list, including hidden) |
+| POST   | /classes       | Admin | Create class (`{key, name, is_visible?}`) |
+| PATCH  | /classes/:id   | Admin | Update class (rename, toggle `is_visible`) |
+| DELETE | /classes/:id   | Admin | Delete class (does not touch existing `User.class`/`Tech.branch` string values) |
 | GET    | /diplomacy-relations     | Admin | List diplomatic relations |
 | POST   | /diplomacy-relations     | Admin | Create diplomatic relation |
 | PATCH  | /diplomacy-relations/:id | Admin | Update diplomatic relation |
@@ -186,6 +192,39 @@ Notifications Center's "System Logs" tab, `admin` → "News" tab.
 | POST   | /notifications/broadcast | Admin | `{title, message, severity?}` — fans one `Notification` row out to every registered user (admin-panel's Notifications tab) |
 
 > No admin-panel UI tab exists for diplomacy-relations/wars yet — only the REST endpoints (for direct inspection/editing).
+
+### Mod (`/mod`)
+ADMIN/MODERATOR-only "god-mode" tools for running NPC countries and seeding test state, gated
+by the controller-level `@Roles(ADMIN, MODERATOR)` guard (`mod.controller.ts`). Distinct from
+`/admin/*`: these act on **game entities** (armies, buildings, stocks) using the same executor
+paths a player would, not raw CRUD.
+
+| Method | Path                   | Auth        | Description |
+|--------|------------------------|-------------|-------------|
+| POST   | /npc                   | ADMIN/MOD   | `{login, country_name, color, money?, troops?, piety?}` — creates a `User` with `is_npc = true` (can't log in) |
+| GET    | /npcs                  | ADMIN/MOD   | List NPC users |
+| PATCH  | /province/:id/owner    | ADMIN/MOD   | `{userId}` — force-sets a province's legal owner directly |
+| POST   | /army                  | ADMIN/MOD   | `{userId, provinceId, name?, units}` — spawns an army instantly (no queue/turn wait) |
+| POST   | /building               | ADMIN/MOD   | `{provinceId, buildingId}` — places a building instantly |
+| DELETE | /building/:id          | ADMIN/MOD   | Removes a built `ProvinceBuilding` instance instantly |
+| PATCH  | /user/:id/stocks       | ADMIN/MOD   | `{money?, troops?, piety?, goods?, resources?}` — directly sets a user's stockpiles |
+
+### Auth — Mod Impersonation
+`ActAsInterceptor` (`api/src/auth/interceptors/act-as.interceptor.ts`), registered globally as
+an `APP_INTERCEPTOR` in `AuthModule`, lets an ADMIN/MODERATOR "play" an NPC through the normal
+player API surface: if the request carries an `X-Act-As-User: <npcId>` header, and the real
+caller is ADMIN/MODERATOR, and the target user has `is_npc = true`, `req.user` is swapped to
+the NPC (id + role) for the rest of that request — every existing `req.user.id` call site
+(actions, armies, techs, etc.) then runs exactly as if the NPC itself had submitted it. The real
+actor is preserved on `req.realUser`. Live-player impersonation is never allowed (only
+`is_npc = true` targets); guards run before interceptors, so anything RBAC-gated (e.g.
+`/admin/*`) still evaluates against the real actor's role first — the swap only ever narrows
+permissions, never escalates them. The web client sets this header from `mod.actingAsUserId`
+(Redux `modSlice`, persisted in `localStorage`) on every request except `/auth/*` — see
+[WEB-MAP.md](WEB-MAP.md#mod--npc-impersonation-state). **Gotcha:** that header is derived from
+`localStorage`, not the auth session, so logging out must explicitly clear it (`setActingAsUserId(null)`)
+or the next account to log in on the same browser inherits a stale act-as target and gets a 403
+from this interceptor on every request.
 
 ## Action Types (Enum)
 
@@ -276,6 +315,19 @@ must be integers in `[1, 1_000_000]`.
 - `createRowsForNewResource`/`createRowsForNewUser` — same fan-out pattern as `UserGoodsService`.
 - All mutating methods take an explicit `EntityManager` so they participate in the same transaction as the BUILD/REMOVE/UPGRADE action handler or turn-phase service calling them.
 - Called from `action-executor.service.ts` (Build/Remove/UpgradeActionHandler, plus the new `requirement_good` checks via `UserGoodsService`) and `OccupationService.transferProvinceResourceFootprint` (invoked by both `applyControlResult` and `coreProvince` on every legal-ownership change — transfers `requirement_resource`/`requirement_good` reservations only; per-turn production isn't transferred, it's derived fresh from whoever owns the building next turn).
+
+### ClassesService
+- `findAll()`/`findAllVisible()` — full vs. `is_visible = true` only (admin CRUD vs. potential
+  player-facing use; no player-facing controller exists today since `GET /techs` is what
+  actually gates player visibility, not a `/classes` endpoint).
+- `getClassKeys()` — every `PlayerClass.key` as a `Set<string>`; replaces the old hard-coded
+  `CLASS_BRANCHES` set in `TechsService` — a branch is "class-gated" iff its string is in this set.
+- `getHiddenKeys()` — keys where `is_visible = false`; consumed by `TechsService` to drop those
+  branches' techs from `GET /techs` and to reject them in `POST /techs/select`.
+- Injected into `TechsModule` (exported by `ClassesModule`); no relation table — everything
+  downstream (`User.class`, `Tech.branch`, `CLASS_RESTRICTED_TROOPS` in `armies.service.ts`/
+  `action-executor.service.ts`) matches by the `key` string, not a foreign key. See
+  [DATABASE.md](DATABASE.md#playerclass).
 
 ### DiplomacyService
 - Relation/war/passage/trade-connectivity logic. Key methods: `getState`/`isHostile` (hostile = `neutral|war`), `hasPassage(mover, owner)` (alliance OR a granted `troops_pass`), `startWar`/`ensureWarBetween`/`callAllies` (call-to-arms: an attacked player's allies join their side against the aggressor; an ally that was *also* allied to the aggressor breaks that alliance first), `leaveWar`/`endWar`, `evacuateForeignArmies` (teleports non-hostile foreign armies to their owner's nearest fort/capital-tier province, else nearest owned province, else leaves them in place — used when a troops-pass/alliance is cancelled), `tradeConnected` (BFS over the player-border graph; intermediates must have granted passage to one of the two traders), `tickPeaceDecay`.

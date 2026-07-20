@@ -6,7 +6,6 @@ import { UserGameState } from './user-state-loader.service';
 import { TechEffectsService } from '../techs/tech-effects.service';
 import { TechsService } from '../techs/techs.service';
 import { UserTechProgressService } from '../techs/user-tech-progress.service';
-import { UserClasses } from '../users/types/users.types';
 import { parseIncome } from "../utils/parseIncome";
 
 /** Runs once per scheduled queue tick before upkeep; credits building income for all users. */
@@ -122,7 +121,7 @@ export class IncomeActionService {
             await this.userTechProgressService.clearProgress(manager, user.id, user.active_research_key);
             user.active_research_key = null;
             if (activeTech.isClassRoot) {
-              user.class = activeTech.branch as UserClasses;
+              user.class = activeTech.branch;
             }
           }
         }

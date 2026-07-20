@@ -43,6 +43,7 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 | `goods`      | mine[] (`UserGoodHolding[]`, `/goods/mine`)                       |
 | `diplomacy`  | relations[] (`DiplomaticRelation[]`, `/diplomacy/relations`), wars[] (`/diplomacy/wars`), treaties[] (`/diplomacy/treaties`) |
 | `notifications` | mine[] (`AppNotification[]`, `/notifications`) — split client-side by `type` into the Notifications Center's News (`admin`) and System Logs (`action_failed`/`system`) tabs |
+| `mod`        | switchOn, actingAsUserId, npcs[] — ADMIN/MODERATOR-only "act as NPC" state; `switchOn`/`actingAsUserId` are backed by `localStorage`, not just in-memory, so they survive a reload. See [Mod / NPC Impersonation State](#mod--npc-impersonation-state) |
 
 > Player resource/good holdings are no longer embedded in the `user` slice — they're fetched separately as ledger rows (`resource`/`good` + `quantity`) and displayed in `TopBar.tsx`, mirroring each other.
 
@@ -122,11 +123,44 @@ GamePage
     ├── DiplomacyModal         Player list + relation state + propose/declare-war/send-money hub
     ├── TreatyNegotiationModal Vic3-style article builder (alliance/trade/troops_pass/article)
     ├── PeaceNegotiationModal  EU4-style peace proposal (province checklist + tribute, contiguity-checked)
-    └── PlayerTreatiesModal    Read-only view of another player's public accepted treaties
+    ├── PlayerTreatiesModal    Read-only view of another player's public accepted treaties
+    ├── CreateNpcModal         ADMIN/MODERATOR-only: creates an NPC country (`POST /mod/npc`)
+    └── ModStocksModal         ADMIN/MODERATOR-only: directly edits an NPC's money/troops/piety/goods/resources
 ```
 
 (`ProtectedRoute` wraps the game page for auth; `TechTree.tsx` is the tech-tree
 graph rendered inside `TechsModal`.)
+
+## Research Modal — Branch Tabs
+
+`TechsModal.tsx` builds its tabs purely from the distinct `branch` values present in whatever
+`GET /techs` returned — `[...new Set(techs.map(t => t.branch))]` — then renders `TechTree` with
+just that branch's techs. **There is no client-side class-visibility logic**: `user.class` is
+never read here. This means the backend's tech-visibility rules (see
+[GAME-MECHANICS.md](GAME-MECHANICS.md#class-system) — classless users see every visible class,
+a classed user sees only their own, a hidden `PlayerClass` is dropped for everyone) are the only
+gate. A class's tab and tree appear or disappear automatically based on whether `GET /techs`
+included any tech with that branch — no frontend change is needed when classes are added, hidden,
+or reassigned server-side.
+
+## Mod / NPC Impersonation State
+
+`modSlice.ts` (Redux) backs the TopBar's country-switcher for ADMIN/MODERATOR accounts "acting
+as" an NPC. Two of its three fields are mirrored into `localStorage` (`mod.switchOn`,
+`mod.actingAsUserId`) so the choice survives the page reloads this app does constantly (every
+turn tick via SSE, and after most mutations) — see `modSlice.ts`'s own comment on why. The axios
+request interceptor (`api/config.ts`) reads `store.getState().mod.actingAsUserId` on every
+request and attaches it as the `X-Act-As-User` header (except to `/auth/*`), which
+`ActAsInterceptor` on the backend uses to swap `req.user` to that NPC — see
+[API.md](API.md#auth--mod-impersonation).
+
+**Gotcha:** because `actingAsUserId` lives in `localStorage`, not the auth session, it outlives
+a logout by default. Both places a session ends must explicitly dispatch
+`setActingAsUserId(null)`/`setModSwitch(false)` before finishing: `TopBar.tsx`'s `handleLogout`,
+and `config.ts`'s response interceptor on refresh-token failure (auto-logout → redirect to
+`/login`). Skipping this means the next account to log in on the same browser — even a brand
+new PLAYER registration — inherits the stale header and gets a 403 (`ActAsInterceptor` rejects
+any non-ADMIN/MODERATOR actor) on every request.
 
 ## Data Flow
 
