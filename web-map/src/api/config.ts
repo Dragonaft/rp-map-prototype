@@ -19,10 +19,21 @@ export const apiClient = axios.create({
 // Mod layer: while a mod is "playing" an NPC country, every game request is attributed to
 // that NPC server-side (ActAsInterceptor). Never attached to /auth/* — impersonation must
 // never affect the mod's own login/refresh/session.
+//
+// Separately, while the Mod switch is on, ADMIN/MODERATOR accounts also get a no-fog-of-war
+// header so /armies/all and /provinces/state return every player's buildings/armies
+// unfiltered (see api/src/utils/mod-visibility.ts). Gating on `state.user.role` here is
+// just a client-side nicety — the server re-validates the real authenticated role itself
+// and ignores the header entirely for non-mods, so this can't be used to escalate access.
 apiClient.interceptors.request.use((config) => {
-  const actingAsUserId = store.getState().mod.actingAsUserId;
+  const state = store.getState();
+  const actingAsUserId = state.mod.actingAsUserId;
   if (actingAsUserId && !config.url?.startsWith('/auth')) {
     config.headers['X-Act-As-User'] = actingAsUserId;
+  }
+  const isMod = state.user.role === 'ADMIN' || state.user.role === 'MODERATOR';
+  if (isMod && state.mod.switchOn && !config.url?.startsWith('/auth')) {
+    config.headers['X-Mod-Full-Visibility'] = 'true';
   }
   return config;
 });

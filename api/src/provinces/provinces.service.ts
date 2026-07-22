@@ -40,7 +40,14 @@ export class ProvincesService {
     private readonly techEffects: TechEffectsService,
   ) {}
 
-  async getAll(userId: string) {
+  /**
+   * @param bypassFog Moderator god-view (see api/src/utils/mod-visibility.ts) — reveals
+   *   every non-owned province's buildings regardless of `Building.visible`. Garrison troop
+   *   counts (`local_troops`) stay hidden for non-owners either way — out of scope by
+   *   design, garrisons are a separate concept from the mobile armies this toggle targets.
+   *   Caller is responsible for having already validated the real actor's role.
+   */
+  async getAll(userId: string, bypassFog = false) {
     const [provinces, enemyArmies, reservedByFromProvince] = await Promise.all([
       this.provinceRepository.find({
         relations: ['provinceBuildings', 'provinceBuildings.building'],
@@ -73,8 +80,9 @@ export class ProvincesService {
       if (province.user_id !== userId) {
         province.enemyHere = provincesWithEnemyArmies.has(province.id) || false;
         province.local_troops = null;
-        province.provinceBuildings = (province.provinceBuildings ?? [])
-          .filter((pb) => pb.building?.visible);
+        province.provinceBuildings = bypassFog
+          ? province.provinceBuildings
+          : (province.provinceBuildings ?? []).filter((pb) => pb.building?.visible);
         return province;
       }
 
@@ -107,8 +115,16 @@ export class ProvincesService {
     }));
   }
 
-  /** Dynamic province state: ownership, troops, buildings — changes only at turn end. */
-  async getState(userId: string) {
+  /**
+   * Dynamic province state: ownership, troops, buildings — changes only at turn end.
+   * @param bypassFog Moderator god-view (see api/src/utils/mod-visibility.ts) — reveals
+   *   every non-owned province's buildings regardless of `Building.visible`. `localTroops`
+   *   (garrison count) intentionally stays keyed to `isOwner` alone either way — garrisons
+   *   are a separate concept from the mobile armies/buildings this toggle targets, and
+   *   stay hidden for non-owners by design. Caller is responsible for having already
+   *   validated the real actor's role.
+   */
+  async getState(userId: string, bypassFog = false) {
     const [provinces, user, reserved, enemyArmies] = await Promise.all([
       this.provinceRepository
         .createQueryBuilder('p')
@@ -155,9 +171,10 @@ export class ProvincesService {
         // Each entry carries its ProvinceBuilding instance id so the client can
         // uniquely key and target a specific building (multiple of the same type
         // can exist in one province). The template fields are flattened in.
-        // Non-owners only see buildings marked as visible.
+        // Non-owners only see buildings marked as visible — unless a moderator has
+        // no-fog-of-war on (bypassFog), which reveals all of them regardless.
         buildings: (p.provinceBuildings ?? [])
-          .filter((pb) => pb.building && (isOwner || pb.building.visible))
+          .filter((pb) => pb.building && (isOwner || bypassFog || pb.building.visible))
           .map((pb) => ({ ...instanceToPlain(pb.building), instanceId: pb.id })),
         buildingCap: this.techEffects.computeBuildingCap(p.landscape, p.resource?.key ?? null, completedResearch),
         occupierId: p.occupier_id ?? null,

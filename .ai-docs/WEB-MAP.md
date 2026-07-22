@@ -33,7 +33,7 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 | Slice        | Key Fields                                                        |
 |--------------|-------------------------------------------------------------------|
 | `user`       | id, login, countryName, color, money, troops, piety, class, researchPoints (per-turn rate, not a stockpile), completedResearch, activeResearch (tech key or null), isNew, provinces, projectedIncome/Troops/Research/Piety |
-| `provinces`  | provinces[], selectedProvinceId, selectedTroops, provinceCentersById, provinceBBoxById, mapWidth/Height |
+| `provinces`  | provinces[], selectedProvinceId, selectedTroops, mapMode, mapModeFilterValue, fastBuild, provinceCentersById, provinceBBoxById, mapWidth/Height |
 | `armies`     | armies[], troopTypes[]                                            |
 | `buildings`  | buildings[]                                                       |
 | `techs`      | techs[]                                                           |
@@ -109,6 +109,7 @@ GamePage
 ├── MapView             SVG map canvas (pan/zoom/wrap)
 │   └── ProvinceShape   Individual province rendering (incl. occupied-province stripes)
 ├── SelectedProvinceHover  Right panel (build, deploy, setup, colonize, occupation state, player treaties)
+├── FastBuildPanel       Left panel: pick a building once, map-click any province to queue BUILD/UPGRADE there (see Fast Build Mode)
 ├── ArmyBlock           Army detail panel (recruit, edit, disband)
 ├── CreateArmyModal     New army creation
 ├── TroopMovementModal  Army move target selection
@@ -143,6 +144,41 @@ gate. A class's tab and tree appear or disappear automatically based on whether 
 included any tech with that branch — no frontend change is needed when classes are added, hidden,
 or reassigned server-side.
 
+## Fast Build Mode
+
+Lets a player with many provinces queue the same BUILD/UPGRADE across all of them without
+selecting each province individually. Entered only via the left-side `FastBuildPanel`
+(🔨 button → Build/Upgrade → pick a building), never from the TopBar's "Map:" mode menu.
+
+- **State:** `provincesSlice`'s `fastBuild: { action: 'build' | 'upgrade'; buildingId } | null`.
+  `setFastBuild(selection)` sets it and switches `mapMode` to the programmatic-only
+  `'fastbuild'` value (in the `MapMode` union but deliberately excluded from
+  `MAP_MODE_OPTIONS`, so it never appears in the TopBar picker); `setFastBuild(null)`, or any
+  other `setMapMode(...)` call (e.g. picking a different mode in the TopBar), exits it back
+  to `'normal'`.
+- **Eligibility, shared with the build menu:** `utils/mapModes.ts`'s `evaluateBuildRequirements`
+  (money, `allowedProvinceResources`, `requirementTech`, `requirementResource`/`requirementGood`
+  cost net of everything already pending, `uniquePerProvince`, `requiresNeighborWater`) is the
+  single source of truth for BUILD eligibility, used by both `Modals/BuildMenuModal.tsx` and
+  fast-build mode — they can't drift out of sync. `canUpgradeProvinceBuilding` (exported,
+  originally private to `getProvinceBuildingSlots`) is the equivalent for UPGRADE.
+- **Per-province coloring:** `getFastBuildCell(province, targetBuilding, action, hasWaterNeighbor, options)`
+  in `mapModes.ts` returns `{ status: 'green'|'red'|'yellow', canQueue, upgradeInstanceId?,
+  cancelActionId? }` for every owned land province, computed once per render in
+  `MapView.tsx`'s `mapModeRenderData` memo and stored on `MapModeRenderData.fastBuildByProvinceId`.
+  `ProvinceShape.tsx`'s fill-color switch adds a `case 'fastbuild'`: unowned/water → black
+  (`FASTBUILD_BLACK`), else green/yellow (reuses `BUILDING_PENDING_COLOR`)/red per the cell.
+  Upgrade mode resolves the picked building as the upgrade **target** (e.g. Castle) and looks
+  for a built source instance (e.g. Fort) whose `upgradeTo` matches it.
+- **Click to queue, right-click to cancel:** `MapView.tsx`'s `toggleSelect`/`handleProvinceRightClick`
+  branch on `mapMode === 'fastbuild'` before their normal selection/army-move logic. A
+  left-click on a green/yellow province calls `handleFastBuildClick` → `POST /actions`
+  (BUILD or UPGRADE, same payload shape as the normal build menu) → `dispatch(addAction(...))`.
+  A right-click on a **yellow** province (already queuing at least one of the selected
+  building/upgrade here) calls `handleFastBuildCancel` → `DELETE /actions/pending/:id` on the
+  action `FastBuildCell.cancelActionId` resolved for that province. Green/red provinces
+  right-click as a no-op.
+
 ## Mod / NPC Impersonation State
 
 `modSlice.ts` (Redux) backs the TopBar's country-switcher for ADMIN/MODERATOR accounts "acting
@@ -153,6 +189,17 @@ request interceptor (`api/config.ts`) reads `store.getState().mod.actingAsUserId
 request and attaches it as the `X-Act-As-User` header (except to `/auth/*`), which
 `ActAsInterceptor` on the backend uses to swap `req.user` to that NPC — see
 [API.md](API.md#auth--mod-impersonation).
+
+The same interceptor also attaches `X-Mod-Full-Visibility: true` whenever `mod.switchOn` is on
+**and** `state.user.role` is ADMIN/MODERATOR — this is the client half of the no-fog-of-war
+toggle: it makes `GET /armies/all` and `GET /provinces/state` return every player's buildings
+and mobile armies unfiltered, no other frontend change needed since the existing rendering
+(enemy-army badges, building icons) already draws whatever the backend sends with no
+ownership filtering of its own. The role check here is only a client-side nicety — the server
+independently re-validates the *real* authenticated role (`req.realUser ?? req.user`, so an
+active act-as impersonation doesn't defeat it) before honoring the header; see
+[API.md](API.md#auth--mod-impersonation) and
+[GAME-MECHANICS.md](GAME-MECHANICS.md#visibility-fog-of-war).
 
 **Gotcha:** because `actingAsUserId` lives in `localStorage`, not the auth session, it outlives
 a logout by default. Both places a session ends must explicitly dispatch
@@ -258,12 +305,13 @@ source alone — this is how every gotcha above was originally diagnosed.
 web-map/src/
 ├── api/              config.ts, auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts,
 │                     resources.ts, goods.ts, diplomacy.ts, notifications.ts
-├── components/       MapView, ProvinceShape, SelectedProvinceHover, ArmyBlock, TopBar, TechTree, modals
+├── components/       MapView, ProvinceShape, SelectedProvinceHover, FastBuildPanel, ArmyBlock, TopBar, TechTree, modals
 ├── pages/            game/index.tsx, auth/login/LoginPage.tsx, auth/register/RegisterPage.tsx
 ├── store/            store.ts, hooks.ts, slices/ (user, provinces, armies, buildings, techs, actions, otherUsers,
-│                     resources, goods, diplomacy)
+│                     resources, goods, diplomacy, mod)
 ├── context/          AuthContext.tsx, SnackbarContext.tsx
 ├── hooks/            useApi.ts, useActionExecutionReload.ts
+├── utils/            mapModes.ts (map-mode coloring, build/upgrade eligibility, fast-build cell logic)
 ├── constants/        buildingIcons.ts
 ├── types.ts          TypeScript interfaces
 ├── App.tsx           Root layout

@@ -115,3 +115,4 @@ During execution, the API returns **503** on most endpoints (ActionExecutionBloc
 ## Note
 - Don't push or commit any changes to git.
 - Add comments only to complex logic.
+- Prefer arrow functions over the `function` keyword where practical (e.g. `const foo = () => {}` instead of `function foo() {}`), matching most of the existing codebase (services still use `class` methods, which are unaffected by this).

@@ -59,10 +59,10 @@ AppModule
 ### Provinces (`/provinces`)
 | Method | Path        | Auth | Description |
 |--------|-------------|------|-------------|
-| GET    | /           | JWT  | All provinces (troops hidden for non-owners unless enemy present) |
+| GET    | /           | JWT  | All provinces (troops hidden for non-owners unless enemy present; non-owned buildings filtered to `Building.visible` unless an ADMIN/MODERATOR has the mod no-fog toggle on — see [Auth — Mod No-Fog-of-War Toggle](#auth--mod-no-fog-of-war-toggle)) |
 | GET    | /:id        | JWT  | Single province |
 | GET    | /layout     | JWT  | Static geometry (polygon, type, landscape, resource, neighbors) |
-| GET    | /state      | JWT  | Dynamic state (ownership, troops, buildings, building caps) |
+| GET    | /state      | JWT  | Dynamic state (ownership, troops, buildings, building caps) — same fog-of-war/mod-bypass rules as above; the endpoint the web client actually uses |
 | PATCH  | /:id        | JWT  | Update province |
 | PATCH  | /setup/:id  | JWT  | First-province claim: sets CAPITAL, grants 3000 troops + 5000 money |
 
@@ -127,7 +127,7 @@ Notifications Center's "System Logs" tab, `admin` → "News" tab.
 | Method | Path         | Auth | Description |
 |--------|--------------|------|-------------|
 | GET    | /            | JWT  | User's armies with units |
-| GET    | /all         | JWT  | All armies visible to the requesting user (fog of war: enemy armies shown with full composition only if in player-owned or neighboring province) |
+| GET    | /all         | JWT  | All armies visible to the requesting user (fog of war: enemy armies shown with full composition only if in player-owned or neighboring province; unfiltered for an ADMIN/MODERATOR with the mod no-fog toggle on — see [Auth — Mod No-Fog-of-War Toggle](#auth--mod-no-fog-of-war-toggle)) |
 | GET    | /troop-types | JWT  | Available troop types (filtered by class/tech/building) |
 | POST   | /            | JWT  | Queue ARMY_CREATE action |
 | PATCH  | /:id         | JWT  | Rename army |
@@ -225,6 +225,22 @@ permissions, never escalates them. The web client sets this header from `mod.act
 `localStorage`, not the auth session, so logging out must explicitly clear it (`setActingAsUserId(null)`)
 or the next account to log in on the same browser inherits a stale act-as target and gets a 403
 from this interceptor on every request.
+
+### Auth — Mod No-Fog-of-War Toggle
+`resolveModFogBypass(req)` (`api/src/utils/mod-visibility.ts`) is a plain helper — not an
+interceptor — called explicitly from `ArmiesController.getAllArmies` and
+`ProvincesController.getAll`/`getState`. It returns `true` only when the request carries
+`X-Mod-Full-Visibility: true` **and** the real authenticated actor (`req.realUser ?? req.user`,
+same "prefer realUser" logic as `ActAsInterceptor`'s swap, so it still works correctly mid
+act-as impersonation) is ADMIN/MODERATOR; a PLAYER sending the header is silently ignored
+(no exception — this only relaxes what data is returned, not what actions can be taken). The
+resulting `bypassFog` boolean is threaded into `ArmiesService.getAllArmies` (every army
+included regardless of province visibility) and `ProvincesService.getAll`/`getState` (every
+non-owned province's buildings included regardless of `Building.visible`) — see
+[GAME-MECHANICS.md](GAME-MECHANICS.md#visibility-fog-of-war). Province garrison troop counts
+(`local_troops`) are deliberately **not** affected by this flag; they stay hidden for
+non-owners either way. The web client attaches the header from `mod.switchOn` — see
+[WEB-MAP.md](WEB-MAP.md#mod--npc-impersonation-state).
 
 ## Action Types (Enum)
 
@@ -373,7 +389,7 @@ api/src/
 ├── notifications/  controller, service, entity (notification) — per-user durable notifications
 ├── admin/          controller, service
 ├── db/             data-source.ts, data-source.prod.ts, migrations/
-├── utils/          logger.ts, parseIncome.ts
+├── utils/          logger.ts, parseIncome.ts, colorDistance.ts, mod-visibility.ts (resolveModFogBypass)
 └── scripts/        seed-resources, seed-goods, import-provinces, seed-buildings, seed-techs,
                     seed-troop-types, balance-report, reset-game-data
 

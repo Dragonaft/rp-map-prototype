@@ -162,6 +162,17 @@ in a province they occupy (the fort-use carve-out from
 - Own armies: always visible with full unit composition, regardless of location
 - Enemy armies: visible (full composition + total count) only if stationed in a province that is owned by the player OR adjacent to a player-owned province
 - Enemy armies outside this radius are hidden entirely (not returned by the API)
+- Province buildings follow the same idea from the other direction: non-owned provinces only
+  reveal buildings whose `Building.visible` flag is true (e.g. CAPITAL/FORT, always visible;
+  most others aren't) — see [DATABASE.md](DATABASE.md#building)
+- **Moderator bypass:** an ADMIN/MODERATOR with the client's Mod switch on gets both of the
+  above lifted entirely — every player's armies and buildings, unfiltered, everywhere on the
+  map. Server-enforced via `resolveModFogBypass` (`api/src/utils/mod-visibility.ts`), which
+  only honors the client's `X-Mod-Full-Visibility` header after independently confirming the
+  *real* authenticated actor (not an impersonated NPC) is ADMIN/MODERATOR — see
+  [API.md](API.md#auth--mod-no-fog-of-war-toggle). Province garrison troop counts
+  (`local_troops`) are a separate concept and are **not** included in this bypass — they stay
+  hidden for non-owners regardless of the Mod switch.
 
 ## Combat System
 

@@ -100,7 +100,7 @@ ExecutionLock (standalone, distributed locking)
 | upgrade_to                  | varchar      | Target building type for upgrades (BuildingTypes value). FORESTRY → SAWMILL, GARDEN → FARM, FORT → CASTLE |
 | requirement_tech            | simple-array | Tech keys required to build |
 | requirement_building        | varchar      | Building type prerequisite (BuildingTypes value). SAWMILL requires FORESTRY, FARM requires GARDEN, CASTLE requires FORT |
-| visible                     | boolean      | Whether the building shows in UI listings (default false) |
+| visible                     | boolean      | Fog-of-war gate (default false): whether non-owners can see this building type on someone else's province at all (`ProvincesService.getAll`/`getState` filter non-owned `provinceBuildings` down to `visible = true` ones, e.g. CAPITAL/FORT — most others aren't). Always fully visible to the owner, and to an ADMIN/MODERATOR with the mod no-fog toggle on — see [GAME-MECHANICS.md](GAME-MECHANICS.md#visibility-fog-of-war) |
 | can_recruit                 | boolean      | Whether troops can be recruited here (exposed as `canRecruit`, default false) |
 | isProduction                | boolean      | Whether this building produces a good each turn (default false) |
 | production_good_id          | uuid (FK)    | → Good, nullable. The single Good this building produces per turn when `isProduction` is true. Exposed as `productionGood` getter (returns the FK id) on the player-facing API |

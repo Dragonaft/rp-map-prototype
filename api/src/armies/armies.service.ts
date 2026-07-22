@@ -35,12 +35,19 @@ export class ArmiesService {
       relations: ['units', 'units.troopType'],
     });
 
-  async getAllArmies(requestingUserId: string): Promise<any[]> {
+  /**
+   * @param bypassFog Moderator god-view (see api/src/utils/mod-visibility.ts) — when true,
+   *   every army is treated as visible regardless of province ownership/adjacency. Caller
+   *   is responsible for having already validated the real actor's role.
+   */
+  async getAllArmies(requestingUserId: string, bypassFog = false): Promise<any[]> {
     const [ownedProvinces, allArmies] = await Promise.all([
-      this.provinceRepo.find({
-        where: { user_id: requestingUserId },
-        select: { id: true, neighbor_ids: true },
-      }),
+      bypassFog
+        ? Promise.resolve([])
+        : this.provinceRepo.find({
+            where: { user_id: requestingUserId },
+            select: { id: true, neighbor_ids: true },
+          }),
       this.armyRepo.find({ relations: ['units', 'units.troopType'] }),
     ]);
 
@@ -59,7 +66,7 @@ export class ArmiesService {
         continue;
       }
 
-      if (!visibleProvinceIds.has(army.province_id)) continue;
+      if (!bypassFog && !visibleProvinceIds.has(army.province_id)) continue;
 
       const totalTroops = (army.units ?? []).reduce((s, u) => s + u.count, 0);
       result.push({
