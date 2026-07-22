@@ -291,8 +291,12 @@ const ProvinceShapeComponent: React.FC<Props> = ({
         );
       })()}
 
-      {/* Own troops count */}
-      {isCurrentUserProvince && hasLocalTroops && (
+      {/* Own troops count — hasLocalTroops already covers both "I own this province" (garrison)
+          and "I have an army physically here" (armyTroopCount != null, see its definition
+          above), so no additional isCurrentUserProvince gate here — otherwise the army-present
+          branch is dead code and the badge never shows on a province I occupy/invade but don't
+          legally own, or on water (never owned) where my own navy is stationed. */}
+      {hasLocalTroops && (
         <g onClick={handleTroopClick} style={{ cursor: 'pointer' }}>
           <rect x={cx - 20} y={troopY - 10} width="40" height="20"
             fill="white"

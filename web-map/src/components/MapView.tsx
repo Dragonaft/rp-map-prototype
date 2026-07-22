@@ -360,11 +360,12 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const armyTroopsByProvinceId = useMemo(() => {
     const map: Record<string, number> = {};
     for (const army of armies) {
+      if (army.user_id !== currentUserId) continue;
       const total = army.units.reduce((s, u) => s + u.count, 0);
       map[army.province_id] = (map[army.province_id] ?? 0) + total;
     }
     return map;
-  }, [armies]);
+  }, [armies, currentUserId]);
 
   const armiesByProvinceId = useMemo(() => {
     const map: Record<string, typeof armies> = {};
