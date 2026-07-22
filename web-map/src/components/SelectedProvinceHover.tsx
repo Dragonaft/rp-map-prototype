@@ -18,6 +18,7 @@ import { DeleteBuildingModal } from "./Modals/DeleteBuildingModal.tsx";
 import { PlayerTreatiesModal } from "./Modals/PlayerTreatiesModal.tsx";
 import { ModStocksModal } from "./Modals/ModStocksModal.tsx";
 import { modApi } from "../api/mod.ts";
+import { getPendingGoodUsage, getPendingResourceUsage, provinceHasWaterNeighbor } from "../utils/mapModes.ts";
 
 /** Must match OCCUPATION_CORE_THRESHOLD in api/src/diplomacy/types/diplomacy.types.ts */
 const OCCUPATION_CORE_THRESHOLD = 10;
@@ -190,9 +191,9 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
   // Client-side hint only — the backend (BuildActionHandler) is the source of truth for
   // whether a building requiring a neighboring water province can actually be built here.
   const hasWaterNeighbor = useMemo(() => {
-    if (!selectedProvince?.neighbors) return false;
+    if (!selectedProvince) return false;
     const provinceTypeById = new Map(provinces.map(p => [p.id, p.type]));
-    return selectedProvince.neighbors.some(nId => provinceTypeById.get(nId) === 'water');
+    return provinceHasWaterNeighbor(selectedProvince, provinceTypeById);
   }, [selectedProvince, provinces]);
 
   const pendingColonizeAction = useMemo(
@@ -402,33 +403,15 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
   );
   const canRecruitHere = (isUserOwner && !isOccupied) || isOccupier;
 
-  const pendingResourceUsage = useMemo(() => {
-    const used: Record<string, number> = {};
-    const templateById = new Map((buildings ?? []).map(b => [b.id, b]));
-    for (const action of actions) {
-      if (action.actionType !== ActionType.BUILD) continue;
-      const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
-      const template = templateById.get(String(bid));
-      if (template?.requirementResource && template?.requirementResourceAmount) {
-        used[template.requirementResource] = (used[template.requirementResource] ?? 0) + template.requirementResourceAmount;
-      }
-    }
-    return used;
-  }, [actions, buildings]);
+  const pendingResourceUsage = useMemo(
+    () => getPendingResourceUsage(actions, buildings ?? []),
+    [actions, buildings],
+  );
 
-  const pendingGoodUsage = useMemo(() => {
-    const used: Record<string, number> = {};
-    const templateById = new Map((buildings ?? []).map(b => [b.id, b]));
-    for (const action of actions) {
-      if (action.actionType !== ActionType.BUILD) continue;
-      const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
-      const template = templateById.get(String(bid));
-      if (template?.requirementGood && template?.requirementGoodAmount) {
-        used[template.requirementGood] = (used[template.requirementGood] ?? 0) + template.requirementGoodAmount;
-      }
-    }
-    return used;
-  }, [actions, buildings]);
+  const pendingGoodUsage = useMemo(
+    () => getPendingGoodUsage(actions, buildings ?? []),
+    [actions, buildings],
+  );
 
   const pendingCreateArmyActions = useMemo(() => {
     if (!selectedProvince) return [];

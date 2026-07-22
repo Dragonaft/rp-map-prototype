@@ -2,6 +2,7 @@ import React from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Tooltip } from '@mui/material';
 import { Building, Tech } from '../../types.ts';
 import { BUILDING_ICONS } from '../../constants/buildingIcons.ts';
+import { evaluateBuildRequirements } from '../../utils/mapModes.ts';
 
 interface Props {
   open: boolean;
@@ -48,49 +49,21 @@ export const BuildMenuModal: React.FC<Props> = ({
       <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 1, overflowY: 'auto', maxHeight: 320 }}>
         {loading && <p>Loading...</p>}
         {!loading && buildings.map((building) => {
-          const allowedResources = building.allowedProvinceResources;
-          const resourceMismatch = allowedResources?.length
-            ? !allowedResources.includes(provinceResourceType)
-            : false;
-          const missingTechKey = (building.requirementTech ?? []).find(
-            t => !userCompletedResearch.includes(t),
+          const { passes, reason: disabledReason } = evaluateBuildRequirements(
+            building,
+            provinceResourceType,
+            builtTypesInProvince,
+            hasWaterNeighbor,
+            {
+              userMoney,
+              completedResearch: userCompletedResearch,
+              userResourcesByKey,
+              pendingResourceUsage,
+              userGoodsById,
+              pendingGoodUsage,
+              techs,
+            },
           );
-          const missingTechName = missingTechKey
-            ? (techs.find(t => t.key === missingTechKey)?.name ?? missingTechKey)
-            : null;
-
-          const resourceCost = building.requirementResource;
-          const resourceAmount = building.requirementResourceAmount ?? 1;
-          const totalResourceUsed = resourceCost ? (pendingResourceUsage[resourceCost] ?? 0) : 0;
-          const resourceAvailable = resourceCost
-            ? (userResourcesByKey[resourceCost] ?? 0) - totalResourceUsed
-            : Infinity;
-          const resourceInsufficient = resourceCost ? resourceAvailable < resourceAmount : false;
-
-          const goodCost = building.requirementGood;
-          const goodAmount = building.requirementGoodAmount ?? 1;
-          const totalGoodUsed = goodCost ? (pendingGoodUsage[goodCost] ?? 0) : 0;
-          const goodAvailable = goodCost
-            ? (userGoodsById[goodCost] ?? 0) - totalGoodUsed
-            : Infinity;
-          const goodInsufficient = goodCost ? goodAvailable < goodAmount : false;
-
-          const uniqueAlreadyBuilt = building.uniquePerProvince && builtTypesInProvince.has(building.type);
-          const missingWaterNeighbor = building.requiresNeighborWater && !hasWaterNeighbor;
-
-          const disabledReason = resourceMismatch
-            ? `Requires a province with ${allowedResources!.join(' or ')} resource (this province: ${provinceResourceType || 'none'})`
-            : uniqueAlreadyBuilt
-              ? `Only one ${building.name} allowed per province`
-              : missingWaterNeighbor
-                ? 'Requires a province adjacent to water'
-                : resourceInsufficient
-                  ? `Not enough ${resourceCost}: ${(resourceCost && userResourcesByKey[resourceCost]) ?? 0} available, ${totalResourceUsed} queued, ${Math.max(0, resourceAvailable)} free`
-                  : goodInsufficient
-                    ? `Not enough of the required good: ${(goodCost && userGoodsById[goodCost]) ?? 0} available, ${totalGoodUsed} queued, ${Math.max(0, goodAvailable)} free`
-                    : missingTechName
-                      ? `Missing required technology: ${missingTechName}`
-                      : null;
 
           return (
             <Tooltip key={building.id} title={
@@ -108,16 +81,7 @@ export const BuildMenuModal: React.FC<Props> = ({
                   fullWidth
                   variant="contained"
                   color="primary"
-                  disabled={
-                    !userMoney || userMoney < building.cost ||
-                    pendingBuildTypes.has(building.type) ||
-                    resourceMismatch ||
-                    resourceInsufficient ||
-                    goodInsufficient ||
-                    uniqueAlreadyBuilt ||
-                    missingWaterNeighbor ||
-                    !!missingTechKey
-                  }
+                  disabled={!passes || pendingBuildTypes.has(building.type)}
                   onClick={() => onBuild(building.id)}
                   startIcon={<span>{BUILDING_ICONS[building.type] ?? '🏗️'}</span>}
                 >

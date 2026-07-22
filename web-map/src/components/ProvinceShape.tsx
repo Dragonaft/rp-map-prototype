@@ -10,6 +10,9 @@ import {
   BUILDING_UPGRADE_AVAILABLE_COLOR,
   DEFAULT_MAP_LAND_COLOR,
   DEFAULT_MAP_WATER_COLOR,
+  FASTBUILD_BLACK,
+  FASTBUILD_GREEN,
+  FASTBUILD_RED,
   getCategoryModeColor,
   getMapModeTooltip,
   heatColor,
@@ -114,6 +117,14 @@ const ProvinceShapeComponent: React.FC<Props> = ({
         return slots.free > 0
           ? positiveScaleColor(slots.free, Math.max(1, slots.cap))
           : heatColor(-1, 1);
+      }
+      case 'fastbuild': {
+        if (isWater || !isCurrentUserProvince) return FASTBUILD_BLACK;
+        const cell = mapModeRenderData.fastBuildByProvinceId[province.id];
+        if (!cell) return FASTBUILD_RED;
+        if (cell.status === 'green') return FASTBUILD_GREEN;
+        if (cell.status === 'yellow') return BUILDING_PENDING_COLOR;
+        return FASTBUILD_RED;
       }
       case 'normal':
       default:

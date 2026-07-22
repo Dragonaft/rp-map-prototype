@@ -1,4 +1,4 @@
-import { ActionType, Building, BuildingTypes, MapMode, Province, ProvinceBuilding } from '../types';
+import { ActionType, Building, BuildingTypes, MapMode, Province, ProvinceBuilding, ProvinceType } from '../types';
 
 export const MAP_MODE_OPTIONS: { value: MapMode; label: string }[] = [
   { value: 'normal', label: 'Normal' },
@@ -24,6 +24,19 @@ export interface ProvinceBuildingSlots {
   availableUpgrades: number;
 }
 
+/** One province's status while a specific building is selected in fast-build mode. */
+export interface FastBuildCell {
+  status: 'green' | 'red' | 'yellow';
+  /** Whether clicking this province would actually queue an action right now — independent
+   *  of `status`: a yellow (already-pending) province can still accept another click if a
+   *  slot remains, a red one never can. Drives the click handler, not just the tint. */
+  canQueue: boolean;
+  /** Upgrade mode only — the built ProvinceBuilding instance that would be upgraded. */
+  upgradeInstanceId?: string;
+  /** Set only when `status === 'yellow'` — the pending action id a right-click here cancels. */
+  cancelActionId?: string;
+}
+
 export interface MapModeRenderData {
   mode: MapMode;
   filterValue: string | null;
@@ -32,9 +45,11 @@ export interface MapModeRenderData {
   recruitsByProvinceId: Record<string, number>;
   recruitsMax: number;
   buildingSlotsByProvinceId: Record<string, ProvinceBuildingSlots>;
+  fastBuildByProvinceId: Record<string, FastBuildCell>;
 }
 
 interface MinimalAction {
+  id: string;
   actionType: ActionType;
   actionData?: Record<string, unknown> | null;
 }
@@ -67,6 +82,12 @@ export const DEFAULT_MAP_LAND_COLOR = 'rgb(255, 255, 255)';
 export const DEFAULT_MAP_WATER_COLOR = 'rgb(174, 226, 255)';
 export const BUILDING_PENDING_COLOR = '#facc15';
 export const BUILDING_UPGRADE_AVAILABLE_COLOR = '#a855f7';
+
+// Fast-build mode: black = not a candidate province at all (unowned/water), green/red/yellow
+// reuse the yellow "pending" color above so "already queued" reads consistently everywhere.
+export const FASTBUILD_BLACK = '#000000';
+export const FASTBUILD_GREEN = '#16a34a';
+export const FASTBUILD_RED = '#dc2626';
 
 const ZERO_HEAT_COLOR = '#fde68a';
 
@@ -179,6 +200,48 @@ export function getPendingBuildCountsByProvinceId(actions: MinimalAction[]): Rec
   return counts;
 }
 
+/** A pending BUILD action, reduced to what fast-build mode needs: which building type it's
+ *  for, and the action id to cancel it (right-click on a yellow province). */
+export interface PendingBuildAction {
+  id: string;
+  type: string;
+}
+
+/** Pending BUILD actions (id + building type) queued this turn, per province — used by
+ *  fast-build mode to decide "yellow" (already building at least one of this type) and to
+ *  resolve which action a right-click on that province should cancel. */
+export function getPendingBuildActionsByProvinceId(
+  actions: MinimalAction[],
+  buildingTemplates: Building[],
+): Record<string, PendingBuildAction[]> {
+  const templateById = new Map(buildingTemplates.map((b) => [b.id, b]));
+  const result: Record<string, PendingBuildAction[]> = {};
+  for (const action of actions) {
+    if (action.actionType !== ActionType.BUILD) continue;
+    const provinceId = getActionProvinceId(action);
+    if (!provinceId) continue;
+    const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
+    const type = templateById.get(String(bid))?.type;
+    if (!type) continue;
+    if (!result[provinceId]) result[provinceId] = [];
+    result[provinceId].push({ id: action.id, type });
+  }
+  return result;
+}
+
+/** Action id for every pending UPGRADE action, keyed by the built ProvinceBuilding instance
+ *  it targets — lets fast-build mode resolve which action a right-click cancel should hit. */
+export function getPendingUpgradeActionIdByInstanceId(actions: MinimalAction[]): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const action of actions) {
+    if (action.actionType !== ActionType.UPGRADE) continue;
+    const provinceBuildingId = getActionProvinceBuildingId(action);
+    if (!provinceBuildingId) continue;
+    result[provinceBuildingId] = action.id;
+  }
+  return result;
+}
+
 export function getPendingProvinceBuildingIdsByProvinceId(
   actions: MinimalAction[],
   actionType: ActionType.UPGRADE | ActionType.REMOVE,
@@ -195,6 +258,139 @@ export function getPendingProvinceBuildingIdsByProvinceId(
   return idsByProvinceId;
 }
 
+/** Total requirement_resource reserved by every pending BUILD action across all of the
+ *  player's provinces (not scoped to one province) — used to net out what's actually
+ *  still free in the stockpile, same convention as the build menu's inline computation. */
+export function getPendingResourceUsage(
+  actions: MinimalAction[],
+  buildingTemplates: Building[],
+): Record<string, number> {
+  const used: Record<string, number> = {};
+  const templateById = new Map(buildingTemplates.map((b) => [b.id, b]));
+  for (const action of actions) {
+    if (action.actionType !== ActionType.BUILD) continue;
+    const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
+    const template = templateById.get(String(bid));
+    if (template?.requirementResource && template?.requirementResourceAmount) {
+      used[template.requirementResource] = (used[template.requirementResource] ?? 0) + template.requirementResourceAmount;
+    }
+  }
+  return used;
+}
+
+/** Same as {@link getPendingResourceUsage}, but for requirement_good costs. */
+export function getPendingGoodUsage(
+  actions: MinimalAction[],
+  buildingTemplates: Building[],
+): Record<string, number> {
+  const used: Record<string, number> = {};
+  const templateById = new Map(buildingTemplates.map((b) => [b.id, b]));
+  for (const action of actions) {
+    if (action.actionType !== ActionType.BUILD) continue;
+    const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
+    const template = templateById.get(String(bid));
+    if (template?.requirementGood && template?.requirementGoodAmount) {
+      used[template.requirementGood] = (used[template.requirementGood] ?? 0) + template.requirementGoodAmount;
+    }
+  }
+  return used;
+}
+
+/** Client-side hint only — the backend (BuildActionHandler) is the source of truth for
+ *  whether a building requiring a neighboring water province can actually be built. */
+export function provinceHasWaterNeighbor(
+  province: Province,
+  provinceTypeById: Map<string, ProvinceType>,
+): boolean {
+  if (!province.neighbors) return false;
+  return province.neighbors.some((nId) => provinceTypeById.get(nId) === 'water');
+}
+
+export interface BuildRequirementContext {
+  userMoney: number;
+  completedResearch: string[];
+  /** Player's resource ledger (GET /resources/mine), keyed by resource key. */
+  userResourcesByKey: Record<string, number>;
+  pendingResourceUsage: Record<string, number>;
+  /** Player's goods ledger (GET /goods/mine), keyed by good id. */
+  userGoodsById: Record<string, number>;
+  pendingGoodUsage: Record<string, number>;
+  /** Optional — resolves a missing tech key to its display name in `reason`. */
+  techs?: { key: string; name: string }[];
+}
+
+export interface BuildRequirementResult {
+  /** True only if every requirement, including money, is satisfied. */
+  passes: boolean;
+  /** Human-readable reason a requirement failed (money is not surfaced here, matching
+   *  the build menu's existing tooltip, which shows cost separately). Null if `passes`. */
+  reason: string | null;
+}
+
+/** The single source of truth for "can this building be built in this province" —
+ *  shared by the build menu and fast-build mode so they can't drift. Does NOT check
+ *  building-cap/slot availability or whether one is already queued here — those are
+ *  caller-specific (the modal disables on pending, fast-build colors it yellow). */
+export function evaluateBuildRequirements(
+  building: Building,
+  provinceResourceType: string,
+  builtTypesInProvince: Set<string>,
+  hasWaterNeighbor: boolean,
+  ctx: BuildRequirementContext,
+): BuildRequirementResult {
+  const allowedResources = building.allowedProvinceResources;
+  const resourceMismatch = allowedResources?.length
+    ? !allowedResources.includes(provinceResourceType)
+    : false;
+
+  const uniqueAlreadyBuilt = building.uniquePerProvince && builtTypesInProvince.has(building.type);
+  const missingWaterNeighbor = building.requiresNeighborWater && !hasWaterNeighbor;
+
+  const resourceCost = building.requirementResource;
+  const resourceAmount = building.requirementResourceAmount ?? 1;
+  const totalResourceUsed = resourceCost ? (ctx.pendingResourceUsage[resourceCost] ?? 0) : 0;
+  const resourceAvailable = resourceCost
+    ? (ctx.userResourcesByKey[resourceCost] ?? 0) - totalResourceUsed
+    : Infinity;
+  const resourceInsufficient = resourceCost ? resourceAvailable < resourceAmount : false;
+
+  const goodCost = building.requirementGood;
+  const goodAmount = building.requirementGoodAmount ?? 1;
+  const totalGoodUsed = goodCost ? (ctx.pendingGoodUsage[goodCost] ?? 0) : 0;
+  const goodAvailable = goodCost
+    ? (ctx.userGoodsById[goodCost] ?? 0) - totalGoodUsed
+    : Infinity;
+  const goodInsufficient = goodCost ? goodAvailable < goodAmount : false;
+
+  const missingTechKey = (building.requirementTech ?? []).find(
+    (t) => !ctx.completedResearch.includes(t),
+  );
+  const missingTechName = missingTechKey
+    ? (ctx.techs?.find((t) => t.key === missingTechKey)?.name ?? missingTechKey)
+    : null;
+
+  const moneyInsufficient = !ctx.userMoney || ctx.userMoney < building.cost;
+
+  const reason = resourceMismatch
+    ? `Requires a province with ${allowedResources!.join(' or ')} resource (this province: ${provinceResourceType || 'none'})`
+    : uniqueAlreadyBuilt
+      ? `Only one ${building.name} allowed per province`
+      : missingWaterNeighbor
+        ? 'Requires a province adjacent to water'
+        : resourceInsufficient
+          ? `Not enough ${resourceCost}: ${(resourceCost && ctx.userResourcesByKey[resourceCost]) ?? 0} available, ${totalResourceUsed} queued, ${Math.max(0, resourceAvailable)} free`
+          : goodInsufficient
+            ? `Not enough of the required good: ${(goodCost && ctx.userGoodsById[goodCost]) ?? 0} available, ${totalGoodUsed} queued, ${Math.max(0, goodAvailable)} free`
+            : missingTechName
+              ? `Missing required technology: ${missingTechName}`
+              : null;
+
+  const passes = !resourceMismatch && !uniqueAlreadyBuilt && !missingWaterNeighbor &&
+    !resourceInsufficient && !goodInsufficient && !missingTechKey && !moneyInsufficient;
+
+  return { passes, reason };
+}
+
 interface ProvinceBuildingSlotOptions {
   pendingUpgradeBuildingIds?: Set<string>;
   pendingRemoveBuildingIds?: Set<string>;
@@ -203,7 +399,7 @@ interface ProvinceBuildingSlotOptions {
   completedResearch?: string[];
 }
 
-function canUpgradeProvinceBuilding(
+export function canUpgradeProvinceBuilding(
   province: Province,
   building: ProvinceBuilding,
   buildingByType: Map<string, Building>,
@@ -253,6 +449,79 @@ export function getProvinceBuildingSlots(
   };
 }
 
+export interface FastBuildEvalOptions {
+  buildingTemplates: Building[];
+  /** Pending BUILD actions already queued in this province this turn. */
+  pendingBuildActionsInProvince: PendingBuildAction[];
+  pendingUpgradeBuildingIds?: Set<string>;
+  pendingRemoveBuildingIds?: Set<string>;
+  /** Action id per pending-upgrade instance id (global, not province-scoped) — lets a
+   *  right-click on a yellow upgrade cell resolve which action to cancel. */
+  pendingUpgradeActionIdByInstanceId?: Record<string, string>;
+  /** From getProvinceBuildingSlots(province, ...).free — already nets out pending builds. */
+  freeSlots: number;
+  buildRequirementCtx: BuildRequirementContext;
+}
+
+/** Fast-build mode's per-province verdict for one selected building — the single source of
+ *  truth for both the map tint (green/red/yellow) and whether a click should actually queue
+ *  anything. Reuses {@link evaluateBuildRequirements} (BUILD) and
+ *  {@link canUpgradeProvinceBuilding} (UPGRADE) so eligibility can't drift from the existing
+ *  build menu / province inspector. */
+export function getFastBuildCell(
+  province: Province,
+  targetBuilding: Building,
+  action: 'build' | 'upgrade',
+  hasWaterNeighbor: boolean,
+  options: FastBuildEvalOptions,
+): FastBuildCell {
+  if (action === 'build') {
+    const pendingActionsOfType = options.pendingBuildActionsInProvince.filter((a) => a.type === targetBuilding.type);
+    const pendingSameType = pendingActionsOfType.length > 0;
+    const builtTypesInProvince = new Set((province.buildings ?? []).map((b) => b.type));
+    const { passes } = evaluateBuildRequirements(
+      targetBuilding,
+      province.resourceType,
+      builtTypesInProvince,
+      hasWaterNeighbor,
+      options.buildRequirementCtx,
+    );
+    const canQueue = options.freeSlots > 0 && passes;
+    return {
+      status: pendingSameType ? 'yellow' : (canQueue ? 'green' : 'red'),
+      canQueue,
+      cancelActionId: pendingSameType ? pendingActionsOfType[0].id : undefined,
+    };
+  }
+
+  // Upgrade: targetBuilding is the upgrade *result* (e.g. Castle) — find every built
+  // instance in this province whose upgrade path leads there (e.g. a Fort).
+  const buildingByType = new Map(options.buildingTemplates.map((b) => [b.type, b]));
+  const matchingSourceBuildings = (province.buildings ?? []).filter((b) => b.upgradeTo === targetBuilding.type);
+  if (!matchingSourceBuildings.length) return { status: 'red', canQueue: false };
+
+  let sawPending = false;
+  let pendingCancelActionId: string | undefined;
+  for (const source of matchingSourceBuildings) {
+    if (options.pendingUpgradeBuildingIds?.has(source.instanceId)) {
+      sawPending = true;
+      pendingCancelActionId = options.pendingUpgradeActionIdByInstanceId?.[source.instanceId];
+      continue;
+    }
+    const canUpgrade = canUpgradeProvinceBuilding(province, source, buildingByType, {
+      pendingUpgradeBuildingIds: options.pendingUpgradeBuildingIds,
+      pendingRemoveBuildingIds: options.pendingRemoveBuildingIds,
+      buildingTemplates: options.buildingTemplates,
+      userMoney: options.buildRequirementCtx.userMoney,
+      completedResearch: options.buildRequirementCtx.completedResearch,
+    });
+    if (canUpgrade) {
+      return { status: 'green', canQueue: true, upgradeInstanceId: source.instanceId };
+    }
+  }
+  return { status: sawPending ? 'yellow' : 'red', canQueue: false, cancelActionId: pendingCancelActionId };
+}
+
 export function getCategoryModeColor(
   province: Province,
   mode: MapMode,
@@ -293,6 +562,14 @@ export function getMapModeTooltip(
     if (slots.availableUpgrades > 0) details.push(`${slots.availableUpgrades} upgrade available`);
     if (slots.pendingUpgrades > 0) details.push(`${slots.pendingUpgrades} pending upgrade`);
     return `Building slots: ${slots.used}/${slots.cap} (${details.join(', ')})`;
+  }
+
+  if (renderData.mode === 'fastbuild') {
+    const cell = renderData.fastBuildByProvinceId[province.id];
+    if (!cell) return 'Not your territory';
+    if (cell.status === 'green') return 'Click to queue here';
+    if (cell.status === 'yellow') return 'Already queued this turn — click to queue another, right-click to cancel';
+    return 'Requirements not met';
   }
 
   return null;
