@@ -7,6 +7,7 @@ import { SelectedProvinceHover } from "./SelectedProvinceHover.tsx";
 import { TroopMovementModal } from './TroopMovementModal';
 import { ArmyBlock } from './ArmyBlock.tsx';
 import { CreateArmyModal } from './CreateArmyModal.tsx';
+import { ManageArmiesModal } from './ManageArmiesModal.tsx';
 import { setMapModeFilterValue, setSelectedProvinceId, setSelectedTroops, updateProvinceById } from '../store/slices/provincesSlice';
 import type { RootState } from '../store/store';
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
@@ -28,6 +29,7 @@ import {
   provinceHasWaterNeighbor,
 } from '../utils/mapModes.ts';
 import type { MapModeRenderData } from '../utils/mapModes.ts';
+import { getLockedArmyIds } from '../utils/armyLocks.ts';
 
 
 export const MapView = ({ loading, error }: { loading: boolean, error: string | null }) => {
@@ -73,6 +75,11 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [selectedArmyId, setSelectedArmyId] = useState<string | null>(null);
   const [showCreateArmy, setShowCreateArmy] = useState(false);
+  const [showManageArmies, setShowManageArmies] = useState(false);
+
+  // Armies already committed to a pending move/merge/transfer this turn — mirrors the
+  // backend's mutual per-turn lock (see ActionsService.assertNotDuplicate).
+  const lockedArmyIds = useMemo(() => getLockedArmyIds(userActions), [userActions]);
 
   // Player's resource ledger (GET /resources/mine) / goods ledger (GET /goods/mine), keyed
   // for quick lookup — feeds fast-build mode's requirement checks. Mirrors
@@ -307,13 +314,18 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     const army = armies.find(a => a.id === selectedArmyId);
     if (!army) return;
     if (army.user_id !== currentUserId) return;
+    // An army with a pending merge/transfer (or an already-queued move) can't queue another move.
+    if (lockedArmyIds.has(selectedArmyId)) {
+      showError('This army already has a pending move, merge, or transfer this turn');
+      return;
+    }
     setModalState({
       open: true,
       armyId: selectedArmyId,
       armyName: army.name ?? 'Unnamed Army',
       toProvinceId: targetProvince.id,
     });
-  }, [mapMode, fastBuild, handleFastBuildCancel, selectedArmyId, armies, reachableFromSelectedArmy, currentUserId]);
+  }, [mapMode, fastBuild, handleFastBuildCancel, selectedArmyId, armies, reachableFromSelectedArmy, currentUserId, lockedArmyIds, showError]);
 
   const handleCloseModal = useCallback(() => setModalState(null), []);
 
@@ -640,6 +652,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
         selectedArmyId={selectedArmyId}
         onSelectArmy={(id) => setSelectedArmyId(id)}
         onCreateArmy={() => setShowCreateArmy(true)}
+        onManageArmies={() => setShowManageArmies(true)}
       />
       {selectedArmy && (
         <div style={{ position: 'absolute', top: '1rem', right: '310px' }}>
@@ -652,6 +665,13 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
           provinceId={selectedProvinceId}
           onClose={() => setShowCreateArmy(false)}
           onCreated={() => setShowCreateArmy(false)}
+        />
+      )}
+      {showManageArmies && selectedProvinceId && (
+        <ManageArmiesModal
+          open={showManageArmies}
+          provinceId={selectedProvinceId}
+          onClose={() => setShowManageArmies(false)}
         />
       )}
 

@@ -686,8 +686,8 @@ export class ActionSchedulerService {
   private static readonly ACTION_TYPE_LABELS: Record<string, string> = {
     BUILD: 'Build', UPGRADE: 'Upgrade', REMOVE: 'Remove', RESEARCH: 'Research', COLONIZE: 'Colonize',
     ARMY_CREATE: 'Army Creation', ARMY_MOVE: 'Army Move', ARMY_RECRUIT: 'Army Recruit',
-    ARMY_MERGE: 'Army Merge', ARMY_DISBAND: 'Army Disband', ARMY_EDIT: 'Army Edit',
-    TRANSFER_TROOPS: 'Troop Transfer',
+    ARMY_MERGE: 'Army Merge', ARMY_TRANSFER: 'Army Transfer', ARMY_DISBAND: 'Army Disband',
+    ARMY_EDIT: 'Army Edit',
   };
 
   /**

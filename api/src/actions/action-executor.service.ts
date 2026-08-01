@@ -455,22 +455,6 @@ export class UpgradeActionHandler implements ActionHandler {
   }
 }
 
-@Injectable()
-export class TransferTroopsActionHandler implements ActionHandler {
-  private readonly logger = new Logger(TransferTroopsActionHandler.name);
-
-  async handle(action: ActionQueue): Promise<void> {
-    this.logger.log(
-      `Executing TRANSFER_TROOPS action for user ${action.userId}: ${JSON.stringify(action.actionData)}`,
-    );
-
-    // TODO: Implement actual troop transfer logic
-
-    // Simulated execution
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Army action handlers
 // ---------------------------------------------------------------------------
@@ -848,7 +832,7 @@ export class ArmyMoveHandler implements ActionHandler {
 
       // ── Embarkation gate ─────────────────────────────────────────────────
       // Armies can't enter water by default. Embarking (land -> water) requires a Port
-      // in the army's actual current province — regardless of whether the move resolved
+      // in the army's actual current province — regardless of whether the move is resolved
       // via direct adjacency or a multi-hop road path, since road reachability doesn't
       // require the final target itself to be owned/roaded (only the intermediates).
       // Already being on water (water -> water) or disembarking (water -> land) need no Port.
@@ -1093,6 +1077,117 @@ export class ArmyMergeHandler implements ActionHandler {
   }
 }
 
+interface TransferEntry {
+  troop_type_key: string;
+  from_army_id: string;
+  to_army_id: string;
+  count: number;
+}
+
+@Injectable()
+export class ArmyTransferHandler implements ActionHandler {
+  private readonly logger = new Logger(ArmyTransferHandler.name);
+
+  constructor(
+    @InjectRepository(Army)
+    private readonly armyRepo: Repository<Army>,
+  ) {}
+
+  handle = async (action: ActionQueue): Promise<void> => {
+    this.logger.log(`Executing ARMY_TRANSFER for user ${action.userId}`);
+
+    const armyAId = action.actionData?.army_a_id as string | undefined;
+    const armyBId = action.actionData?.army_b_id as string | undefined;
+    const transfers = (action.actionData?.transfers ?? []) as TransferEntry[];
+
+    if (!armyAId || !armyBId) throw new Error('army_a_id and army_b_id are required');
+    if (armyAId === armyBId) throw new Error('army_a_id and army_b_id must be different');
+    if (!transfers.length) throw new Error('transfers array must not be empty');
+
+    await this.armyRepo.manager.transaction(async (manager) => {
+      const [armyA, armyB] = await Promise.all([
+        manager.findOne(Army, {
+          where: { id: armyAId },
+          relations: ['units', 'units.troopType'],
+          lock: { mode: 'pessimistic_write' },
+        }),
+        manager.findOne(Army, {
+          where: { id: armyBId },
+          relations: ['units', 'units.troopType'],
+          lock: { mode: 'pessimistic_write' },
+        }),
+      ]);
+
+      if (!armyA) throw new Error('Army A not found');
+      if (!armyB) throw new Error('Army B not found');
+      if (armyA.user_id !== action.userId) throw new Error('User does not own army A');
+      if (armyB.user_id !== action.userId) throw new Error('User does not own army B');
+      if (armyA.province_id !== armyB.province_id) {
+        throw new Error('Both armies must be in the same province to transfer troops');
+      }
+
+      const armiesById: Record<string, Army> = { [armyA.id]: armyA, [armyB.id]: armyB };
+
+      for (const t of transfers) {
+        const count = Number(t?.count);
+        if (!t?.troop_type_key || !Number.isFinite(count) || count <= 0) {
+          throw new Error('Each transfer requires troop_type_key and count (>0)');
+        }
+        const from = armiesById[t.from_army_id];
+        const to = armiesById[t.to_army_id];
+        if (!from || !to || from.id === to.id) {
+          throw new Error('Each transfer must move between army A and army B');
+        }
+
+        const sourceUnit = from.units.find((u) => u.troopType.key === t.troop_type_key);
+        if (!sourceUnit || sourceUnit.count < count) {
+          throw new Error(`Army ${from.id} does not have ${count} of ${t.troop_type_key} to transfer`);
+        }
+
+        sourceUnit.count -= count;
+        if (sourceUnit.count === 0) {
+          from.units = from.units.filter((u) => u.id !== sourceUnit.id);
+        }
+
+        const destUnit = to.units.find((u) => u.troopType.key === t.troop_type_key);
+        if (destUnit) {
+          destUnit.count += count;
+        } else {
+          to.units.push(
+            manager.create(ArmyUnit, {
+              army_id: to.id,
+              troop_type_id: sourceUnit.troop_type_id,
+              troopType: sourceUnit.troopType,
+              count,
+            }),
+          );
+        }
+      }
+
+      // Neither army may end below the minimum size — this is a rebalance
+      // between two surviving armies, not a merge/disband.
+      const totalA = armyTotalTroops(armyA);
+      const totalB = armyTotalTroops(armyB);
+      if (totalA < ARMY_MIN_SIZE || totalB < ARMY_MIN_SIZE) {
+        throw new Error(
+          `Both armies must retain at least ${ARMY_MIN_SIZE} troops after transfer (would have ${totalA} and ${totalB})`,
+        );
+      }
+
+      const zeroedUnitIds = [...armyA.units, ...armyB.units]
+        .filter((u) => u.count <= 0)
+        .map((u) => u.id);
+      if (zeroedUnitIds.length) {
+        await manager.delete(ArmyUnit, zeroedUnitIds);
+      }
+      await manager.save(
+        ArmyUnit,
+        [...armyA.units, ...armyB.units].filter((u) => u.count > 0),
+      );
+    });
+  }
+}
+
 @Injectable()
 export class ArmyDisbandHandler implements ActionHandler {
   private readonly logger = new Logger(ArmyDisbandHandler.name);
@@ -1246,24 +1341,24 @@ export class ActionExecutorService {
   constructor(
     private buildHandler: BuildActionHandler,
     private upgradeHandler: UpgradeActionHandler,
-    private transferTroopsHandler: TransferTroopsActionHandler,
     private removeHandler: RemoveActionHandler,
     private armyCreateHandler: ArmyCreateHandler,
     private armyRecruitHandler: ArmyRecruitHandler,
     private armyMoveHandler: ArmyMoveHandler,
     private armyMergeHandler: ArmyMergeHandler,
+    private armyTransferHandler: ArmyTransferHandler,
     private armyDisbandHandler: ArmyDisbandHandler,
     private armyEditHandler: ArmyEditHandler,
     private colonizeHandler: ColonizeActionHandler,
   ) {
     this.handlers.set(ActionType.BUILD, buildHandler);
     this.handlers.set(ActionType.UPGRADE, upgradeHandler);
-    this.handlers.set(ActionType.TRANSFER_TROOPS, transferTroopsHandler);
     this.handlers.set(ActionType.REMOVE, removeHandler);
     this.handlers.set(ActionType.ARMY_CREATE, armyCreateHandler);
     this.handlers.set(ActionType.ARMY_RECRUIT, armyRecruitHandler);
     this.handlers.set(ActionType.ARMY_MOVE, armyMoveHandler);
     this.handlers.set(ActionType.ARMY_MERGE, armyMergeHandler);
+    this.handlers.set(ActionType.ARMY_TRANSFER, armyTransferHandler);
     this.handlers.set(ActionType.ARMY_DISBAND, armyDisbandHandler);
     this.handlers.set(ActionType.ARMY_EDIT, armyEditHandler);
     this.handlers.set(ActionType.COLONIZE, colonizeHandler);

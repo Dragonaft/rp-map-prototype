@@ -65,4 +65,27 @@ export const armiesApi = {
     });
     return response.data;
   },
+
+  mergeArmies: async (data: {
+    source_army_id: string;
+    target_army_id: string;
+  }): Promise<any> => {
+    const response = await apiClient.post('/actions', {
+      type: ActionType.ARMY_MERGE,
+      actionData: data,
+    });
+    return response.data;
+  },
+
+  transferTroops: async (data: {
+    army_a_id: string;
+    army_b_id: string;
+    transfers: { troop_type_key: string; from_army_id: string; to_army_id: string; count: number }[];
+  }): Promise<any> => {
+    const response = await apiClient.post('/actions', {
+      type: ActionType.ARMY_TRANSFER,
+      actionData: data,
+    });
+    return response.data;
+  },
 };

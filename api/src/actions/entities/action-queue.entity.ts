@@ -12,7 +12,6 @@ import { User } from '../../users/entities/user.entity';
 export enum ActionType {
   BUILD = 'BUILD',
   UPGRADE = 'UPGRADE',
-  TRANSFER_TROOPS = 'TRANSFER_TROOPS',
   RESEARCH = 'RESEARCH',
   REMOVE = 'REMOVE',
   DISBAND = 'DISBAND',
@@ -20,6 +19,7 @@ export enum ActionType {
   ARMY_MOVE = 'ARMY_MOVE',
   ARMY_RECRUIT = 'ARMY_RECRUIT',
   ARMY_MERGE = 'ARMY_MERGE',
+  ARMY_TRANSFER = 'ARMY_TRANSFER',
   ARMY_DISBAND = 'ARMY_DISBAND',
   ARMY_EDIT = 'ARMY_EDIT',
   COLONIZE = 'COLONIZE',

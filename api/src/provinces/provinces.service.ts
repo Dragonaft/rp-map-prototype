@@ -8,7 +8,6 @@ import { User } from "../users/entities/user.entity";
 import { Building } from '../buildings/entities/building.entity';
 import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { AuthTokenType } from "../auth/types/auth.types";
-import { ActionsService } from '../actions/actions.service';
 import { UsersService } from '../users/users.service';
 import { TechEffectsService } from '../techs/tech-effects.service';
 import { BuildingTypes } from "../buildings/types/building.types";
@@ -33,7 +32,6 @@ export class ProvincesService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Army)
     private readonly armyRepository: Repository<Army>,
-    private readonly actionsService: ActionsService,
     private readonly usersService: UsersService,
     private readonly goodsService: GoodsService,
     private readonly userGoodsService: UserGoodsService,
@@ -48,7 +46,7 @@ export class ProvincesService {
    *   Caller is responsible for having already validated the real actor's role.
    */
   async getAll(userId: string, bypassFog = false) {
-    const [provinces, enemyArmies, reservedByFromProvince] = await Promise.all([
+    const [provinces, enemyArmies] = await Promise.all([
       this.provinceRepository.find({
         relations: ['provinceBuildings', 'provinceBuildings.building'],
       }),
@@ -57,7 +55,6 @@ export class ProvincesService {
         .select(['a.province_id'])
         .where('a.user_id != :userId', { userId })
         .getMany(),
-      this.actionsService.getReservedTroopMovesByFromProvince(userId),
     ]);
 
     const visibleProvinceIds = new Set<string>();
@@ -84,11 +81,6 @@ export class ProvincesService {
           ? province.provinceBuildings
           : (province.provinceBuildings ?? []).filter((pb) => pb.building?.visible);
         return province;
-      }
-
-      const reserved = reservedByFromProvince.get(province.id) ?? 0;
-      if (reserved > 0 && province.local_troops != null) {
-        province.local_troops = Math.max(0, province.local_troops - reserved);
       }
 
       return province;
@@ -125,7 +117,7 @@ export class ProvincesService {
    *   validated the real actor's role.
    */
   async getState(userId: string, bypassFog = false) {
-    const [provinces, user, reserved, enemyArmies] = await Promise.all([
+    const [provinces, user, enemyArmies] = await Promise.all([
       this.provinceRepository
         .createQueryBuilder('p')
         .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.neighbor_ids', 'p.occupier_id', 'p.occupation_turns'])
@@ -133,7 +125,6 @@ export class ProvincesService {
         .leftJoinAndSelect('pb.building', 'building')
         .getMany(),
       this.userRepository.findOne({ where: { id: userId } }),
-      this.actionsService.getReservedTroopMovesByFromProvince(userId),
       this.armyRepository
         .createQueryBuilder('a')
         .select(['a.province_id'])
@@ -164,9 +155,7 @@ export class ProvincesService {
       return {
         id: p.id,
         userId: p.user_id ?? null,
-        localTroops: isOwner
-          ? Math.max(0, (p.local_troops ?? 0) - (reserved.get(p.id) ?? 0))
-          : null,
+        localTroops: isOwner ? (p.local_troops ?? 0) : null,
         enemyHere: !isOwner && provincesWithEnemyArmies.has(p.id),
         // Each entry carries its ProvinceBuilding instance id so the client can
         // uniquely key and target a specific building (multiple of the same type

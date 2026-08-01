@@ -84,6 +84,7 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.user);
   const troopTypes = useAppSelector((state: RootState) => state.armies.troopTypes);
+  const armies = useAppSelector((state: RootState) => state.armies.armies);
   const actions = useAppSelector((state: RootState) => state.actions.actions);
   const provinces = useAppSelector((state: RootState) => state.provinces.provinces);
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
@@ -154,6 +155,31 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
     () => actions.find((a) => a.actionType === ActionType.ARMY_DISBAND && a.actionData?.army_id === army.id),
     [actions, army.id],
   );
+
+  // Pending ARMY_MERGE/ARMY_TRANSFER involving this army (see armyLocks.ts — the two action
+  // types that mutually lock an army alongside ARMY_MOVE, which already has its own on-map
+  // arrow overlay + cancel, so it isn't surfaced again here).
+  const pendingMergeOrTransferAction = useMemo(
+    () => actions.find((a) => {
+      if (a.actionType === ActionType.ARMY_MERGE) {
+        return a.actionData?.source_army_id === army.id || a.actionData?.target_army_id === army.id;
+      }
+      if (a.actionType === ActionType.ARMY_TRANSFER) {
+        return a.actionData?.army_a_id === army.id || a.actionData?.army_b_id === army.id;
+      }
+      return false;
+    }),
+    [actions, army.id],
+  );
+
+  const pendingMergeOrTransferOtherArmyName = useMemo(() => {
+    if (!pendingMergeOrTransferAction) return null;
+    const data = pendingMergeOrTransferAction.actionData;
+    const otherId = pendingMergeOrTransferAction.actionType === ActionType.ARMY_MERGE
+      ? (data?.source_army_id === army.id ? data?.target_army_id : data?.source_army_id)
+      : (data?.army_a_id === army.id ? data?.army_b_id : data?.army_a_id);
+    return armies.find((a) => a.id === otherId)?.name ?? 'Unnamed Army';
+  }, [pendingMergeOrTransferAction, armies, army.id]);
 
   // Troop types already in army
   const unitKeys = useMemo(() => new Set(army.units.map((u) => u.troopType.key)), [army.units]);
@@ -322,6 +348,17 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
         <div className="text-xs bg-red-100 border border-red-400 rounded px-2 py-1 flex justify-between items-center">
           <span className="text-red-700 font-semibold">⏳ Disbanding queued</span>
           <button className="text-red-600 underline text-xs" onClick={() => void handleCancelAction(pendingDisbandAction.id)}>Cancel</button>
+        </div>
+      )}
+
+      {/* Merge/transfer indicator — while pending, this army can't be queued to move
+          (and vice versa: it can't be re-queued into another merge/transfer either). */}
+      {isOwnerArmy && pendingMergeOrTransferAction && (
+        <div className="text-xs bg-yellow-100 border border-yellow-400 rounded px-2 py-1 flex justify-between items-center">
+          <span className="text-yellow-700 font-semibold">
+            ⏳ {pendingMergeOrTransferAction.actionType === ActionType.ARMY_MERGE ? 'Merge' : 'Transfer'} queued with {pendingMergeOrTransferOtherArmyName}
+          </span>
+          <button className="text-yellow-700 underline text-xs" onClick={() => void handleCancelAction(pendingMergeOrTransferAction.id)}>Cancel</button>
         </div>
       )}
 

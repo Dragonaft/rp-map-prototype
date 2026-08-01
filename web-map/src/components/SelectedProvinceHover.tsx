@@ -19,6 +19,7 @@ import { PlayerTreatiesModal } from "./Modals/PlayerTreatiesModal.tsx";
 import { ModStocksModal } from "./Modals/ModStocksModal.tsx";
 import { modApi } from "../api/mod.ts";
 import { getPendingGoodUsage, getPendingResourceUsage, provinceHasWaterNeighbor } from "../utils/mapModes.ts";
+import { ARMY_LOCK_LABELS, getArmyLocks } from "../utils/armyLocks.ts";
 
 /** Must match OCCUPATION_CORE_THRESHOLD in api/src/diplomacy/types/diplomacy.types.ts */
 const OCCUPATION_CORE_THRESHOLD = 10;
@@ -26,10 +27,11 @@ const OCCUPATION_CORE_THRESHOLD = 10;
 interface Props {
   onSelectArmy?: (armyId: string | null) => void;
   onCreateArmy?: () => void;
+  onManageArmies?: () => void;
   selectedArmyId?: string | null;
 }
 
-export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmyId }: Props) => {
+export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmies, selectedArmyId }: Props) => {
   const dispatch = useAppDispatch();
   const selectedProvince = useAppSelector(selectSelectedProvince);
   const user = useAppSelector((state: RootState) => state.user);
@@ -431,7 +433,15 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     [actions],
   );
 
+  // Armies already committed to a pending move/merge/transfer this turn (see armyLocks.ts).
+  const armyLocks = useMemo(() => getArmyLocks(actions), [actions]);
+
   const armyTotalTroops = (army: Army) => army.units.reduce((s, u) => s + u.count, 0);
+
+  const ownArmiesInProvinceCount = useMemo(
+    () => armiesInProvince.filter((a) => a.user_id === user.id).length,
+    [armiesInProvince, user.id],
+  );
 
   if (!selectedProvince) return null;
 
@@ -667,6 +677,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
                   const total = armyTotalTroops(army);
                   const isSelected = selectedArmyId === army.id;
                   const isDisbanding = pendingDisbandArmyIds.has(army.id);
+                  const lock = armyLocks.get(army.id);
                   return (
                     <button
                       key={army.id}
@@ -675,12 +686,23 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
                           ? 'bg-blue-200 border-blue-500'
                           : isDisbanding
                             ? 'bg-red-100 border-red-400 opacity-70'
-                            : 'bg-gray-200 border-gray-400 hover:bg-gray-300'
+                            : lock
+                              ? 'bg-yellow-100 border-yellow-500 opacity-80'
+                              : 'bg-gray-200 border-gray-400 hover:bg-gray-300'
                       }`}
                       onClick={() => onSelectArmy?.(isSelected ? null : army.id)}
-                      title={isDisbanding ? 'Disbanding queued' : 'Click to manage army'}
+                      title={
+                        isDisbanding
+                          ? 'Disbanding queued'
+                          : lock
+                            ? `${ARMY_LOCK_LABELS[lock.kind]} queued — open this army to cancel`
+                            : 'Click to manage army'
+                      }
                     >
-                      <span className="font-medium truncate">{army.name ?? 'Unnamed Army'}</span>
+                      <span className="font-medium truncate">
+                        {army.name ?? 'Unnamed Army'}
+                        {lock && <span className="ml-1 text-yellow-700">⏳ {ARMY_LOCK_LABELS[lock.kind]}</span>}
+                      </span>
                       <span className="font-bold tabular-nums ml-2 shrink-0">{total}</span>
                     </button>
                   );
@@ -710,6 +732,17 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
               </div>
             )}
           </>
+        </div>
+      )}
+
+      {/* Manage Armies — available on any province (owned, occupied, or merely
+          transited/co-located, e.g. water or a troops-pass province) as long as the
+          player has 2+ of their own armies stationed here; not gated on ownership. */}
+      {!user.isNew && ownArmiesInProvinceCount >= 2 && (
+        <div className="flex flex-col gap-2 mt-2">
+          <Button variant="outlined" color="primary" size="small" onClick={() => onManageArmies?.()}>
+            Manage Armies
+          </Button>
         </div>
       )}
 
