@@ -83,7 +83,7 @@ During execution, the API returns **503** on most endpoints (ActionExecutionBloc
 | API bootstrap            | `api/src/main.ts`                                 |
 | Root module              | `api/src/app.module.ts`                           |
 | Turn scheduler           | `api/src/actions/action-scheduler.service.ts`     |
-| Action handlers (12)     | `api/src/actions/action-executor.service.ts`      |
+| Action handlers (11)     | `api/src/actions/action-executor.service.ts`      |
 | Combat calculator        | `api/src/actions/combat-calculator.ts`            |
 | Income logic             | `api/src/actions/income-action.service.ts`        |
 | Upkeep logic             | `api/src/actions/upkeep-action.service.ts`        |

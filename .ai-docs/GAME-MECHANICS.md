@@ -124,7 +124,11 @@ in a province they occupy (the fort-use carve-out from
 [Diplomacy & Occupation](#diplomacy--occupation)).
 
 ### Movement
-- **One move per army per turn** (enforced both at queue time and in the executor)
+- **One army action per turn** — an army may have at most one of `ARMY_MOVE` / `ARMY_MERGE` /
+  `ARMY_TRANSFER` pending at a time (see [Merging & Transferring Troops](#merging--transferring-troops)
+  below). Enforced at queue time (`ActionsService.assertNotDuplicate`, which locks every army id
+  referenced by any pending one of these three) and, for moves specifically, also in the executor
+  via `ExecutionContext.movedArmyIds`.
 - **Adjacent:** always allowed to neighboring provinces
 - **Road-based:** up to 2 hops (3 with `military.best_logistics` tech)
   - Every intermediate province must have ROAD building
@@ -136,6 +140,30 @@ in a province they occupy (the fort-use carve-out from
   grantee always enters peacefully (no combat, no occupation change); absent
   passage, entry is only allowed while hostile (`NEUTRAL`/`WAR`) — a signed
   `PEACE` with no passage rejects the move outright
+
+### Merging & Transferring Troops
+Two actions consolidate or rebalance troops between two of the caller's own armies that are
+**already in the same province** — any province; ownership of the province itself is irrelevant,
+only that both armies belong to the caller and share a `province_id` (works equally in your own
+territory, a raided enemy province, or at sea).
+
+- **ARMY_MERGE** (`source_army_id`, `target_army_id`, must differ) — dissolves the source army:
+  every one of its units is added into the matching troop type on the target (a new `ArmyUnit`
+  row is created if the target doesn't already have that type), then the source army and its
+  units are deleted outright. One-directional; no minimum-size check on the source since it's
+  being destroyed anyway.
+- **ARMY_TRANSFER** (`army_a_id`, `army_b_id`, `transfers: [{ troop_type_key, from_army_id,
+  to_army_id, count }]`) — a rebalance where **both** armies survive. Each `transfers` entry
+  moves `count` of one troop type between the two named armies in either direction (a client
+  typically nets each troop type to a single line). After every transfer applies, **both**
+  armies must still hold at least `ARMY_MIN_SIZE` (100) troops — see [Composition](#composition)
+  above — or the whole action fails atomically; nothing is partially applied.
+
+`ArmyMergeHandler`/`ArmyTransferHandler` (`api/src/actions/action-executor.service.ts`) each run
+in one pessimistic-locked transaction over both armies. The web client's "Manage Armies" panel
+(see [WEB-MAP.md](WEB-MAP.md#manage-armies-modal)) surfaces both actions behind a single
+Merge/Transfer mode toggle whenever the player has 2+ of their own armies in the selected
+province.
 
 ### Water & Naval Movement
 - **Armies can't enter water by default.** Embarking (land → water) requires a **Port**

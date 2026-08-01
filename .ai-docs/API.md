@@ -252,25 +252,33 @@ by `ActionsService.validateActionPayload` (see Key Services).
 | REMOVE            | province_id, province_building_id                          |
 | COLONIZE          | province_id (land-province check enforced by executor, not at queue time) |
 | ARMY_CREATE       | province_id, name?, units: [{ troop_type_key, count }]     |
-| ARMY_MOVE         | army_id, to_province_id (one move per army per turn; diplomacy-gated — see [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation)) |
+| ARMY_MOVE         | army_id, to_province_id (diplomacy-gated — see [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation)) |
 | ARMY_RECRUIT      | army_id, units: [{ troop_type_key, count }]               |
-| ARMY_MERGE        | source_army_id, target_army_id (must differ)             |
+| ARMY_MERGE        | source_army_id, target_army_id (must differ) — dissolves source into target |
+| ARMY_TRANSFER     | army_a_id, army_b_id, transfers: [{ troop_type_key, from_army_id, to_army_id, count }] — rebalance, both armies survive |
 | ARMY_DISBAND      | army_id                                                    |
 | ARMY_EDIT         | army_id, troop_type_key, count                             |
 
-**Legacy/unused enum values:** `TRANSFER_TROOPS` (stub handler, nothing queues it),
-`DISBAND` (no handler), and `RESEARCH` (explicitly rejected by `ActionsService.createAction`
-— tech selection is `POST /techs/select` now, since research can't afford to wait a turn just
-for the selection itself to take effect). `INVADE` and `DEPLOY` were removed. Troop counts
-must be integers in `[1, 1_000_000]`.
+`ARMY_MOVE`/`ARMY_MERGE`/`ARMY_TRANSFER` mutually lock the armies they reference — an army may
+have at most one of the three pending at a time (see
+[GAME-MECHANICS.md](GAME-MECHANICS.md#movement)).
+
+**Legacy/unused enum values:** `DISBAND` (no handler) and `RESEARCH` (explicitly rejected by
+`ActionsService.createAction` — tech selection is `POST /techs/select` now, since research can't
+afford to wait a turn just for the selection itself to take effect). `INVADE`, `DEPLOY`, and
+`TRANSFER_TROOPS` were removed outright (the latter was a dead stub with nothing ever queuing
+it — not to be confused with the current `ARMY_TRANSFER`, an unrelated, fully-implemented
+action). Troop counts must be integers in `[1, 1_000_000]`.
 
 ## Key Services
 
 ### ActionsService (queue-time validation)
 - `createAction` rejects `RESEARCH` outright (400 — use `POST /techs/select`), validates
   payload shape per action type, enforces a per-user cap (`MAX_PENDING_ACTIONS_PER_USER = 200`
-  pending), and rejects duplicates (one ARMY_MOVE per army). The executor re-checks everything
-  at turn time — queue validation is just fast feedback.
+  pending), and rejects duplicates via `assertNotDuplicate`: every army id referenced by a
+  pending `ARMY_MOVE`/`ARMY_MERGE`/`ARMY_TRANSFER` is locked, so an army can have at most one of
+  the three queued at a time (queuing any of them for an already-locked army 400s). The executor
+  re-checks everything at turn time — queue validation is just fast feedback.
 - `POST /actions` body is validated by `CreateActionDto` (`@IsEnum(ActionType)`),
   so unknown action types are rejected with 400.
 - All action creation funnels through here, including ARMY_CREATE / ARMY_DISBAND

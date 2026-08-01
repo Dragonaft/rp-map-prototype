@@ -290,7 +290,7 @@ from the saved value instead of losing progress.
 | id            | uuid (PK) | |
 | userId        | uuid (FK) | Queuing player (also exposed as eager `user` relation) |
 | order         | int       | Execution priority (lower = earlier) |
-| actionType    | enum      | BUILD, UPGRADE, REMOVE, COLONIZE, ARMY_CREATE/MOVE/RECRUIT/MERGE/DISBAND/EDIT (13 enum values incl. legacy TRANSFER_TROOPS, DISBAND, RESEARCH — the latter rejected at queue time, see [API.md](API.md)) |
+| actionType    | enum      | BUILD, UPGRADE, REMOVE, COLONIZE, ARMY_CREATE/MOVE/RECRUIT/MERGE/TRANSFER/DISBAND/EDIT (13 enum values incl. legacy DISBAND, RESEARCH — the latter rejected at queue time, see [API.md](API.md)) |
 | actionData    | json      | Flexible payload per action type |
 | status        | enum      | PENDING, PROCESSING, COMPLETED, FAILED, RETRACTED (default PENDING) |
 | failureReason | text      | Nullable, set on failure |

@@ -110,9 +110,10 @@ GamePage
 │   └── ProvinceShape   Individual province rendering (incl. occupied-province stripes)
 ├── SelectedProvinceHover  Right panel (build, deploy, setup, colonize, occupation state, player treaties)
 ├── FastBuildPanel       Left panel: pick a building once, map-click any province to queue BUILD/UPGRADE there (see Fast Build Mode)
-├── ArmyBlock           Army detail panel (recruit, edit, disband)
+├── ArmyBlock           Army detail panel (recruit, edit, disband, merge/transfer indicator + cancel)
 ├── CreateArmyModal     New army creation
 ├── TroopMovementModal  Army move target selection
+├── ManageArmiesModal   Merge/Transfer mode toggle between 2+ of the player's own co-located armies (see Manage Armies Modal)
 └── Modals/
     ├── BuildMenuModal         Select building to construct
     ├── BuildingActionsModal   Upgrade/demolish
@@ -178,6 +179,52 @@ selecting each province individually. Entered only via the left-side `FastBuildP
   building/upgrade here) calls `handleFastBuildCancel` → `DELETE /actions/pending/:id` on the
   action `FastBuildCell.cancelActionId` resolved for that province. Green/red provinces
   right-click as a no-op.
+
+## Manage Armies Modal
+
+Lets a player merge or rebalance troops between two of their own armies already co-located in a
+province — **any** province the player has 2+ of their own armies in, not just ones they own
+(occupied territory, a raided enemy province, water, anywhere). Opened via a **"Manage Armies"**
+button on `SelectedProvinceHover.tsx`, rendered once as a sibling of the four owner/occupier/
+viewer/setup view blocks (not nested inside the owner-only branch), gated purely on
+`armiesInProvince.filter(a => a.user_id === user.id).length >= 2`.
+
+- **`ManageArmiesModal.tsx`** — MUI `Dialog` with `disablePortal` + `!`-prefixed Tailwind glass
+  classes (the [Tailwind gotcha](#tailwind-gotchas-specific-to-this-project) pattern, matching
+  `Modals/DiplomacyModal.tsx` rather than the older unstyled `CreateArmyModal.tsx`/
+  `BuildMenuModal.tsx`). Two army `<select>`s (Army A / Army B, must differ) plus a Merge/Transfer
+  mode toggle:
+  - **Merge** — calls `armiesApi.mergeArmies({ source_army_id, target_army_id })` (`ARMY_MERGE`);
+    a swap button flips which of A/B is the one being dissolved.
+  - **Transfer** — one `<input type="range">` per troop type present in either army, its value
+    splitting that type's combined total between A and B; submit is disabled until both armies'
+    running totals are ≥100 and at least one type actually changed. Diffs the start/end split per
+    type into `transfers: [{ troop_type_key, from_army_id, to_army_id, count }]` and calls
+    `armiesApi.transferTroops({ army_a_id, army_b_id, transfers })` (`ARMY_TRANSFER`).
+  - Armies already locked by a pending move/merge/transfer (see below) are excluded from both
+    selects; if any of the player's armies in the province are locked, they're listed inline with
+    a **Cancel** button (`actionsApi.removeAction` + `removeActionById`) so the player doesn't have
+    to leave the modal to unblock them.
+
+### Army Locks (`utils/armyLocks.ts`)
+
+Shared utility mirroring the backend's mutual per-turn lock
+(`ActionsService.assertNotDuplicate` — see [API.md](API.md#action-types-enum)): an army may have
+at most one of `ARMY_MOVE`/`ARMY_MERGE`/`ARMY_TRANSFER` pending at a time.
+`getArmyLocks(actions): Map<armyId, { actionId, kind }>` scans the `actions` slice for exactly
+those three action types and maps every army id they reference to the action holding its lock;
+`getLockedArmyIds` is a thin `Set`-only wrapper over the same map. Consumed by:
+- **`MapView.tsx`** — gates `handleProvinceRightClick` so a locked selected army can't open
+  `TroopMovementModal` (shows a snackbar via `showError` instead); this is the first client-side
+  move-lock check (previously move-blocking was backend-only).
+- **`SelectedProvinceHover.tsx`** — the owner army-list row shows the specific lock kind (⏳ Move
+  / Merge / Transfer) via `ARMY_LOCK_LABELS`, tooltip pointing the player at the owning army's
+  detail panel to cancel it.
+- **`ArmyBlock.tsx`** — a banner (same slot/style as the existing Disband banner) naming the
+  other army involved and a **Cancel** button, for any pending `ARMY_MERGE`/`ARMY_TRANSFER`
+  touching the selected army. (`ARMY_MOVE` isn't duplicated here — it already has its own on-map
+  arrow overlay with click-to-cancel.)
+- **`ManageArmiesModal.tsx`** — as described above.
 
 ## Mod / NPC Impersonation State
 
@@ -305,13 +352,16 @@ source alone — this is how every gotcha above was originally diagnosed.
 web-map/src/
 ├── api/              config.ts, auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts,
 │                     resources.ts, goods.ts, diplomacy.ts, notifications.ts
-├── components/       MapView, ProvinceShape, SelectedProvinceHover, FastBuildPanel, ArmyBlock, TopBar, TechTree, modals
+├── components/       MapView, ProvinceShape, SelectedProvinceHover, FastBuildPanel, ArmyBlock,
+│                     ManageArmiesModal, TopBar, TechTree, modals
 ├── pages/            game/index.tsx, auth/login/LoginPage.tsx, auth/register/RegisterPage.tsx
 ├── store/            store.ts, hooks.ts, slices/ (user, provinces, armies, buildings, techs, actions, otherUsers,
 │                     resources, goods, diplomacy, mod)
 ├── context/          AuthContext.tsx, SnackbarContext.tsx
 ├── hooks/            useApi.ts, useActionExecutionReload.ts
-├── utils/            mapModes.ts (map-mode coloring, build/upgrade eligibility, fast-build cell logic)
+├── utils/            mapModes.ts (map-mode coloring, build/upgrade eligibility, fast-build cell logic),
+│                     armyLocks.ts (ARMY_MOVE/MERGE/TRANSFER mutual per-turn lock, shared with MapView/
+│                     SelectedProvinceHover/ArmyBlock/ManageArmiesModal)
 ├── constants/        buildingIcons.ts
 ├── types.ts          TypeScript interfaces
 ├── App.tsx           Root layout
