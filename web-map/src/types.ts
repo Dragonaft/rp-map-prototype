@@ -119,7 +119,6 @@ export interface ProvinceLayout {
 export interface ProvinceStateData {
   id: string;
   userId: string | null;
-  localTroops: number | null;
   enemyHere?: boolean;
   buildings?: ProvinceBuilding[];
   buildingCap: number | null;
@@ -136,7 +135,6 @@ export interface Province {
   resourceType: string;
   regionId: string;
   userId: string | null;
-  localTroops: number;
   enemyHere?: boolean;
   buildings?: ProvinceBuilding[];
   neighbors?: string[] | null;
@@ -272,7 +270,6 @@ export interface SetupUserResponse {
     resource_type: string;
     region_id: string;
     user_id: string;
-    local_troops: number;
   };
 }
 

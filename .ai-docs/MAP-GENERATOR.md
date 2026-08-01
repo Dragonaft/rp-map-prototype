@@ -27,7 +27,6 @@ Array of province objects:
   "polygon": "M220 150 H260 V190 H220 Z",   // SVG path commands
   "type": "land|water",
   "landscape": "plains|forest|mountain|hills|swamp|desert",
-  "local_troops": 0,
   "resource_type": "iron|wood|grain|stone|gold|fish|null",
   "user_id": null,
   "region_id": "prov-0-0",

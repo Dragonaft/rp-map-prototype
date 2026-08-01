@@ -185,7 +185,6 @@ export function importSvgAsMap(options: ImportSvgOptions) {
       landscape: landscapeAttr && landscapes.includes(landscapeAttr as Landscape)
         ? (landscapeAttr as Landscape)
         : randomFrom(landscapes),
-      local_troops: 0,
       resource_type: isWater ? randomFrom(resourcesSea) : pickWeighted(Math.random, resourceWeights),
       user_id: null,
       region_id: id,

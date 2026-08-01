@@ -261,7 +261,7 @@ async function clearPreviousTestState(manager: EntityManager, userIds: string[])
     [userIds],
   );
   await manager.query(
-    'UPDATE `provinces` SET `user_id` = NULL, `local_troops` = 0 WHERE `user_id` IN (?)',
+    'UPDATE `provinces` SET `user_id` = NULL WHERE `user_id` IN (?)',
     [userIds],
   );
 }
@@ -347,7 +347,7 @@ async function seedTestCountries() {
         await manager.update(
           Province,
           { id: In(Array.from(assignment.ids)) },
-          { user_id: assignment.user.id, local_troops: 0 },
+          { user_id: assignment.user.id },
         );
 
         for (const provinceId of assignment.ids) {

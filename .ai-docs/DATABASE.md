@@ -75,7 +75,6 @@ ExecutionLock (standalone, distributed locking)
 | user_id        | uuid (FK)     | Legal/core owner, nullable. **Unchanged by mere occupation** — see `occupier_id` |
 | occupier_id    | uuid (FK)     | → User, nullable. Military controller when the province is occupied (not the legal owner); `ON DELETE SET NULL`. Null = not occupied |
 | occupation_turns | int         | Default 0. Turns spent occupied; auto-cores to `occupier_id` at `OCCUPATION_CORE_THRESHOLD` (10) — see [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation) |
-| local_troops   | int           | Garrison count (visible only to owner) |
 | neighbor_ids   | simple-json   | Array of adjacent province IDs (nullable) |
 | provinceBuildings | OneToMany  | → ProvinceBuilding (the `buildings` getter maps these) |
 

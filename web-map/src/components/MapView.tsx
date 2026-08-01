@@ -8,7 +8,7 @@ import { TroopMovementModal } from './TroopMovementModal';
 import { ArmyBlock } from './ArmyBlock.tsx';
 import { CreateArmyModal } from './CreateArmyModal.tsx';
 import { ManageArmiesModal } from './ManageArmiesModal.tsx';
-import { setMapModeFilterValue, setSelectedProvinceId, setSelectedTroops, updateProvinceById } from '../store/slices/provincesSlice';
+import { setMapModeFilterValue, setSelectedProvinceId, setSelectedTroops } from '../store/slices/provincesSlice';
 import type { RootState } from '../store/store';
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { actionsApi } from '../api/actions.ts';
@@ -345,14 +345,11 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     setIsCancellingAction(true);
     setCancelError(null);
     try {
-      const response = await actionsApi.removeAction(cancelActionId);
+      // ActionsService.retractAction always returns `province: null` (actions.service.ts),
+      // so there was never a province update to apply from this response — removed along
+      // with the now-gone `localTroops` field it read.
+      await actionsApi.removeAction(cancelActionId);
       dispatch(removeActionById(cancelActionId));
-      if (response?.province?.id != null) {
-        dispatch(updateProvinceById({
-          id: response.province.id,
-          updates: { localTroops: response.province.localTroops },
-        }));
-      }
       setCancelActionId(null);
     } catch (err: any) {
       setCancelError(err?.response?.data?.message || 'Failed to cancel action');

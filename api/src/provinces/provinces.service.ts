@@ -40,10 +40,8 @@ export class ProvincesService {
 
   /**
    * @param bypassFog Moderator god-view (see api/src/utils/mod-visibility.ts) — reveals
-   *   every non-owned province's buildings regardless of `Building.visible`. Garrison troop
-   *   counts (`local_troops`) stay hidden for non-owners either way — out of scope by
-   *   design, garrisons are a separate concept from the mobile armies this toggle targets.
-   *   Caller is responsible for having already validated the real actor's role.
+   *   every non-owned province's buildings regardless of `Building.visible`. Caller is
+   *   responsible for having already validated the real actor's role.
    */
   async getAll(userId: string, bypassFog = false) {
     const [provinces, enemyArmies] = await Promise.all([
@@ -76,7 +74,6 @@ export class ProvincesService {
     return provinces.map(province => {
       if (province.user_id !== userId) {
         province.enemyHere = provincesWithEnemyArmies.has(province.id) || false;
-        province.local_troops = null;
         province.provinceBuildings = bypassFog
           ? province.provinceBuildings
           : (province.provinceBuildings ?? []).filter((pb) => pb.building?.visible);
@@ -108,19 +105,16 @@ export class ProvincesService {
   }
 
   /**
-   * Dynamic province state: ownership, troops, buildings — changes only at turn end.
+   * Dynamic province state: ownership, buildings — changes only at turn end.
    * @param bypassFog Moderator god-view (see api/src/utils/mod-visibility.ts) — reveals
-   *   every non-owned province's buildings regardless of `Building.visible`. `localTroops`
-   *   (garrison count) intentionally stays keyed to `isOwner` alone either way — garrisons
-   *   are a separate concept from the mobile armies/buildings this toggle targets, and
-   *   stay hidden for non-owners by design. Caller is responsible for having already
-   *   validated the real actor's role.
+   *   every non-owned province's buildings regardless of `Building.visible`. Caller is
+   *   responsible for having already validated the real actor's role.
    */
   async getState(userId: string, bypassFog = false) {
     const [provinces, user, enemyArmies] = await Promise.all([
       this.provinceRepository
         .createQueryBuilder('p')
-        .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.neighbor_ids', 'p.occupier_id', 'p.occupation_turns'])
+        .select(['p.id', 'p.user_id', 'p.landscape', 'p.neighbor_ids', 'p.occupier_id', 'p.occupation_turns'])
         .leftJoinAndSelect('p.provinceBuildings', 'pb')
         .leftJoinAndSelect('pb.building', 'building')
         .getMany(),
@@ -155,7 +149,6 @@ export class ProvincesService {
       return {
         id: p.id,
         userId: p.user_id ?? null,
-        localTroops: isOwner ? (p.local_troops ?? 0) : null,
         enemyHere: !isOwner && provincesWithEnemyArmies.has(p.id),
         // Each entry carries its ProvinceBuilding instance id so the client can
         // uniquely key and target a specific building (multiple of the same type
@@ -252,7 +245,7 @@ export class ProvincesService {
     const enrichedUser = await this.usersService.findOne(user.id, user.id);
     const newProvince = await this.provinceRepository
       .createQueryBuilder('p')
-      .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape'])
+      .select(['p.id', 'p.user_id', 'p.landscape'])
       .leftJoinAndSelect('p.provinceBuildings', 'pb')
       .leftJoinAndSelect('pb.building', 'building')
       .where('p.id = :id', { id: province.id })

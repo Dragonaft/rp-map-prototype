@@ -207,7 +207,6 @@ export function generateGridMap(options: GenerateGridOptions) {
         polygon: `M${x1} ${y1} H${x2} V${y2} H${x1} Z`,
         type,
         landscape: isWater ? 'plains' : getLandscape(elevation[r][c], rng),
-        local_troops: 0,
         resource_type: isWater ? randomFrom(resourcesSea) : pickWeighted(rng, resourceWeights),
         user_id: null,
         region_id: `prov-${r}-${c}`,

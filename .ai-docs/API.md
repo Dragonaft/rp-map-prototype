@@ -237,9 +237,7 @@ act-as impersonation) is ADMIN/MODERATOR; a PLAYER sending the header is silentl
 resulting `bypassFog` boolean is threaded into `ArmiesService.getAllArmies` (every army
 included regardless of province visibility) and `ProvincesService.getAll`/`getState` (every
 non-owned province's buildings included regardless of `Building.visible`) — see
-[GAME-MECHANICS.md](GAME-MECHANICS.md#visibility-fog-of-war). Province garrison troop counts
-(`local_troops`) are deliberately **not** affected by this flag; they stay hidden for
-non-owners either way. The web client attaches the header from `mod.switchOn` — see
+[GAME-MECHANICS.md](GAME-MECHANICS.md#visibility-fog-of-war). The web client attaches the header from `mod.switchOn` — see
 [WEB-MAP.md](WEB-MAP.md#mod--npc-impersonation-state).
 
 ## Action Types (Enum)

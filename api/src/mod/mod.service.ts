@@ -111,7 +111,6 @@ export class ModService {
         province.user_id = null;
         province.occupier_id = null;
         province.occupation_turns = 0;
-        province.local_troops = 0;
         await manager.save(Province, province);
       }
 

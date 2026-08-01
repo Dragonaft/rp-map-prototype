@@ -162,7 +162,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     onRightClick(province);
   }, [onRightClick, province]);
 
-  const displayTroopCount = armyTroopCount != null ? armyTroopCount : (province.localTroops ?? 0);
+  const displayTroopCount = armyTroopCount ?? 0;
 
   const handleTroopClick = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();

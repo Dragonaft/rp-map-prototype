@@ -170,9 +170,7 @@ in a province they occupy (the fort-use carve-out from
   map. Server-enforced via `resolveModFogBypass` (`api/src/utils/mod-visibility.ts`), which
   only honors the client's `X-Mod-Full-Visibility` header after independently confirming the
   *real* authenticated actor (not an impersonated NPC) is ADMIN/MODERATOR — see
-  [API.md](API.md#auth--mod-no-fog-of-war-toggle). Province garrison troop counts
-  (`local_troops`) are a separate concept and are **not** included in this bypass — they stay
-  hidden for non-owners regardless of the Mod switch.
+  [API.md](API.md#auth--mod-no-fog-of-war-toggle).
 
 ## Combat System
 

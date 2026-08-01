@@ -569,68 +569,6 @@ function minimumAttackersToWin(
   return low;
 }
 
-function simulateLegacyLocalCombat(
-  attackerCount: number,
-  defenderCount: number,
-  defenderBuildings: CombatBuilding[],
-  attackerTechs: string[],
-) {
-  const buildingModifier = computeBuildModifier(defenderBuildings);
-  const attackingTroops = applyAttackTechs(attackerCount, attackerTechs);
-  const battleResult = attackingTroops / buildingModifier - defenderCount;
-
-  if (battleResult > 0) {
-    return {
-      winner: 'ATTACKER',
-      attackerPower: attackingTroops,
-      buildingModifier,
-      targetTroopsAfter: Math.round(battleResult),
-    };
-  }
-
-  if (battleResult < 0) {
-    return {
-      winner: 'DEFENDER',
-      attackerPower: attackingTroops,
-      buildingModifier,
-      targetTroopsAfter: Math.round(-battleResult),
-    };
-  }
-
-  return {
-    winner: 'DRAW_DEFENDER_EMPTY',
-    attackerPower: attackingTroops,
-    buildingModifier,
-    targetTroopsAfter: 0,
-  };
-}
-
-function minimumLegacyAttackersToWin(
-  defenderCount: number,
-  defenderBuildings: CombatBuilding[],
-  attackerTechs: string[],
-): number | null {
-  const modifier = computeBuildModifier(defenderBuildings);
-
-  const winsAt = (attackerCount: number): boolean =>
-    applyAttackTechs(attackerCount, attackerTechs) / modifier - defenderCount > 0;
-
-  let high = 1;
-  while (!winsAt(high)) {
-    high *= 2;
-    if (high > 10_000_000) return null;
-  }
-
-  let low = 1;
-  while (low < high) {
-    const mid = Math.floor((low + high) / 2);
-    if (winsAt(mid)) high = mid;
-    else low = mid + 1;
-  }
-
-  return low;
-}
-
 function fogOfWarRows(
   ownCandidates: CompositionCandidate[],
   enemyCandidates: CompositionCandidate[],
@@ -1003,41 +941,6 @@ function buildReport(
             );
           }),
         ),
-      );
-    }),
-  ));
-
-  pushSection(lines, 'Legacy Local-Troops INVADE Formula');
-  lines.push('This covers the older province local_troops combat: result = attackingTroops / buildingModifier - defenderTroops.');
-  lines.push('Local troops do not use troop type attack/defense stats.');
-  lines.push(...renderTable(
-    [
-      'buildings',
-      'tech',
-      'def_count',
-      'min_attackers',
-      'result_at_min',
-      'target_troops_after',
-      'modifier',
-    ],
-    BUILDING_SCENARIOS.flatMap((buildingScenario) => {
-      const scenarioBuildings = getScenarioBuildings(buildingScenario, buildingByType);
-      return ATTACK_TECH_SCENARIOS.flatMap((techScenario) =>
-        options.defenderCounts.map((defenderCount) => {
-          const minAttackers = minimumLegacyAttackersToWin(defenderCount, scenarioBuildings, techScenario.techs);
-          const result = minAttackers == null
-            ? null
-            : simulateLegacyLocalCombat(minAttackers, defenderCount, scenarioBuildings, techScenario.techs);
-          return [
-            buildingScenario.key,
-            techScenario.key,
-            defenderCount,
-            minAttackers ?? 'n/a',
-            result?.winner ?? 'n/a',
-            result?.targetTroopsAfter ?? 'n/a',
-            result ? fmt(result.buildingModifier) : 'n/a',
-          ];
-        }),
       );
     }),
   ));

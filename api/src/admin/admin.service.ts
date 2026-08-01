@@ -125,7 +125,7 @@ export class AdminService {
         await manager.delete(ProvinceBuilding, { province_id: In(ownedProvinceIds) });
       }
       // Unclaim: tile goes back to a blank, freshly claimable slate (mirrors seed-test-countries.ts's reset).
-      await manager.update(Province, { user_id: id }, { user_id: null, local_troops: 0 } as any);
+      await manager.update(Province, { user_id: id }, { user_id: null });
       await manager.update(Province, { occupier_id: id }, { occupier_id: null, occupation_turns: 0 });
 
       await manager.remove(user);

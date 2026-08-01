@@ -18,7 +18,6 @@ interface ProvinceInput {
   polygon: string;
   type: string;
   landscape: string;
-  local_troops: number;
   resource_type: string | null;
   user_id: string | null;
   region_id: string;
@@ -37,11 +36,6 @@ function validateProvinceObject(obj: any, index: number): obj is ProvinceInput {
       logger.error(`Province at index ${index}: field '${field}' must be a string`);
       return false;
     }
-  }
-
-  if ('local_troops' in obj && typeof obj.local_troops !== 'number') {
-    logger.error(`Province at index ${index}: field 'local_troops' must be a number`);
-    return false;
   }
 
   if ('resource_type' in obj && obj.resource_type !== null && typeof obj.resource_type !== 'string') {
@@ -180,7 +174,6 @@ async function importProvinces() {
         polygon: provinceData.polygon,
         type: provinceData.type,
         landscape: provinceData.landscape,
-        local_troops: provinceData.local_troops ?? 0,
         resource_id,
         user_id: provinceData.user_id,
         region_id: provinceData.region_id,

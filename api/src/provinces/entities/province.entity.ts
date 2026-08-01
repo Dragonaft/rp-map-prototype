@@ -84,15 +84,6 @@ export class Province extends BaseEntity {
     return this.occupation_turns;
   }
 
-  @Column({ nullable: true })
-  @Exclude()
-  public local_troops: number;
-
-  @Expose({ name: 'localTroops' })
-  get localTroops(): number {
-    return this.local_troops;
-  }
-
   @Column('simple-json', { nullable: true })
   @Exclude()
   public neighbor_ids: string[] | null;
