@@ -315,6 +315,8 @@ export interface BuildRequirementContext {
   /** Player's goods ledger (GET /goods/mine), keyed by good id. */
   userGoodsById: Record<string, number>;
   pendingGoodUsage: Record<string, number>;
+  /** Optional — resolves a good id to its display name in `reason`. */
+  goodNameById?: Record<string, string>;
   /** Optional — resolves a missing tech key to its display name in `reason`. */
   techs?: { key: string; name: string }[];
 }
@@ -380,7 +382,7 @@ export function evaluateBuildRequirements(
         : resourceInsufficient
           ? `Not enough ${resourceCost}: ${(resourceCost && ctx.userResourcesByKey[resourceCost]) ?? 0} available, ${totalResourceUsed} queued, ${Math.max(0, resourceAvailable)} free`
           : goodInsufficient
-            ? `Not enough of the required good: ${(goodCost && ctx.userGoodsById[goodCost]) ?? 0} available, ${totalGoodUsed} queued, ${Math.max(0, goodAvailable)} free`
+            ? `Not enough of the required good - ${(goodCost && ctx.goodNameById?.[goodCost]) ?? 'the required good'}, ${goodAmount}: ${Math.max(0, goodAvailable)} available(free to use), ${totalGoodUsed} queued`
             : missingTechName
               ? `Missing required technology: ${missingTechName}`
               : null;

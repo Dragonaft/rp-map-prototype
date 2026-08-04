@@ -21,6 +21,8 @@ interface Props {
   /** Player's goods ledger (GET /goods/mine), keyed by good id — Good has no natural key like Resource does. */
   userGoodsById: Record<string, number>;
   pendingGoodUsage: Record<string, number>;
+  /** Good id -> display name, for the "not enough goods" tooltip. */
+  goodNameById: Record<string, string>;
   builtTypesInProvince: Set<string>;
   onBuild: (buildingId: string) => void;
 }
@@ -40,6 +42,7 @@ export const BuildMenuModal: React.FC<Props> = ({
   pendingResourceUsage,
   userGoodsById,
   pendingGoodUsage,
+  goodNameById,
   builtTypesInProvince,
   onBuild,
 }) => {
@@ -61,6 +64,7 @@ export const BuildMenuModal: React.FC<Props> = ({
               pendingResourceUsage,
               userGoodsById,
               pendingGoodUsage,
+              goodNameById,
               techs,
             },
           );

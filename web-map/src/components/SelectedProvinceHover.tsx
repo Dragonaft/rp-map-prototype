@@ -65,6 +65,10 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
     () => Object.fromEntries(myGoods.map(h => [h.good_id, h.quantity])),
     [myGoods],
   );
+  const myGoodNameById = useMemo(
+    () => Object.fromEntries(myGoods.map(h => [h.good_id, h.good.name])),
+    [myGoods],
+  );
 
   const [isOpenBuildMenu, setIsOpenBuildMenu] = useState(false);
   const [buildingsState, setBuildingsState] = useState<Building[]>([]);
@@ -881,6 +885,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
         pendingResourceUsage={pendingResourceUsage}
         userGoodsById={myGoodsById}
         pendingGoodUsage={pendingGoodUsage}
+        goodNameById={myGoodNameById}
         builtTypesInProvince={new Set(builtInProvince.map(b => b.type))}
         onBuild={(id) => { void handleBuildAction(id); setIsOpenBuildMenu(false); }}
       />

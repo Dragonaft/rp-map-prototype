@@ -233,7 +233,7 @@
     "allowed_province_resources": null,
     "requirement_resource": "stone",
     "requirement_resource_amount": 1,
-    "requirement_good_name": "Weapons",
+    "requirement_good_name": "Bricks",
     "requirement_good_amount": 100,
     "supply_building": true,
     "visible": true,

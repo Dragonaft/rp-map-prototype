@@ -169,6 +169,10 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
     [previewComposition, army.flat_upkeep, army.supply_distance],
   );
   const hasQueuedChange = upkeepQueued.money !== upkeep.money || upkeepQueued.piety !== upkeep.piety || upkeepQueued.food !== upkeep.food;
+  // What every already-queued ARMY_RECRUIT/ARMY_EDIT for this army adds/removes vs the army as it
+  // stands right now — shown as "(+n)" next to the "Queued" column so the effect of recruiting is
+  // visible the moment the action is queued, not only while a slider happens to be open.
+  const queuedDelta: UpkeepTotals = subtractTotals(upkeepQueued, upkeep);
   // Delta shown for the "PENDING" stage is against the last visible column (QUEUED if shown, else NOW).
   const previewDelta: UpkeepTotals | null = upkeepPreview
     ? subtractTotals(upkeepPreview, hasQueuedChange ? upkeepQueued : upkeep)
@@ -450,20 +454,27 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
               {upkeepPreview && <span className="font-headline text-[9px] tracking-widest uppercase text-on-primary-fixed text-right">Pending</span>}
 
               {(() => {
-                const rows: { icon: string; label: string; now: number; queued: number; preview: number | null; delta: number | null }[] = [
-                  { icon: '⚔', label: 'Money', now: upkeep.money, queued: upkeepQueued.money, preview: upkeepPreview?.money ?? null, delta: previewDelta?.money ?? null },
+                const rows: { icon: string; label: string; now: number; queued: number; queuedDelta: number; preview: number | null; delta: number | null }[] = [
+                  { icon: '⚔', label: 'Money', now: upkeep.money, queued: upkeepQueued.money, queuedDelta: queuedDelta.money, preview: upkeepPreview?.money ?? null, delta: previewDelta?.money ?? null },
                 ];
                 if (upkeep.piety > 0 || upkeepQueued.piety > 0 || (upkeepPreview?.piety ?? 0) > 0) {
-                  rows.push({ icon: '✝', label: 'Piety', now: upkeep.piety, queued: upkeepQueued.piety, preview: upkeepPreview?.piety ?? null, delta: previewDelta?.piety ?? null });
+                  rows.push({ icon: '✝', label: 'Piety', now: upkeep.piety, queued: upkeepQueued.piety, queuedDelta: queuedDelta.piety, preview: upkeepPreview?.piety ?? null, delta: previewDelta?.piety ?? null });
                 }
                 if (upkeep.food > 0 || upkeepQueued.food > 0 || (upkeepPreview?.food ?? 0) > 0) {
-                  rows.push({ icon: '🌾', label: 'Food', now: upkeep.food, queued: upkeepQueued.food, preview: upkeepPreview?.food ?? null, delta: previewDelta?.food ?? null });
+                  rows.push({ icon: '🌾', label: 'Food', now: upkeep.food, queued: upkeepQueued.food, queuedDelta: queuedDelta.food, preview: upkeepPreview?.food ?? null, delta: previewDelta?.food ?? null });
                 }
                 return rows.map((row) => (
                   <React.Fragment key={row.label}>
                     <span className="font-headline text-xs text-gray-700">{row.icon} {row.label}</span>
                     <span className="font-headline text-xs tabular-nums text-gray-800 text-right">{row.now}</span>
-                    {hasQueuedChange && <span className="font-headline text-xs tabular-nums text-gray-800 text-right">{row.queued}</span>}
+                    {hasQueuedChange && (
+                      <span className="font-headline text-xs tabular-nums text-gray-800 text-right">
+                        {row.queued}
+                        {row.queuedDelta !== 0 && (
+                          <span className={row.queuedDelta > 0 ? 'text-error-container' : 'text-green-800'}> ({row.queuedDelta > 0 ? '+' : ''}{row.queuedDelta})</span>
+                        )}
+                      </span>
+                    )}
                     {upkeepPreview && (
                       <span className="font-headline text-xs tabular-nums text-on-primary-fixed font-bold text-right">
                         {row.preview}
