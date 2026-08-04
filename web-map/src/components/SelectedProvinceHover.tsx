@@ -448,7 +448,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
   if (!selectedProvince) return null;
 
   return (
-    <div className="w-60 bg-gray-400 rounded-lg border border-outline-variant/10 p-5 flex flex-col flex-1 absolute right-5 top-4 max-h-[90vh] overflow-y-auto">
+    <div className="w-60 bg-gray-300 rounded-lg border border-outline-variant/10 p-5 flex flex-col flex-1 absolute right-5 top-4 max-h-[90vh] overflow-y-auto">
 
       {/* New user — pick starting province */}
       {user.isNew && (

@@ -1,0 +1,132 @@
+import { Army, TroopType } from '../types';
+import { CompositionEntry, calcFoodUpkeepForComposition } from './supply';
+
+export type { CompositionEntry };
+
+/** Mirrors `upkeep-action.service.ts`'s hardcoded `'paladins'` check — piety upkeep instead of money. */
+export const PIETY_TROOPS = new Set(['paladins']);
+/** Mirrors `NO_POOL_TROOPS` in `action-executor.service.ts` — recruited with money, not the draft pool. */
+export const MONEY_TROOPS = new Set(['mercenaries']);
+
+export interface UpkeepTotals {
+  money: number;
+  piety: number;
+  food: number;
+}
+
+/**
+ * Recomputes upkeep from scratch for a hypothetical composition. Mirrors
+ * `api/src/actions/upkeep-action.service.ts:64-77` exactly — keep them in lockstep.
+ *
+ * NEVER derive a per-troop delta from this: `Math.ceil(count / 100)` is applied PER UNIT, so
+ * upkeep is a step function, not a per-troop rate (a unit at 150 troops bills 2 blocks, at 250
+ * bills 3 — adding 100 troops adds one block, adding 60 may add none). Every projection stage
+ * must call this with the full hypothetical composition, never add a delta on top of a rate.
+ */
+export const calcUpkeepForComposition = (
+  units: CompositionEntry[],
+  flatUpkeep: number,
+  supplyDistance: number | null,
+): UpkeepTotals => {
+  let money = flatUpkeep;
+  let piety = 0;
+  for (const unit of units) {
+    const cost = Math.ceil(Math.max(0, unit.count) / 100) * unit.troopType.upkeep_per_100;
+    if (PIETY_TROOPS.has(unit.troopType.key)) {
+      piety += cost;
+    } else {
+      money += cost;
+    }
+  }
+  return { money, piety, food: calcFoodUpkeepForComposition(units, supplyDistance) };
+};
+
+export const calcArmyUpkeep = (army: Army): UpkeepTotals =>
+  calcUpkeepForComposition(army.units, army.flat_upkeep, army.supply_distance ?? null);
+
+export const subtractTotals = (a: UpkeepTotals, b: UpkeepTotals): UpkeepTotals => ({
+  money: a.money - b.money,
+  piety: a.piety - b.piety,
+  food: a.food - b.food,
+});
+
+/** Max troops of `troopType` the user can currently afford, across pool/money/piety/goods constraints. */
+export const calcMaxAdd = (
+  troopType: TroopType,
+  userTroops: number,
+  userMoney: number,
+  userPiety: number,
+  goodsAvailable: number,
+): number => {
+  let max: number;
+  if (MONEY_TROOPS.has(troopType.key)) {
+    max = troopType.cost_per_100 ? Math.floor(userMoney * 10 / troopType.cost_per_100) * 10 : 0;
+  } else if (PIETY_TROOPS.has(troopType.key)) {
+    max = troopType.cost_per_100 ? Math.floor(userPiety * 10 / troopType.cost_per_100) * 10 : userTroops;
+  } else {
+    max = userTroops;
+  }
+  if (troopType.required_goods && troopType.goods_amount) {
+    max = Math.min(max, Math.floor(goodsAvailable * 10 / troopType.goods_amount) * 10);
+  }
+  return max;
+};
+
+/**
+ * Folds queued ARMY_RECRUIT/ARMY_EDIT actions onto a base composition, producing the hypothetical
+ * composition the army will have once every already-queued action for it resolves.
+ *
+ * Troop types queued but not yet in `base` are inserted, resolved via `troopTypeByKey` — if the
+ * type can't be resolved (e.g. `troopTypes` hasn't loaded yet), that entry is skipped rather than
+ * thrown, matching the pre-existing `pendingNewTypeRows` guard in ArmyBlock.
+ */
+export const applyPendingToComposition = (
+  base: CompositionEntry[],
+  recruitsByKey: Record<string, { count: number }[]>,
+  removalsByKey: Record<string, { count: number }[]>,
+  troopTypeByKey: Map<string, TroopType>,
+): CompositionEntry[] => {
+  const map = new Map<string, CompositionEntry>(base.map((entry) => [entry.troopType.key, entry]));
+
+  for (const [key, entries] of Object.entries(recruitsByKey)) {
+    const sum = entries.reduce((s, e) => s + e.count, 0);
+    const existing = map.get(key);
+    if (existing) {
+      map.set(key, { troopType: existing.troopType, count: existing.count + sum });
+    } else {
+      const troopType = troopTypeByKey.get(key);
+      if (troopType) map.set(key, { troopType, count: sum });
+    }
+  }
+
+  for (const [key, entries] of Object.entries(removalsByKey)) {
+    const sum = entries.reduce((s, e) => s + e.count, 0);
+    const existing = map.get(key);
+    if (existing) {
+      map.set(key, { troopType: existing.troopType, count: Math.max(0, existing.count - sum) });
+    }
+  }
+
+  return Array.from(map.values());
+};
+
+/**
+ * Applies one hypothetical adjustment (positive = recruit, negative = removal) to a composition —
+ * used for the live slider preview, layered on top of `applyPendingToComposition`'s result.
+ */
+export const adjustComposition = (
+  base: CompositionEntry[],
+  key: string,
+  delta: number,
+  troopTypeByKey: Map<string, TroopType>,
+): CompositionEntry[] => {
+  const map = new Map<string, CompositionEntry>(base.map((entry) => [entry.troopType.key, entry]));
+  const existing = map.get(key);
+  if (existing) {
+    map.set(key, { troopType: existing.troopType, count: Math.max(0, existing.count + delta) });
+  } else if (delta > 0) {
+    const troopType = troopTypeByKey.get(key);
+    if (troopType) map.set(key, { troopType, count: delta });
+  }
+  return Array.from(map.values());
+};
