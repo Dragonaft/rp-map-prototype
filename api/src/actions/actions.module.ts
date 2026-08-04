@@ -32,8 +32,10 @@ import { TroopType } from '../armies/entities/troop-type.entity';
 import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
 import { ProductionActionService } from './production-action.service';
+import { SupplyActionService } from './supply-action.service';
 import { BankruptcyService } from './bankruptcy.service';
 import { UserStateLoaderService } from './user-state-loader.service';
+import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { TechsModule } from '../techs/techs.module';
 import { ResourcesModule } from '../resources/resources.module';
 import { GoodsModule } from '../goods/goods.module';
@@ -45,7 +47,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([
       ActionQueue, ActionsLog, ExecutionLock, Province, User,
-      Army, ArmyUnit, TroopType,
+      Army, ArmyUnit, TroopType, ProvinceBuilding,
     ]),
     TechsModule,
     ResourcesModule,
@@ -62,6 +64,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     IncomeActionService,
     UpkeepActionService,
     ProductionActionService,
+    SupplyActionService,
     BankruptcyService,
     UserStateLoaderService,
     ActionExecutorService,

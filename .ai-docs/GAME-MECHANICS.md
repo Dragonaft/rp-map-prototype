@@ -11,10 +11,13 @@
 2. **Income phase** — credit resources from buildings (skips occupied provinces)
 3. **Production phase** — credit goods from production buildings (see [Goods Production](#goods-production); skips occupied provinces)
 4. **Upkeep phase** — deduct building + army maintenance costs (skips occupied provinces' building upkeep)
-5. **Recurring trade settlement** — re-applies every accepted `recurring` trade treaty's transfer articles; a side that can't pay skips that turn
-6. **Action execution** — process queued actions in `order` ASC, then `createdAt` ASC
-7. **Cleanup** — mark actions completed/failed, write execution log
-8. **Post-processing integrity** (each step in its own transaction, runs after cleanup):
+5. **Supply phase** — assesses every army's distance to the nearest reachable supply building and
+   charges food upkeep scaled by that distance; unfed armies take attrition. See
+   [Supply (Food)](#supply-food)
+6. **Recurring trade settlement** — re-applies every accepted `recurring` trade treaty's transfer articles; a side that can't pay skips that turn
+7. **Action execution** — process queued actions in `order` ASC, then `createdAt` ASC
+8. **Cleanup** — mark actions completed/failed, write execution log
+9. **Post-processing integrity** (each step in its own transaction, runs after cleanup):
    - Disband armies with < 100 troops (`ARMY_MIN_SIZE`)
    - Resolve multi-faction battles in same province — only **hostile** attacker
      groups engage (allies/troops-pass co-locate peacefully); the winner gains
@@ -26,11 +29,11 @@
      derived fresh next turn from whoever then owns the building)
    - Sync province control with army presence — same `applyControlResult`
      path, skipped for peaceful (allied/passage) co-location
-9. **Diplomacy tick** — ages every occupied province by one turn (auto-cores
+10. **Diplomacy tick** — ages every occupied province by one turn (auto-cores
    at `OCCUPATION_CORE_THRESHOLD`), decays `PEACE` relations to `NEUTRAL`
    after `PEACE_DURATION_TURNS`, and auto-rejects pending treaty proposals
    older than `TREATY_EXPIRY_TURNS`. See [Diplomacy & Occupation](#diplomacy--occupation).
-10. **SSE broadcast** — clients auto-reload
+11. **SSE broadcast** — clients auto-reload
 
 ### 503 Gate
 During execution, API returns 503 Service Unavailable on all endpoints except an exact-match whitelist of five paths: `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`. (`/auth/me` is **not** whitelisted.) `/diplomacy/*` is **not** whitelisted either — treaty/war actions are blocked during turn processing like everything else.
@@ -56,6 +59,9 @@ During execution, API returns 503 Service Unavailable on all endpoints except an
 - **Building upkeep:** FORT, BARRACKS, ARMORY only
 - **Army upkeep:** `flat_upkeep` (100) + per-unit costs (unit.count / 100 * troopType.upkeep_per_100)
 - **Paladins:** upkeep paid in piety instead of money
+- **Food is not part of this phase** — army food consumption runs as its own turn phase
+  immediately after upkeep, with its own distance-scaled cost and attrition failure mode. See
+  [Supply (Food)](#supply-food)
 
 ### Resource & Goods Production
 Two-pass turn mechanic (`ProductionActionService`) — see [DATABASE.md](DATABASE.md#goods--resource-production-turn-logic) for the full seed-data table:
@@ -65,8 +71,13 @@ Two-pass turn mechanic (`ProductionActionService`) — see [DATABASE.md](DATABAS
    - **Input (optional):** if `production_requirement_resource` is set, atomically reserve (spend) `production_requirement_resource_amount` of it from `UserResource` — production is skipped for the turn if that fails (e.g. ARMORY spends 25 iron/turn to make 25 Weapons). If null, production is unconditional (CAPITAL → 25 Food/turn, no input).
    - **Output:** `production_amount` units of the good credited to `UserGood`.
 - Resource production always completes before goods production runs, so this turn's mined resources are available to this turn's manufacturing regardless of building order.
-- No spend/trade logic for goods yet — `GET /goods/mine` (used by the web-map TopBar) is currently the only consumer.
-- BARN (grain provinces only, 25 grain/turn) closes the loop for GARDEN/FARM's 1 grain input — before BARN existed, nothing granted grain capacity and that input could never be satisfied. CAPITAL's unconditional 25 Food/turn remains a Food source regardless.
+- **Food is now a real sink, not a dead end:** `SupplyActionService` spends it every turn on army
+  food upkeep (see [Supply (Food)](#supply-food)) — `GET /goods/mine` (the web-map TopBar) is no
+  longer the only consumer.
+- BARN (grain provinces only, 25 grain/turn) closes the loop for GARDEN/FARM's grain input.
+  GARDEN produces 35 Food/turn off 5 grain, FARM 50 Food/turn off 10 grain — CAPITAL's
+  unconditional 25 Food/turn is deliberately the smallest of the three, a baseline trickle rather
+  than the primary food source once an economy is running.
 
 ## Buildings
 
@@ -185,6 +196,46 @@ province.
   `Province.occupation_turns`/`tickOccupations`). Exceeding the allowance
   (`water_turns > allowed`) deletes the army — it survives exactly the allowed number of
   turns, dying on the turn after.
+
+### Supply (Food)
+Every turn, right after money/piety upkeep, `SupplyActionService` (`api/src/actions/
+supply-action.service.ts`, pure helpers in `supply-utils.ts`) charges each army Food based on its
+troop composition and how far it has strayed from friendly infrastructure. This is what gives
+Food — otherwise a dead-end good — an actual sink, and makes deep offensives a logistical
+tradeoff rather than a free action.
+
+- **Base cost:** per unit, `ceil(unit.count / 100) * troopType.supply_per_100` of
+  `troopType.supply_good_id` (Food in the current seed data; null/0 on either field = that troop
+  type eats nothing). Summed per army, per good.
+- **Supply buildings:** `Building.supply_building` (admin-editable; seeded true on CAPITAL, FORT,
+  CASTLE — not CATHEDRAL, and not PORT). A province counts as a source for whichever player
+  currently *controls* it — the same predicate recruitment eligibility uses:
+  `(province.user_id === userId && !province.occupier_id) || province.occupier_id === userId`.
+  An **occupied fort supplies its occupier, not its legal owner** — capturing an enemy fort
+  extends your supply network into their territory, and losing one to occupation cuts yours.
+- **Distance:** a per-user multi-source BFS over `neighbor_ids` (`supply-utils.ts`'s
+  `bfsDistances`, depth-bounded to 16) from every supply building the user controls, run once per
+  turn. Traverses *any* province regardless of owner — supply range is pure geography, not gated
+  by territory control in between (unlike the road-reach BFS used for movement). Each army's
+  distance to the nearest source is written to `Army.supply_distance` (null = none reachable
+  within 16 tiles) so the frontend and the income projection can read it without recomputing.
+- **Distance multiplier:** `SUPPLY_FREE_RADIUS` (4) tiles are penalty-free (`×1.0`). Beyond that,
+  linear: `1 + SUPPLY_PENALTY_PER_TILE(0.25) × (distance − 4)`, capped at `SUPPLY_MAX_MULTIPLIER`
+  (4.0, reached at distance 16 — also what an unreachable army pays).
+- **Payment order:** per user, armies are fed in ascending multiplier order (home garrisons before
+  far-flung expeditions; ties broken by army id) via `UserGoodsService.tryReserve`. Paying an
+  army's food cost is all-or-nothing across whatever goods it draws on — a partial shortfall on
+  one good starves the whole army rather than partially feeding it.
+- **Starvation (attrition):** an unfed army loses `ceil(unit.count × SUPPLY_ATTRITION_RATE)` (10%)
+  from every unit that turn, and a single `SYSTEM`/`WARNING` notification is sent per user (not
+  per army). This does **not** delete the army outright, even if it now sits below
+  `ARMY_MIN_SIZE` — the existing `disbandWeakArmies()` post-processing step (see
+  [Execution Order](#execution-order)) catches that later the same turn, so there is exactly one
+  place in the codebase that decides "this army is too small to exist."
+- **Projection:** `GET /users/:id`'s `projectedFood` (net Food/turn: CAPITAL/FARM/GARDEN
+  production minus every army's *stored* `supply_distance` run back through the same cost
+  formula) uses the identical pure functions `SupplyActionService` does, so the number shown
+  before a turn can never drift from what that turn will actually charge.
 
 ### Visibility (Fog of War)
 - Own armies: always visible with full unit composition, regardless of location

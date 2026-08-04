@@ -26,7 +26,7 @@ AppModule
 ├── BuildingsModule     Building template definitions
 ├── TechsModule         Tech tree definitions + data-driven effects engine + per-user research progress
 ├── ArmiesModule        Army CRUD, troop types, visibility rules
-├── ActionsModule       Action queue, executor, scheduler, income, upkeep
+├── ActionsModule       Action queue, executor, scheduler, income, upkeep, army food supply
 ├── ResourcesModule     Resource definitions + per-user UserResource capacity ledger (drives build gating + MINE income)
 ├── GoodsModule         Good definitions + per-user UserGood inventory ledger — economy rework, step 3
 ├── DiplomacyModule     Diplomatic states, wars, treaties, province occupation
@@ -51,7 +51,7 @@ AppModule
 | Method | Path     | Auth | Description |
 |--------|----------|------|-------------|
 | GET    | /        | JWT  | All users (partial: id, countryName, color) |
-| GET    | /:id     | JWT  | Full state if owner (income/upkeep projections), partial if viewer |
+| GET    | /:id     | JWT  | Full state if owner (income/upkeep/research/piety/food projections — `projectedFood` nets CAPITAL/FARM/GARDEN production against every army's stored `supply_distance`, see [GAME-MECHANICS.md](GAME-MECHANICS.md#supply-food)), partial if viewer |
 | PATCH  | /:id     | JWT  | Update user |
 | POST   | /        | JWT  | Create user |
 | DELETE | /:id     | JWT  | Delete user (204 No Content) |
@@ -288,7 +288,7 @@ action). Troop counts must be integers in `[1, 1_000_000]`.
 - Production: two separate crons, `0 13 * * *` and `0 20 * * *` (Europe/Kyiv) — i.e. 13:00 and 20:00
 - Dev: two fast crons, every 2 minutes (`*/2 * * * *`) and every 5 minutes (`*/5 * * * *`), both gated by `isFastDevCronEnabled()` (disabled if `DISABLE_FAST_ACTION_CRON=true` or `NODE_ENV=production`)
 - Acquires distributed `ExecutionLock` before processing
-- Phases: income → production → upkeep → recurring-trade settlement → action
+- Phases: income → production → upkeep → **supply** → recurring-trade settlement → action
   execution → cleanup (mark actions completed/failed) → post-processing
   integrity checks → diplomacy tick
 - Every action failure (either handler returning `{success:false}` or a thrown exception) calls
@@ -322,13 +322,29 @@ action). Troop counts must be integers in `[1, 1_000_000]`.
 - `createRowsForNewGood(good)` — called from `AdminService.createGood` — inserts a zero-quantity row for every existing user.
 - `createRowsForNewUser(user)` — called from `UsersService.create` (registration) and `AdminService.createUser` — inserts a zero-quantity row for every existing good.
 - `adjustQuantity(manager, userId, goodId, delta)` — unconditional grant/release, clamped at 0. Keyed by `goodId` (not a key string — `Good` has no natural key like `Resource` does). Used to credit turn production and to release a `requirement_good` reservation on demolish/upgrade.
-- `tryReserve(manager, userId, goodId, amount)` — atomic conditional decrement (locks the row). Used at BUILD/UPGRADE time to consume `requirement_good` (e.g. BARRACKS' 25 Weapons, SAWMILL's 25 Bricks). No spend/trade logic beyond BUILD costs yet.
+- `tryReserve(manager, userId, goodId, amount)` — atomic conditional decrement (locks the row). Used at BUILD/UPGRADE time to consume `requirement_good` (e.g. BARRACKS' 25 Weapons, SAWMILL's 25 Bricks), and per-turn by `SupplyActionService` to consume army food upkeep — armies left unfed after a failed reservation starve.
 
 ### ProductionActionService
 - Runs once per scheduled queue tick, right after `IncomeActionService` and before `UpkeepActionService`. Two passes over every building each user owns:
   1. **Resource production** — any building with `resource_production_amount` set (MINE, FORESTRY, BARN) unconditionally credits that amount of `province.resource.key` into `UserResource` via `adjustQuantity`.
   2. **Goods production** — for buildings with `isProduction && production_good_id` set: if `production_requirement_resource` is also set, atomically `tryReserve` (spend) `production_requirement_resource_amount` of it from `UserResource` — skip this building for the turn if that fails. Otherwise (or on success), credit `production_amount` of `productionGoodEntity` into `UserGood` via `UserGoodsService.adjustQuantity`.
 - Pass 1 always completes before pass 2 starts, so this turn's mined resources are available to this turn's manufacturing regardless of building iteration order.
+
+### SupplyActionService
+- Runs once per scheduled queue tick, right after `UpkeepActionService` and before recurring-trade
+  settlement — see [GAME-MECHANICS.md](GAME-MECHANICS.md#supply-food) for the full formula and
+  the occupied-fort-supplies-its-occupier control rule.
+- Per user: multi-source BFS (`supply-utils.ts`'s `bfsDistances`, depth-bounded to 16) from every
+  `supply_building` province the user controls, over the full province graph (any owner —
+  supply range is pure geography). Writes each army's result to `Army.supply_distance`.
+- Charges food (`UserGoodsService.tryReserve`) per army, scaled by the resulting distance
+  multiplier, feeding armies in ascending-multiplier order per user; unfed armies take attrition
+  via a private helper (not `combat-calculator.ts`'s `applyCasualties` — that helper rounds down
+  and doesn't delete zero-count `ArmyUnit` rows, which this service does explicitly).
+- Pure cost-formula helpers (`supplyMultiplierForDistance`, `computeArmyBaseFoodNeed`,
+  `scaleFoodNeed`, plus the constants) live in `supply-utils.ts` with no NestJS/TypeORM
+  dependencies, specifically so `UsersService`'s `projectedFood` can import them directly without
+  a cross-module DI dependency — the projection and the actual turn charge can never drift apart.
 
 ### UserResourcesService
 - Maintains the `UserResource` manufacturing stockpile — see [DATABASE.md](DATABASE.md#userresource) for the full column/semantics writeup and why money income no longer reads it.
@@ -384,7 +400,8 @@ api/src/
 │                   user-tech-progress.service.ts, entities (tech, user-tech-progress), dto/
 ├── armies/         controller, service, entities (army, army-unit, troop-type)
 ├── actions/        controller, service, executor (11 handlers), scheduler,
-│                   combat-calculator, income, upkeep, state-loader, middleware
+│                   combat-calculator, income, upkeep, supply-action.service.ts + supply-utils.ts
+│                   (army food supply), state-loader, middleware
 ├── resources/      controller, service (Resource), user-resources.service (UserResource ledger),
 │                   entities (resource, user-resource), types (plain/consumable)
 ├── goods/          controller, service (Good), user-goods.service (UserGood ledger),

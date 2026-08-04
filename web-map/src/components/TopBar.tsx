@@ -269,6 +269,11 @@ export const TopBar = () => {
                   {myGoods.map((holding) => (
                     <div key={holding.id}>
                       {holding.good.type === 'military' ? '⚔️' : '📦'} {holding.good.name}: {holding.quantity}
+                      {holding.good.name === 'Food' && (
+                        <span className={user.projectedFood >= 0 ? 'text-green-400' : 'text-red-400'}>
+                          {' '}({user.projectedFood >= 0 ? '+' : ''}{user.projectedFood}/turn)
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>

@@ -31,6 +31,9 @@ interface TroopTypeSeedRow {
   /** Good.name to resolve to required_goods at seed time — one-time cost per 100 troops, like cost_per_100 but paid in goods. */
   required_goods_name?: string | null;
   goods_amount?: number | null;
+  /** Good.name to resolve to supply_good_id at seed time — per-turn food cost per 100 troops, scaled by SupplyActionService's distance multiplier. */
+  supply_good_name?: string | null;
+  supply_per_100?: number | null;
 }
 
 const VALID_CATEGORIES = new Set<string>(Object.values(TroopCategory));
@@ -135,6 +138,19 @@ async function seedTroopTypes() {
       required_goods = good.id;
     }
 
+    let supply_good_id: string | null = null;
+    if (row.supply_good_name) {
+      const good = await goodRepo.findOne({ where: { name: row.supply_good_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.key}: supply_good_name "${row.supply_good_name}" not found — run seed:goods before seed:troop-types`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      supply_good_id = good.id;
+    }
+
     const patch = {
       name: row.name,
       description: row.description,
@@ -148,6 +164,8 @@ async function seedTroopTypes() {
       building_requirement: row.building_requirement ?? null,
       required_goods,
       goods_amount: row.goods_amount ?? null,
+      supply_good_id,
+      supply_per_100: row.supply_per_100 ?? null,
     };
 
     const existing = await repo.findOne({ where: { key: row.key } });

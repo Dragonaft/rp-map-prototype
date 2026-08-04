@@ -63,6 +63,11 @@ export class Building extends BaseEntity {
   @Expose({ name: 'requiresNeighborWater' })
   public requires_neighbor_water: boolean;
 
+  /** True if this building acts as an army supply source (SupplyActionService's BFS origin). Seeded on FORT/CASTLE/CAPITAL. */
+  @Column({ default: false })
+  @Expose({ name: 'supplyBuilding' })
+  public supply_building: boolean;
+
   @Column({ type: 'simple-array', nullable: true })
   @Expose({ name: 'allowedProvinceResources' })
   public allowed_province_resources: string[] | null;

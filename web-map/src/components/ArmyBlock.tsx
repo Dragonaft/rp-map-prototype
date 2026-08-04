@@ -7,11 +7,12 @@ import type { RootState } from '../store/store';
 import { ActionType, Army, TroopType } from '../types';
 import { armiesApi } from '../api/armies';
 import { actionsApi } from '../api/actions';
+import { calcArmyFoodUpkeep, SUPPLY_FREE_RADIUS, supplyMultiplierForDistance } from '../utils/supply';
 
 const PIETY_TROOPS = new Set(['paladins']);
 const MONEY_TROOPS = new Set(['mercenaries']);
 
-function calcArmyUpkeep(army: Army): { money: number; piety: number } {
+function calcArmyUpkeep(army: Army): { money: number; piety: number; food: number } {
   let money = army.flat_upkeep;
   let piety = 0;
   for (const unit of army.units) {
@@ -22,7 +23,7 @@ function calcArmyUpkeep(army: Army): { money: number; piety: number } {
       money += cost;
     }
   }
-  return { money, piety };
+  return { money, piety, food: calcArmyFoodUpkeep(army) };
 }
 
 const calcMaxAdd = (troopType: TroopType, userTroops: number, userMoney: number, userPiety: number, goodsAvailable: number): number => {
@@ -62,6 +63,9 @@ const TroopTooltipContent: React.FC<{ troopType: TroopType; goodName?: string }>
       <div>Goods/100: {troopType.goods_amount} {goodName ?? 'goods'}</div>
     )}
     <div>Upkeep/100: {troopType.upkeep_per_100}</div>
+    {troopType.supply_good_id && !!troopType.supply_per_100 && (
+      <div>Food/100: {troopType.supply_per_100} (×more if far from supply)</div>
+    )}
   </div>
 );
 
@@ -329,10 +333,31 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
           <div className="flex flex-col items-end text-xs text-gray-700 whitespace-nowrap">
             <span>⚔ {upkeep.money}g/turn</span>
             {upkeep.piety > 0 && <span>✝ {upkeep.piety}p/turn</span>}
+            {upkeep.food > 0 && <span>🌾 {upkeep.food}/turn</span>}
           </div>
         )}
         <button className="text-gray-600 hover:text-gray-900 text-lg leading-none ml-1" onClick={onClose}>✕</button>
       </div>
+
+      {/* Supply status — distance to the nearest Fort/Castle/Capital and the resulting food-cost
+          multiplier (SUPPLY_FREE_RADIUS tiles free, then +25%/tile, capped at ×4). */}
+      {isOwnerArmy && upkeep.food > 0 && (() => {
+        const distance = army.supply_distance;
+        const multiplier = supplyMultiplierForDistance(distance ?? null);
+        const unsupplied = distance === null || distance > SUPPLY_FREE_RADIUS;
+        return (
+          <Tooltip title="Armies more than 4 tiles from a Fort, Castle, or Capital pay extra food upkeep, scaling with distance. Unfed armies lose troops to attrition each turn.">
+            <div className={`text-xs rounded px-2 py-1 flex justify-between items-center border ${
+              unsupplied ? 'bg-red-100 border-red-400 text-red-700' : 'bg-green-100 border-green-400 text-green-700'
+            }`}>
+              <span className="font-semibold">
+                🚚 Supply: {distance === null ? 'unreachable' : `${distance} tile${distance === 1 ? '' : 's'}`}
+              </span>
+              <span>×{multiplier.toFixed(2)}</span>
+            </div>
+          </Tooltip>
+        );
+      })()}
 
       {/* At-sea countdown */}
       {isAtSea && (

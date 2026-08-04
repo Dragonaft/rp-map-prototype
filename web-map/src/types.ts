@@ -189,6 +189,8 @@ export interface UserActive extends User {
   projectedPiety: number | null;
   projectedResearch: number;
   projectedTroops: number;
+  /** Net Food/turn: production (CAPITAL/FARM/GARDEN) minus every army's distance-scaled supply cost. */
+  projectedFood: number;
 }
 
 export enum TroopCategory {
@@ -217,6 +219,10 @@ export interface TroopType {
   required_goods: string | null;
   /** Units of required_goods consumed per 100 troops recruited, one-time (not refunded on disband/removal). */
   goods_amount: number | null;
+  /** Good id consumed each turn as food (resolved against goods.mine), scaled by the army's supply_distance. Null = no per-turn supply cost. */
+  supply_good_id: string | null;
+  /** Units of supply_good_id consumed per 100 troops per turn, before the distance multiplier. */
+  supply_per_100: number | null;
 }
 
 export interface ArmyUnit {
@@ -235,6 +241,8 @@ export interface Army {
   flat_upkeep: number;
   /** Consecutive turns this army has spent on a water province (0 when on land). */
   water_turns: number;
+  /** Distance (in tiles) to the nearest reachable supply_building, written each turn. Null = no source reachable (pays the max supply multiplier). */
+  supply_distance: number | null;
   units: ArmyUnit[];
   /** Only present for enemy armies. null = present but count unknown; number = spy network revealed total. */
   totalTroops?: number | null;
@@ -261,6 +269,7 @@ export interface SetupUserResponse {
     projectedPiety: number,
     projectedResearch: number,
     projectedTroops: number,
+    projectedFood: number,
   };
   province: {
     id: string;

@@ -14,6 +14,8 @@ interface UserState {
   projectedPiety: number | null;
   projectedResearch: number;
   projectedTroops: number;
+  /** Net Food/turn: production (CAPITAL/FARM/GARDEN) minus every army's distance-scaled supply cost. */
+  projectedFood: number;
   isNew: boolean;
   provinces: Province[];
   completedResearch: string[];
@@ -36,6 +38,7 @@ const initialState: UserState = {
   projectedPiety: null,
   projectedResearch: 0,
   projectedTroops: 0,
+  projectedFood: 0,
   isNew: false,
   provinces: [],
   completedResearch: [],
@@ -62,6 +65,7 @@ const userSlice = createSlice({
       state.projectedPiety = action.payload.projectedPiety;
       state.projectedResearch = action.payload.projectedResearch;
       state.projectedTroops = action.payload.projectedTroops;
+      state.projectedFood = action.payload.projectedFood ?? 0;
       state.isNew = action.payload.isNew;
       state.provinces = action.payload.provinces;
       state.completedResearch = action.payload.completedResearch ?? [];

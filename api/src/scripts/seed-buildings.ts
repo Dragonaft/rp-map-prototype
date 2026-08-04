@@ -32,6 +32,8 @@ interface BuildingSeedRow {
   unique_per_province?: boolean;
   /** True if this building can only be built in a province with at least one neighboring water province (e.g. Port). */
   requires_neighbor_water?: boolean;
+  /** True if this building acts as an army supply source for SupplyActionService's BFS. */
+  supply_building?: boolean;
   allowed_province_resources?: string[] | null;
   requirement_resource?: string | null;
   requirement_resource_amount?: number | null;
@@ -177,6 +179,7 @@ async function seedBuildings() {
       destructible: row.destructible ?? true,
       unique_per_province: row.unique_per_province ?? false,
       requires_neighbor_water: row.requires_neighbor_water ?? false,
+      supply_building: row.supply_building ?? false,
       allowed_province_resources: row.allowed_province_resources ?? null,
       requirement_resource: row.requirement_resource ?? null,
       requirement_resource_amount: row.requirement_resource_amount ?? null,

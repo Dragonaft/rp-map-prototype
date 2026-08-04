@@ -32,7 +32,7 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 
 | Slice        | Key Fields                                                        |
 |--------------|-------------------------------------------------------------------|
-| `user`       | id, login, countryName, color, money, troops, piety, class, researchPoints (per-turn rate, not a stockpile), completedResearch, activeResearch (tech key or null), isNew, provinces, projectedIncome/Troops/Research/Piety |
+| `user`       | id, login, countryName, color, money, troops, piety, class, researchPoints (per-turn rate, not a stockpile), completedResearch, activeResearch (tech key or null), isNew, provinces, projectedIncome/Troops/Research/Piety/Food (`projectedFood` — net Food/turn, production minus every army's distance-scaled supply cost) |
 | `provinces`  | provinces[], selectedProvinceId, selectedTroops, mapMode, mapModeFilterValue, fastBuild, provinceCentersById, provinceBBoxById, mapWidth/Height |
 | `armies`     | armies[], troopTypes[]                                            |
 | `buildings`  | buildings[]                                                       |
@@ -226,6 +226,26 @@ those three action types and maps every army id they reference to the action hol
   arrow overlay with click-to-cancel.)
 - **`ManageArmiesModal.tsx`** — as described above.
 
+### Supply Display (`utils/supply.ts`)
+
+Client-side mirror of the backend's food-cost formula (`api/src/actions/supply-utils.ts` — see
+[GAME-MECHANICS.md](GAME-MECHANICS.md#supply-food)), duplicated rather than shared across the two
+npm packages — the same convention `ArmyBlock.tsx`'s pre-existing `calcArmyUpkeep` already follows
+for money/piety upkeep, which mirrors `upkeep-action.service.ts` purely for display.
+`supplyMultiplierForDistance(distance)` and `calcArmyFoodUpkeep(army)` read the army's *stored*
+`supply_distance` (written server-side each turn) rather than recomputing the BFS client-side.
+Consumed by:
+- **`ArmyBlock.tsx`** — `calcArmyUpkeep` now also returns `food`, shown in the header next to the
+  existing `⚔ Ng/turn`/`✝ Np/turn`; a color-coded (green/red) "🚚 Supply: N tiles ×M" banner sits
+  below the header for any army with a nonzero food cost; the per-troop-type tooltip gets a
+  `Food/100` row alongside the existing `Upkeep/100`/`Goods/100` rows.
+- **`SelectedProvinceHover.tsx`** — the owner army-list row (same slot as the `ARMY_LOCK_LABELS`
+  indicator above) shows a "🚚 Unsupplied" marker when the army is out of range and actually
+  paying food, with a tooltip explaining the attrition consequence.
+- **`TopBar.tsx`** — the Goods tooltip's Food row appends `user.projectedFood` as a green/positive
+  or red/negative `(±N/turn)` delta, matching the resource-bar convention in
+  [DESIGN.md](DESIGN.md#3-core-vocabulary--use-these-exact-terms-never-synonyms).
+
 ## Mod / NPC Impersonation State
 
 `modSlice.ts` (Redux) backs the TopBar's country-switcher for ADMIN/MODERATOR accounts "acting
@@ -361,7 +381,8 @@ web-map/src/
 ├── hooks/            useApi.ts, useActionExecutionReload.ts
 ├── utils/            mapModes.ts (map-mode coloring, build/upgrade eligibility, fast-build cell logic),
 │                     armyLocks.ts (ARMY_MOVE/MERGE/TRANSFER mutual per-turn lock, shared with MapView/
-│                     SelectedProvinceHover/ArmyBlock/ManageArmiesModal)
+│                     SelectedProvinceHover/ArmyBlock/ManageArmiesModal), supply.ts (client mirror of
+│                     the backend's army food-cost formula, see Supply Display above)
 ├── constants/        buildingIcons.ts
 ├── types.ts          TypeScript interfaces
 ├── App.tsx           Root layout

@@ -21,6 +21,7 @@ const EMPTY_NEW_TROOP_TYPE = {
   cost_per_100: 0, attack: 1, defense: 1, water_combat_modifier: 1, upkeep_per_100: 100,
   tech_requirement: '', building_requirement: '',
   required_goods: '', goods_amount: 0,
+  supply_good_id: '', supply_per_100: 0,
 };
 
 export const TroopTypesTab = () => {
@@ -74,6 +75,8 @@ export const TroopTypesTab = () => {
         ...newTroopType,
         required_goods: newTroopType.required_goods || null,
         goods_amount: newTroopType.goods_amount || null,
+        supply_good_id: newTroopType.supply_good_id || null,
+        supply_per_100: newTroopType.supply_per_100 || null,
       };
       const res = await adminApi.createTroopType(payload);
       setRows((prev) => [...prev, res.data]);
@@ -101,6 +104,8 @@ export const TroopTypesTab = () => {
     { field: 'building_requirement', headerName: 'Building Req.', width: 140, editable: true },
     { field: 'required_goods', headerName: 'Req. Goods', width: 150, editable: true, type: 'singleSelect', valueOptions: GOOD_OPTIONS },
     { field: 'goods_amount', headerName: 'Goods Amount/100', type: 'number', width: 140, editable: true },
+    { field: 'supply_good_id', headerName: 'Supply Good', width: 150, editable: true, type: 'singleSelect', valueOptions: GOOD_OPTIONS },
+    { field: 'supply_per_100', headerName: 'Supply/100/turn', type: 'number', width: 140, editable: true },
     {
       field: 'actions',
       type: 'actions',
@@ -165,6 +170,13 @@ export const TroopTypesTab = () => {
             </Select>
           </FormControl>
           <TextField label="Goods Amount / 100" type="number" value={newTroopType.goods_amount} onChange={(e) => setNewTroopType((p) => ({ ...p, goods_amount: Number(e.target.value) }))} helperText="Units of Req. Goods consumed per 100 troops recruited" />
+          <FormControl>
+            <InputLabel>Supply Good</InputLabel>
+            <Select label="Supply Good" value={newTroopType.supply_good_id} onChange={(e) => setNewTroopType((p) => ({ ...p, supply_good_id: e.target.value }))}>
+              {GOOD_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField label="Supply / 100 / turn" type="number" value={newTroopType.supply_per_100} onChange={(e) => setNewTroopType((p) => ({ ...p, supply_per_100: Number(e.target.value) }))} helperText="Units of Supply Good consumed per 100 troops each turn, scaled by distance from a supply building" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>

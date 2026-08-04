@@ -116,6 +116,7 @@ ExecutionLock (standalone, distributed locking)
 | requirement_resource_amount | int          | How much of that resource is reserved at build time (nullable). Usually 1 |
 | requirement_good_id         | uuid (FK)    | → Good, nullable. A one-time BUILD cost paid in goods (same mechanic as `requirement_resource`, but from `UserGood`) — BARRACKS/FORT need Weapons, SAWMILL needs Bricks. Exposed as `requirementGood` getter (FK id) |
 | requirement_good_amount     | int          | How much of that good is reserved at build time (nullable, defaults to 1 in code) |
+| supply_building              | boolean      | Default false. Whether this building acts as an army supply source (`SupplyActionService`'s BFS origin). Seeded true on CAPITAL, FORT, CASTLE — not CATHEDRAL, not PORT — see [GAME-MECHANICS.md](GAME-MECHANICS.md#supply-food) |
 
 > Building has no direct relation to Province. The link is the **ProvinceBuilding** join entity (see below). Building's resource fields reference `Resource.key` (not a FK) — they're plain strings sourced from a dropdown in the admin panel, resolved against the `UserResource` ledger at BUILD/UPGRADE/REMOVE time (see [UserResource](#userresource)).
 
@@ -137,6 +138,7 @@ Join entity linking provinces and buildings (replaced the old ManyToMany join ta
 | province_id | uuid (FK)     | Current location |
 | flat_upkeep | int           | Base cost per turn (default 100) |
 | water_turns | int           | Consecutive turns spent on a `type: water` province (default 0). Incremented per turn while on water, reset to 0 on landing, by `tickArmyWaterResidency` (scheduler). Army is deleted once it exceeds `TechEffectsService.waterTurnsAllowed()` (base 6 + any `water_turns_bonus` tech effects) |
+| supply_distance | int, nullable | Distance (tiles) to the nearest reachable `supply_building`, written each turn by `SupplyActionService`'s BFS. Null = none reachable within the 16-tile search bound (pays the max supply multiplier) — see [GAME-MECHANICS.md](GAME-MECHANICS.md#supply-food) |
 | units       | OneToMany     | → ArmyUnit (eager, cascade) |
 | createdAt   | timestamp     | |
 
@@ -166,6 +168,8 @@ Join entity linking provinces and buildings (replaced the old ManyToMany join ta
 | building_requirement| varchar  | Building type required in province (nullable; not a DB enum) |
 | required_goods     | uuid (FK) | → Good, nullable. One-time goods cost to recruit, same mechanic as Building's `requirement_good_id` but scaled per 100 troops like `cost_per_100`. Null = no goods needed (e.g. Peasants — money/pool only; Knights require Weapons) |
 | goods_amount       | int       | Units of `required_goods` consumed per 100 troops recruited (nullable). Not refunded on disband/removal, same as `cost_per_100` |
+| supply_good_id     | uuid (FK) | → Good, nullable, `ON DELETE SET NULL`. Good consumed each turn as food upkeep (Food in current seed data), same mechanic shape as `required_goods` but charged every turn, not once. Null = this troop type has no per-turn supply cost |
+| supply_per_100     | int, nullable | Units of `supply_good_id` consumed per 100 troops per turn, before `SupplyActionService`'s distance multiplier — see [GAME-MECHANICS.md](GAME-MECHANICS.md#supply-food) |
 
 ### Resource
 | Column        | Type      | Notes |
@@ -238,7 +242,13 @@ Seed data (`api/data/buildings.json`):
 | BRICKYARD (stone provinces only) | — | 25 Bricks | 25 stone |
 | ARMORY | — | 25 Weapons | 25 iron |
 | CAPITAL | — | 25 Food | none (unconditional) |
-| GARDEN / FARM | — | 1 Food | 1 grain (now satisfiable once a BARN is built — before BARN existed, nothing granted grain capacity and this input could never be met) |
+| GARDEN | — | 35 Food | 5 grain |
+| FARM (upgrade of GARDEN) | — | 50 Food | 10 grain |
+
+GARDEN/FARM's grain input is satisfiable once a BARN is built (25 grain/turn — one BARN sustains
+5 GARDENs or 2.5 FARMs). CAPITAL is deliberately the smallest of the three Food producers — a
+baseline trickle, not the primary food source, now that `SupplyActionService` gives Food an actual
+per-turn sink (army supply upkeep — see [GAME-MECHANICS.md](GAME-MECHANICS.md#supply-food)).
 
 ### Tech
 | Column        | Type          | Notes |

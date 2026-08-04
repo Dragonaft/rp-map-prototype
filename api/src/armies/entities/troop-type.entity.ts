@@ -59,6 +59,18 @@ export class TroopType extends BaseEntity {
   @Column({ nullable: true })
   public goods_amount: number | null;
 
+  /** Good this troop type consumes each turn as food (e.g. Food), null = no per-turn supply cost. */
+  @Column({ nullable: true })
+  public supply_good_id: string | null;
+
+  @ManyToOne(() => Good, { nullable: true })
+  @JoinColumn({ name: 'supply_good_id' })
+  public supplyGoodEntity?: Good | null;
+
+  /** Units of supply_good_id consumed per 100 troops per turn, scaled by SupplyActionService's distance multiplier. Null/0 = eats nothing. */
+  @Column({ nullable: true })
+  public supply_per_100: number | null;
+
   @OneToMany(() => ArmyUnit, (unit) => unit.troopType)
   public units: ArmyUnit[];
 }

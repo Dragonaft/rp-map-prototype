@@ -20,6 +20,7 @@ import { ModStocksModal } from "./Modals/ModStocksModal.tsx";
 import { modApi } from "../api/mod.ts";
 import { getPendingGoodUsage, getPendingResourceUsage, provinceHasWaterNeighbor } from "../utils/mapModes.ts";
 import { ARMY_LOCK_LABELS, getArmyLocks } from "../utils/armyLocks.ts";
+import { calcArmyFoodUpkeep, SUPPLY_FREE_RADIUS } from "../utils/supply.ts";
 
 /** Must match OCCUPATION_CORE_THRESHOLD in api/src/diplomacy/types/diplomacy.types.ts */
 const OCCUPATION_CORE_THRESHOLD = 10;
@@ -229,6 +230,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
         projectedPiety: response.user.projectedPiety,
         projectedResearch: response.user.projectedResearch,
         projectedTroops: response.user.projectedTroops,
+        projectedFood: response.user.projectedFood,
       }));
     }
     if (response?.province) {
@@ -678,6 +680,10 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
                   const isSelected = selectedArmyId === army.id;
                   const isDisbanding = pendingDisbandArmyIds.has(army.id);
                   const lock = armyLocks.get(army.id);
+                  const isOwnArmy = army.user_id === user.id;
+                  const unsupplied = isOwnArmy
+                    && calcArmyFoodUpkeep(army) > 0
+                    && (army.supply_distance === null || army.supply_distance > SUPPLY_FREE_RADIUS);
                   return (
                     <button
                       key={army.id}
@@ -696,12 +702,15 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
                           ? 'Disbanding queued'
                           : lock
                             ? `${ARMY_LOCK_LABELS[lock.kind]} queued — open this army to cancel`
-                            : 'Click to manage army'
+                            : unsupplied
+                              ? `Out of supply range (${army.supply_distance === null ? 'unreachable' : `${army.supply_distance} tiles`} from a Fort/Castle/Capital) — losing troops to attrition`
+                              : 'Click to manage army'
                       }
                     >
                       <span className="font-medium truncate">
                         {army.name ?? 'Unnamed Army'}
                         {lock && <span className="ml-1 text-yellow-700">⏳ {ARMY_LOCK_LABELS[lock.kind]}</span>}
+                        {!lock && unsupplied && <span className="ml-1 text-red-700">🚚 Unsupplied</span>}
                       </span>
                       <span className="font-bold tabular-nums ml-2 shrink-0">{total}</span>
                     </button>

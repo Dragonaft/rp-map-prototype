@@ -62,6 +62,7 @@ Cron fires (13:00 & 20:00 Kyiv time prod; every 2min AND 5min dev)
   ├─ Income phase: credit money/troops/piety/research from buildings
   ├─ Production phase: credit goods from production buildings
   ├─ Upkeep phase: deduct building + army costs
+  ├─ Supply phase: charge army food upkeep by distance from a Fort/Castle/Capital; unfed armies take attrition
   ├─ Recurring trade: settle accepted recurring trade treaties
   ├─ Action execution: process queued actions in order
   ├─ Post-processing:
@@ -86,6 +87,7 @@ During execution, the API returns **503** on most endpoints (ActionExecutionBloc
 | Action handlers (11)     | `api/src/actions/action-executor.service.ts`      |
 | Combat calculator        | `api/src/actions/combat-calculator.ts`            |
 | Income logic             | `api/src/actions/income-action.service.ts`        |
+| Army food supply logic   | `api/src/actions/supply-action.service.ts`, `supply-utils.ts` |
 | Upkeep logic             | `api/src/actions/upkeep-action.service.ts`        |
 | Tech effect engine       | `api/src/techs/tech-effects.service.ts`, `effect-types.ts` |
 | Research progress accrual| `api/src/techs/user-tech-progress.service.ts`     |

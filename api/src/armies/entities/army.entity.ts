@@ -41,6 +41,10 @@ export class Army extends BaseEntity {
   @Column({ default: 0 })
   public water_turns: number;
 
+  /** Distance (in tiles) to the nearest reachable supply_building, written each turn by SupplyActionService. Null = no source reachable. */
+  @Column({ type: 'int', nullable: true })
+  public supply_distance: number | null;
+
   @OneToMany(() => ArmyUnit, (unit) => unit.army, { eager: true, cascade: true })
   public units: ArmyUnit[];
 

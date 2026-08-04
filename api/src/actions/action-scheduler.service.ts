@@ -8,6 +8,7 @@ import { ActionExecutorService, ExecutionContext } from './action-executor.servi
 import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
 import { ProductionActionService } from './production-action.service';
+import { SupplyActionService } from './supply-action.service';
 import { BankruptcyService } from './bankruptcy.service';
 import { UserStateLoaderService } from './user-state-loader.service';
 import { DiplomacyService } from '../diplomacy/diplomacy.service';
@@ -56,6 +57,7 @@ export class ActionSchedulerService {
     private readonly incomeAction: IncomeActionService,
     private readonly upkeepAction: UpkeepActionService,
     private readonly productionAction: ProductionActionService,
+    private readonly supplyAction: SupplyActionService,
     private readonly bankruptcyService: BankruptcyService,
     private readonly userStateLoader: UserStateLoaderService,
     private readonly actionExecutionState: ActionExecutionStateService,
@@ -137,6 +139,7 @@ export class ActionSchedulerService {
         await this.incomeAction.execute(state, manager);
         await this.productionAction.execute(state, manager);
         await this.upkeepAction.execute(state, manager);
+        await this.supplyAction.execute(state, manager);
         await this.treatyService.processRecurringTrades(manager);
       });
     } catch (error) {

@@ -12,7 +12,9 @@
     "tech_requirement": null,
     "building_requirement": null,
     "required_goods_name": null,
-    "goods_amount": null
+    "goods_amount": null,
+    "supply_good_name": "Food",
+    "supply_per_100": 2
   },
   {
     "key": "infantry",
@@ -27,7 +29,9 @@
     "tech_requirement": "military.sword_training",
     "building_requirement": null,
     "required_goods_name": null,
-    "goods_amount": null
+    "goods_amount": null,
+    "supply_good_name": "Food",
+    "supply_per_100": 4
   },
   {
     "key": "archers",
@@ -42,7 +46,9 @@
     "tech_requirement": "military.ranged_units",
     "building_requirement": null,
     "required_goods_name": null,
-    "goods_amount": null
+    "goods_amount": null,
+    "supply_good_name": "Food",
+    "supply_per_100": 4
   },
   {
     "key": "pikemen",
@@ -57,7 +63,9 @@
     "tech_requirement": "military.pikemen",
     "building_requirement": null,
     "required_goods_name": null,
-    "goods_amount": null
+    "goods_amount": null,
+    "supply_good_name": "Food",
+    "supply_per_100": 4
   },
   {
     "key": "knights",
@@ -72,7 +80,9 @@
     "tech_requirement": "military.heavy_cavalry",
     "building_requirement": "ARMORY",
     "required_goods_name": "Weapons",
-    "goods_amount": 100
+    "goods_amount": 100,
+    "supply_good_name": "Food",
+    "supply_per_100": 10
   },
   {
     "key": "noble_knights",
@@ -87,7 +97,9 @@
     "tech_requirement": "noble.knights",
     "building_requirement": "FORT",
     "required_goods_name": null,
-    "goods_amount": null
+    "goods_amount": null,
+    "supply_good_name": "Food",
+    "supply_per_100": 12
   },
   {
     "key": "paladins",
@@ -102,7 +114,9 @@
     "tech_requirement": "holy.warriors_of_god",
     "building_requirement": "TEMPLE",
     "required_goods_name": null,
-    "goods_amount": null
+    "goods_amount": null,
+    "supply_good_name": "Food",
+    "supply_per_100": 12
   },
   {
     "key": "mercenaries",
@@ -117,6 +131,8 @@
     "tech_requirement": "guild.merchant_guilds",
     "building_requirement": "TRADE_HOUSE",
     "required_goods_name": null,
-    "goods_amount": null
+    "goods_amount": null,
+    "supply_good_name": "Food",
+    "supply_per_100": 10
   }
 ]

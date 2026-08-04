@@ -13,6 +13,7 @@
     "buildable": false,
     "destructible": false,
     "unique_per_province": true,
+    "supply_building": true,
     "allowed_province_resources": null,
     "requirement_resource": null,
     "requirement_resource_amount": null,
@@ -45,7 +46,8 @@
     "isProduction": true,
     "production_good_name": "Food",
     "production_requirement_resource": "grain",
-    "production_amount": 1
+    "production_requirement_resource_amount": 5,
+    "production_amount": 35
   },
   {
     "type": "MINE",
@@ -189,7 +191,8 @@
     "isProduction": true,
     "production_good_name": "Food",
     "production_requirement_resource": "grain",
-    "production_amount": 1
+    "production_requirement_resource_amount": 10,
+    "production_amount": 50
   },
   {
     "type": "BARRACKS",
@@ -232,6 +235,7 @@
     "requirement_resource_amount": 1,
     "requirement_good_name": "Weapons",
     "requirement_good_amount": 100,
+    "supply_building": true,
     "visible": true,
     "can_recruit": true
   },
@@ -397,6 +401,7 @@
     "allowed_province_resources": null,
     "requirement_resource": "stone",
     "requirement_resource_amount": 1,
+    "supply_building": true,
     "visible": true,
     "can_recruit": true
   },

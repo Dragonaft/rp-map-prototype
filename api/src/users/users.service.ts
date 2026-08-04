@@ -13,6 +13,7 @@ import { UserResourcesService } from '../resources/user-resources.service';
 import { parseIncome } from '../utils/parseIncome';
 import { TechEffectsService } from '../techs/tech-effects.service';
 import { colorsTooSimilar } from '../utils/colorDistance';
+import { computeArmyBaseFoodNeed, scaleFoodNeed, supplyMultiplierForDistance } from '../actions/supply-utils';
 
 const BUILDING_UPKEEP_TYPES = new Set<string>([
   BuildingTypes.FORT,
@@ -206,12 +207,38 @@ export class UsersService {
       projectedPiety = pietyIncome - paladinUpkeep;
     }
 
+    // ---- Food projection ----
+    // Production mirrors the seed data's CAPITAL/FARM/GARDEN production_amount (the only
+    // buildings currently seeded to produce Food) rather than resolving Good-by-name, matching
+    // this method's existing style of special-casing FARM/GARDEN/CAPITAL by BuildingTypes above.
+    // Consumption reads each army's *stored* supply_distance (written each turn by
+    // SupplyActionService) through the same shared cost formula it uses, so this projection can
+    // never drift from what the next turn will actually charge.
+    let foodProduction = 0;
+    for (const p of provinces) {
+      for (const b of p.buildings ?? []) {
+        if (b.type === BuildingTypes.CAPITAL || b.type === BuildingTypes.FARM || b.type === BuildingTypes.GARDEN) {
+          foodProduction += Number(b.production_amount) || 0;
+        }
+      }
+    }
+
+    let foodConsumption = 0;
+    for (const army of armies) {
+      const multiplier = supplyMultiplierForDistance(army.supply_distance ?? null);
+      const need = scaleFoodNeed(computeArmyBaseFoodNeed(army), multiplier);
+      for (const amount of need.values()) foodConsumption += amount;
+    }
+
+    const projectedFood = foodProduction - foodConsumption;
+
     return {
       ...instanceToPlain(user),
       projectedIncome: incomeTotal - totalUpkeep,
       projectedTroops: barracksCount * 50,
       projectedResearch,
       projectedPiety,
+      projectedFood,
     };
   }
 
