@@ -49,6 +49,10 @@ export const adminApi = {
   updateClass: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/classes/${id}`, data),
   deleteClass: (id: string) => apiClient.delete(`/admin/classes/${id}`),
 
+  // Game Settings (singleton — no :id)
+  getGameSettings: () => apiClient.get('/admin/game-settings'),
+  updateGameSettings: (data: Record<string, any>) => apiClient.patch('/admin/game-settings', data),
+
   // Notifications
   broadcastNotification: (data: { title: string; message: string; severity: string }) =>
     apiClient.post('/admin/notifications/broadcast', data),

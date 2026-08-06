@@ -5,7 +5,7 @@
 - **ORM:** TypeORM 0.3 (NestJS integration via `@nestjs/typeorm`)
 - **Database:** MySQL 8
 - **Config:** `api/src/db/data-source.ts` (dev), `data-source.prod.ts` (prod; compiled to `dist/db/data-source.prod.js`)
-- **Migrations:** `api/src/db/migrations/` (34 migration files)
+- **Migrations:** `api/src/db/migrations/` (49 migration files)
 
 ## Entity Relationship Diagram
 
@@ -38,6 +38,7 @@ PlayerClass (standalone table `classes`; referenced by key string in User.class 
              no FK either direction, see User.class and PlayerClass below)
 ActionsLog (standalone, JSON blob)
 ExecutionLock (standalone, distributed locking)
+GameSettings (standalone, singleton row id='global' — global pause/turns-enabled switches)
 ```
 
 ## Entities
@@ -322,6 +323,27 @@ from the saved value instead of losing progress.
 | lockedAt  | timestamp | When acquired |
 | lockedBy  | varchar   | Instance identifier (nullable) |
 | updatedAt | timestamp | Auto-updated |
+
+### GameSettings
+Table `game_settings`. A **singleton** — the only row ever written has `id = 'global'` — rather
+than a per-key row list, so each setting stays a typed column instead of an untyped value blob.
+`GameSettingsService` (`api/src/settings/game-settings.service.ts`) lazily creates the row with
+defaults if it's ever missing, and caches reads in-memory for 5s (single-process only, same
+caveat `ExecutionLock`/`ActionExecutionStateService` already carry) since `GamePauseInterceptor`
+reads it on every authenticated request.
+
+| Column          | Type          | Notes |
+|-----------------|---------------|-------|
+| id              | varchar (PK)  | Always the literal `'global'` |
+| is_paused       | boolean       | Default false. While true: `AuthService.login`/`refreshTokens` reject non-ADMIN/MODERATOR logins, and `GamePauseInterceptor` 403s every other authenticated PLAYER request (`code: 'GAME_PAUSED'`) — see [GAME-MECHANICS.md](GAME-MECHANICS.md#global-game-settings) |
+| pause_message   | varchar, nullable | Shown on the web client's login screen and in the 403 body; a default string is used when null |
+| turns_enabled   | boolean       | Default true. When false, `ActionSchedulerService.executeScheduledActions` returns before acquiring the distributed `ExecutionLock` — the cron tick becomes a no-op, independent of `is_paused` |
+
+> Seeded by migration `1786028413989-CreateGameSettingsTable` (the single `'global'` row, both
+> flags at their defaults). Admin-editable via the admin panel's Settings tab
+> (`GET`/`PATCH /admin/game-settings`, ADMIN role only); publicly readable (no auth) via
+> `GET /game-settings` since the login screen must read pause state before anyone is
+> authenticated.
 
 ### DiplomaticRelation
 One row per unordered player pair, created lazily on first non-neutral event — see

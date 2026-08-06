@@ -11,12 +11,14 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { ActAsInterceptor } from './interceptors/act-as.interceptor';
+import { GameSettingsModule } from '../settings/game-settings.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User]),
     UsersModule,
     PassportModule,
+    GameSettingsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({

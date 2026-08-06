@@ -42,6 +42,8 @@ import { NewsAgency } from './news/entities/news-agency.entity';
 import { NewsArticle } from './news/entities/news-article.entity';
 import { ClassesModule } from './classes/classes.module';
 import { PlayerClass } from './classes/entities/player-class.entity';
+import { GameSettingsModule } from './settings/game-settings.module';
+import { GameSettings } from './settings/entities/game-settings.entity';
 
 @Module({
   imports: [
@@ -63,6 +65,7 @@ import { PlayerClass } from './classes/entities/player-class.entity';
         Notification,
         NewsAgency, NewsArticle,
         PlayerClass,
+        GameSettings,
       ],
       synchronize: false,
     }),
@@ -81,6 +84,7 @@ import { PlayerClass } from './classes/entities/player-class.entity';
     NewsModule,
     ModModule,
     ClassesModule,
+    GameSettingsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

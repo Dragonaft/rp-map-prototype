@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../context/AuthContext';
 import { useSnackbar } from "../../../context/SnackbarContext.tsx";
 import { APP_VERSION } from "../../../constants/appVersion.ts";
+import { gameSettingsApi, GameSettings } from "../../../api/gameSettings.ts";
 
 interface ILoginFormInput {
   login: string
@@ -23,6 +24,13 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [sseConnected, setSseConnected] = useState(false);
   const [queueProcessing, setQueueProcessing] = useState(false);
+  const [gameSettings, setGameSettings] = useState<GameSettings | null>(null);
+
+  useEffect(() => {
+    // Public endpoint — readable before login so the banner below can explain a pause
+    // (and, separately, admins can still submit this same form while paused).
+    gameSettingsApi.getPublic().then(setGameSettings).catch(() => setGameSettings(null));
+  }, []);
 
   useEffect(() => {
     const es = new EventSource(`${apiBaseUrl}/actions/execution-stream`);
@@ -90,6 +98,16 @@ export const LoginPage: React.FC = () => {
               className="font-headline !mb-1 text-xl font-medium text-white tracking-wide">AUTHENTICATION_REQUIRED</h2>
             <p className="text-on-surface-variant text-sm mt-1">Initialize link to strategic network</p>
           </header>
+          {gameSettings?.isPaused && (
+            <div className="bg-error/10 border border-error/30 rounded-lg px-4 py-3 space-y-1">
+              <p className="font-headline text-error text-xs uppercase tracking-widest font-bold">
+                GAME_PAUSED
+              </p>
+              <p className="text-on-surface-variant text-xs">
+                {gameSettings.pauseMessage || 'The game is currently paused. Please check back later.'}
+              </p>
+            </div>
+          )}
           <div className="space-y-2">
             <label className="block font-label text-[10px] uppercase tracking-widest text-primary/70 font-bold px-1">
               USER_ID
@@ -147,6 +165,10 @@ export const LoginPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <div className={`w-1.5 h-1.5 rounded-full transition-colors ${!sseConnected ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)]' : queueProcessing ? 'bg-secondary shadow-[0_0_8px_rgba(255,215,9,0.6)] animate-pulse' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]'}`}></div>
               <span className="font-label text-[10px] text-on-surface-variant uppercase tracking-tighter">Queue status</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-1.5 h-1.5 rounded-full transition-colors ${gameSettings?.isPaused ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-pulse' : 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.8)]'}`}></div>
+              <span className="font-label text-[10px] text-on-surface-variant uppercase tracking-tighter">Game status</span>
             </div>
           </div>
         </div>

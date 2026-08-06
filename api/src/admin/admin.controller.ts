@@ -198,6 +198,22 @@ export class AdminController {
     return this.adminService.deleteClass(id);
   }
 
+  // --- Game Settings ---
+  // Singleton (no :id) — ADMIN only, overriding the class-level ADMIN|MODERATOR gate:
+  // pausing the whole game is an ADMIN action, not a MODERATOR one.
+
+  @Get('game-settings')
+  @Roles(UserRoles.ADMIN)
+  getGameSettings() {
+    return this.adminService.getGameSettings();
+  }
+
+  @Patch('game-settings')
+  @Roles(UserRoles.ADMIN)
+  updateGameSettings(@Body() body: Record<string, any>) {
+    return this.adminService.updateGameSettings(body);
+  }
+
   // --- Diplomatic Relations ---
 
   @Get('diplomacy-relations')

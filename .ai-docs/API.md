@@ -33,6 +33,7 @@ AppModule
 ├── NotificationsModule Per-user durable notifications (action failures, admin broadcasts)
 ├── ClassesModule       Player class definitions (`classes` table) + visibility gating for TechsModule
 ├── ModModule           ADMIN/MODERATOR "god-mode" tools (spawn NPCs/armies/buildings, edit stocks) + act-as impersonation
+├── GameSettingsModule  Global singleton settings (`game_settings` table): pause switch + turn-execution switch
 └── AdminModule         Admin CRUD for all entities
 ```
 
@@ -123,6 +124,15 @@ Three `type` values: `action_failed` (auto-created by the scheduler on any actio
 the admin broadcast endpoint below). The web client splits the feed by type: `action_failed`/`system` →
 Notifications Center's "System Logs" tab, `admin` → "News" tab.
 
+### Game Settings (`/game-settings`)
+| Method | Path | Auth   | Description |
+|--------|------|--------|-------------|
+| GET    | /    | Public | `{id, isPaused, pauseMessage, turnsEnabled}` — the singleton `game_settings` row. Public (no guard) because the login screen must read it before anyone is authenticated; nothing exposed here is sensitive. Admin read/write is `/admin/game-settings` (below), ADMIN-gated |
+
+Read/write, singleton entity, and the pause-enforcement mechanism are covered in
+[GAME-MECHANICS.md](GAME-MECHANICS.md#global-game-settings). See also
+[Auth — Game Pause](#auth--game-pause) below.
+
 ### Armies (`/armies`)
 | Method | Path         | Auth | Description |
 |--------|--------------|------|-------------|
@@ -181,6 +191,8 @@ Notifications Center's "System Logs" tab, `admin` → "News" tab.
 | POST   | /classes       | Admin | Create class (`{key, name, is_visible?}`) |
 | PATCH  | /classes/:id   | Admin | Update class (rename, toggle `is_visible`) |
 | DELETE | /classes/:id   | Admin | Delete class (does not touch existing `User.class`/`Tech.branch` string values) |
+| GET    | /game-settings | Admin only | Read the singleton `game_settings` row (`is_paused`, `pause_message`, `turns_enabled`, snake_case — no `ClassSerializerInterceptor` here, unlike the public `GET /game-settings`) |
+| PATCH  | /game-settings | Admin only | Update any subset of the three fields. **ADMIN role only** — overrides the controller's default ADMIN\|MODERATOR gate via a route-level `@Roles(ADMIN)`, since pausing the whole game is treated as an ADMIN-only action, unlike every other row in this table |
 | GET    | /diplomacy-relations     | Admin | List diplomatic relations |
 | POST   | /diplomacy-relations     | Admin | Create diplomatic relation |
 | PATCH  | /diplomacy-relations/:id | Admin | Update diplomatic relation |
@@ -239,6 +251,23 @@ included regardless of province visibility) and `ProvincesService.getAll`/`getSt
 non-owned province's buildings included regardless of `Building.visible`) — see
 [GAME-MECHANICS.md](GAME-MECHANICS.md#visibility-fog-of-war). The web client attaches the header from `mod.switchOn` — see
 [WEB-MAP.md](WEB-MAP.md#mod--npc-impersonation-state).
+
+### Auth — Game Pause
+`GamePauseInterceptor` (`api/src/settings/interceptors/game-pause.interceptor.ts`), registered
+globally as `APP_INTERCEPTOR` in `GameSettingsModule` — same registration pattern as
+`ActAsInterceptor` (an interceptor rather than middleware/a guard because it needs `req.user`,
+which only exists once the auth guards have already run). A request with no `req.user` (every
+public route: `/auth/*`, `/actions/execution-stream`, `GET /game-settings`) always passes
+through untouched. Otherwise it resolves the **real** actor as `req.realUser ?? req.user` (same
+"prefer realUser" rule `resolveModFogBypass` uses above) — ADMIN/MODERATOR always passes through,
+so a mod acting as an NPC stays unaffected by a pause. A PLAYER gets a `403` with
+`{error: 'Forbidden', message, code: 'GAME_PAUSED'}` whenever `game_settings.is_paused` is true.
+`AuthService.login`/`refreshTokens` apply the identical check directly (belt-and-braces — without
+it, a tab left open would keep silently renewing its access token via `/auth/refresh`, since the
+interceptor only runs on requests, not on the refresh call's own token-signing logic being
+otherwise unguarded). See [GAME-MECHANICS.md](GAME-MECHANICS.md#global-game-settings) for the full
+pause/turns-enabled model and [WEB-MAP.md](WEB-MAP.md#game-pause-handling) for how the client
+reacts to the `GAME_PAUSED` code.
 
 ## Action Types (Enum)
 
@@ -309,7 +338,7 @@ action). Troop counts must be integers in `[1, 1_000_000]`.
   proposals older than `TREATY_EXPIRY_TURNS`.
 
 ### ActionExecutionBlockMiddleware
-- Returns **503** during turn execution on all routes except an exact-match whitelist of five paths: `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout` (note: `/auth/me` is **not** whitelisted and is blocked during processing)
+- Returns **503** during turn execution on all routes except an exact-match whitelist of six paths: `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`, `/game-settings` (note: `/auth/me` is **not** whitelisted and is blocked during processing)
 - Toggle: `DISABLE_ACTION_EXECUTION_GATE=true` for local debugging
 
 ### ActionExecutionStateService
@@ -410,6 +439,8 @@ api/src/
 │                   (province control), treaty.service (propose/accept/peace/trade),
 │                   entities (diplomatic-relation, war, war-participant, treaty), dto/, types/
 ├── notifications/  controller, service, entity (notification) — per-user durable notifications
+├── settings/       controller, service (cached), entity (game_settings, singleton row),
+│                   interceptors/game-pause.interceptor.ts (global APP_INTERCEPTOR)
 ├── admin/          controller, service
 ├── db/             data-source.ts, data-source.prod.ts, migrations/
 ├── utils/          logger.ts, parseIncome.ts, colorDistance.ts, mod-visibility.ts (resolveModFogBypass)

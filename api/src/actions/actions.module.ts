@@ -41,6 +41,7 @@ import { ResourcesModule } from '../resources/resources.module';
 import { GoodsModule } from '../goods/goods.module';
 import { DiplomacyModule } from '../diplomacy/diplomacy.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { GameSettingsModule } from '../settings/game-settings.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     GoodsModule,
     DiplomacyModule,
     NotificationsModule,
+    GameSettingsModule,
   ],
   controllers: [ActionsController, ActionExecutionStatusController],
   providers: [

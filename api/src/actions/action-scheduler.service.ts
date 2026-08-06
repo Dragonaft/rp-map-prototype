@@ -18,6 +18,7 @@ import { TechEffectsService } from '../techs/tech-effects.service';
 import { OCCUPATION_CORE_THRESHOLD } from '../diplomacy/types/diplomacy.types';
 import { ActionsLog, ExecutedAction } from './entities/actions-log.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { GameSettingsService } from '../settings/game-settings.service';
 import { NotificationSeverity, NotificationType } from '../notifications/entities/notification.entity';
 import { ExecutionLock } from './entities/execution-lock.entity';
 import { ActionQueue, ActionStatus } from './entities/action-queue.entity';
@@ -66,6 +67,7 @@ export class ActionSchedulerService {
     private readonly treatyService: TreatyService,
     private readonly techEffects: TechEffectsService,
     private readonly notificationsService: NotificationsService,
+    private readonly gameSettingsService: GameSettingsService,
     private readonly dataSource: DataSource,
   ) {
     // Create unique instance ID (hostname + process ID)
@@ -115,6 +117,11 @@ export class ActionSchedulerService {
   }
 
   private async executeScheduledActions(timetable: string): Promise<void> {
+    if (!(await this.gameSettingsService.turnsEnabled())) {
+      this.logger.log(`Turn execution disabled via game settings — skipping ${timetable} tick.`);
+      return;
+    }
+
     const lockKey = `action-execution-${timetable}`;
 
     // Try to acquire lock

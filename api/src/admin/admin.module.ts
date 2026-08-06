@@ -19,6 +19,7 @@ import { NewsArticle } from '../news/entities/news-article.entity';
 import { TechsModule } from '../techs/techs.module';
 import { UsersModule } from '../users/users.module';
 import { PlayerClass } from '../classes/entities/player-class.entity';
+import { GameSettingsModule } from '../settings/game-settings.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { PlayerClass } from '../classes/entities/player-class.entity';
     NotificationsModule,
     TechsModule,
     UsersModule,
+    GameSettingsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

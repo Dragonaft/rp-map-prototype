@@ -24,6 +24,7 @@ import { Province } from '../provinces/entities/province.entity';
 import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { UsersService } from '../users/users.service';
 import { PlayerClass } from '../classes/entities/player-class.entity';
+import { GameSettingsService } from '../settings/game-settings.service';
 
 @Injectable()
 export class AdminService {
@@ -45,6 +46,7 @@ export class AdminService {
     private readonly userResourcesService: UserResourcesService,
     private readonly notificationsService: NotificationsService,
     private readonly techEffectsService: TechEffectsService,
+    private readonly gameSettingsService: GameSettingsService,
   ) {}
 
   // --- Notifications ---
@@ -323,6 +325,18 @@ export class AdminService {
     const playerClass = await this.classRepo.findOne({ where: { id } });
     if (!playerClass) throw new NotFoundException(`Class ${id} not found`);
     await this.classRepo.remove(playerClass);
+  }
+
+  // --- Game Settings ---
+  // Delegates to GameSettingsService (rather than a repo here) so its in-memory cache
+  // invalidation stays in one place.
+
+  getGameSettings() {
+    return this.gameSettingsService.get();
+  }
+
+  updateGameSettings(dto: Record<string, any>) {
+    return this.gameSettingsService.update(dto);
   }
 
   // --- Diplomatic Relations ---

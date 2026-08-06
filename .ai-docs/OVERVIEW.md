@@ -75,7 +75,7 @@ Cron fires (13:00 & 20:00 Kyiv time prod; every 2min AND 5min dev)
   └─ SSE broadcast → frontends auto-reload
 ```
 
-During execution, the API returns **503** on most endpoints (ActionExecutionBlockMiddleware). Whitelisted: exactly five exact-match paths — `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`. Note: `/auth/me` is **not** whitelisted (blocked during processing).
+During execution, the API returns **503** on most endpoints (ActionExecutionBlockMiddleware). Whitelisted: exactly six exact-match paths — `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`, `/game-settings`. Note: `/auth/me` is **not** whitelisted (blocked during processing).
 
 ## Key Files to Read First
 

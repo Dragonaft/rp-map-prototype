@@ -5,6 +5,9 @@
 ### Schedule
 - **Production:** 13:00 and 20:00 Kyiv time daily (2 turns/day; two separate `@Cron` jobs)
 - **Development:** every 2 minutes AND every 5 minutes (two fast crons), gated by `isFastDevCronEnabled()` — disabled if `DISABLE_FAST_ACTION_CRON=true` or `NODE_ENV=production`
+- **Admin kill switch:** every cron tick also checks `game_settings.turns_enabled` first, before
+  even trying to acquire the distributed lock — when off, the tick is a silent no-op. See
+  [Global Game Settings](#global-game-settings)
 
 ### Execution Order
 1. **Distributed lock** acquired (prevents multi-instance race)
@@ -36,7 +39,35 @@
 11. **SSE broadcast** — clients auto-reload
 
 ### 503 Gate
-During execution, API returns 503 Service Unavailable on all endpoints except an exact-match whitelist of five paths: `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`. (`/auth/me` is **not** whitelisted.) `/diplomacy/*` is **not** whitelisted either — treaty/war actions are blocked during turn processing like everything else.
+During execution, API returns 503 Service Unavailable on all endpoints except an exact-match whitelist of six paths: `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`, `/game-settings`. (`/auth/me` is **not** whitelisted.) `/diplomacy/*` is **not** whitelisted either — treaty/war actions are blocked during turn processing like everything else.
+
+## Global Game Settings
+Singleton `game_settings` row (`GameSettings` entity, `api/src/settings/`) holding server-wide
+switches, editable via the admin panel's Settings tab and readable publicly at
+`GET /game-settings` (no auth — the login screen needs it before anyone is authenticated). See
+[DATABASE.md](DATABASE.md#gamesettings) for the column list and
+[API.md](API.md#auth--game-pause) for the enforcement mechanism.
+
+- **`is_paused`** — while true:
+  - `AuthService.login`/`refreshTokens` reject any non-ADMIN/MODERATOR with a `403`
+    (`code: 'GAME_PAUSED'`) instead of the normal credential check outcome. Registration
+    (`POST /auth/register`) is deliberately **not** gated — new players can still create an
+    account and wait for the game to reopen.
+  - `GamePauseInterceptor`, registered globally the same way `ActAsInterceptor` is (see
+    [API.md](API.md#auth--mod-impersonation)), 403s every other authenticated request from a
+    PLAYER — including one from an already-logged-in session, which is what "kicks" a player out:
+    their next request (the game reloads on every SSE tick and after every mutation, so this is
+    near-immediate) gets the 403 and the web client forces a logout + redirect to `/login`.
+  - The real actor (`req.realUser ?? req.user`, same "prefer realUser" rule
+    `resolveModFogBypass` uses) is checked, not the impersonated identity — so an ADMIN/MODERATOR
+    acting as an NPC keeps playing normally through a pause.
+- **`turns_enabled`** — independent of `is_paused` by design: an admin can freeze the world
+  (no income/production/upkeep/action execution) while leaving players free to browse and queue
+  actions for whenever turns resume, or lock logins while turns keep ticking. Checked first thing
+  in `ActionSchedulerService.executeScheduledActions`, before the distributed `ExecutionLock` is
+  even acquired — see [Schedule](#schedule).
+- **`pause_message`** — free text surfaced on the web client's login screen and in the 403 body;
+  a default message is used when blank.
 
 ## Resources
 

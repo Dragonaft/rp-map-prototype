@@ -18,10 +18,11 @@
 
 ## Features
 
-Ten tabs in the dashboard — eight manage one entity each via MUI DataGrid with inline row
+Eleven tabs in the dashboard — eight manage one entity each via MUI DataGrid with inline row
 editing; Notifications is a compose-and-send utility instead (broadcast rows fan out per-user,
-so there's no single browsable list to grid-edit), and News Wall is read/delete-only (agencies
-and articles are player-authored in-game, not admin-created):
+so there's no single browsable list to grid-edit), News Wall is read/delete-only (agencies
+and articles are player-authored in-game, not admin-created), and Settings is a plain form over
+a singleton row rather than a grid:
 
 ### Users Tab
 - Fields: login, password, country_name, color, money, troops, piety, research_points (per-turn rate, not a stockpile), is_new, is_npc (NPC country, can't log in — settable here on create, or via the separate Mod layer's "Create NPC" tool; only an ADMIN, not a MODERATOR, may flip it on an *existing* user), completed_research, active_research_key, class (dropdown sourced from the **Classes tab** below — any `PlayerClass.key`, not a hard-coded list), role (ADMIN/MODERATOR/PLAYER)
@@ -86,6 +87,20 @@ and articles are player-authored in-game, not admin-created):
 - Backs the **Users tab**'s `class` dropdown (sourced live from this list instead of a hard-coded
   `guild`/`holy`/`noble` array)
 
+### Settings Tab
+Form over the singleton `game_settings` row (`SettingsTab.tsx`) — not a DataGrid, no create/delete,
+just load-edit-save, same shape as the Notifications tab's compose form.
+- **Pause Game** (`is_paused`) switch — while on, PLAYER accounts can't log in and are logged out
+  of any active session on their next request; registration stays open; ADMIN/MODERATOR unaffected.
+  See [GAME-MECHANICS.md](GAME-MECHANICS.md#global-game-settings)
+- **Pause Message** (`pause_message`) — free text shown to players on the login screen while
+  paused; falls back to a default message when blank. Disabled in the form unless Pause Game is on
+- **Turn Execution Enabled** (`turns_enabled`) switch — independent of Pause Game; while off, the
+  scheduled turn tick is skipped entirely (no income/production/upkeep/actions), letting an admin
+  freeze the world without locking players out, or vice versa
+- `GET`/`PATCH /admin/game-settings` — **ADMIN role only**, not MODERATOR (the one exception to
+  this panel's usual ADMIN\|MODERATOR gate — see [API.md](API.md#admin-admin))
+
 ## API Communication
 
 - Base URL: `VITE_API_BASE_URL` (default `http://localhost:3000`, Docker: `/api`)
@@ -112,7 +127,7 @@ admin-panel/src/
 │   ├── login/        LoginPage.tsx
 │   └── dashboard/    index.tsx, UsersTab.tsx, BuildingsTab.tsx, ArmiesTab.tsx, TechsTab.tsx,
 │                     TroopTypesTab.tsx, ResourcesTab.tsx, GoodsTab.tsx, NotificationsTab.tsx,
-│                     NewsWallTab.tsx, ClassesTab.tsx
+│                     NewsWallTab.tsx, ClassesTab.tsx, SettingsTab.tsx
 ├── App.tsx           Router setup
 └── main.tsx          Entry point
 ```

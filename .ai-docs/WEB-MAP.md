@@ -58,8 +58,10 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 - Base URL: `VITE_API_BASE_URL` (default `http://localhost:3000`)
 - `withCredentials: true` (httpOnly cookies)
 - 401 interceptor: queues failed requests, calls `/auth/refresh`, retries all
+- 403 `GAME_PAUSED` interceptor: forces a logout + redirect to `/login` — see
+  [Game Pause Handling](#game-pause-handling)
 
-**API modules:** auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts, resources.ts, goods.ts, diplomacy.ts, notifications.ts
+**API modules:** auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts, resources.ts, goods.ts, diplomacy.ts, notifications.ts, gameSettings.ts
 
 **SSE:** `/actions/execution-stream` — listened in `useActionExecutionReload` hook for auto-reload when turn completes.
 
@@ -276,6 +278,29 @@ and `config.ts`'s response interceptor on refresh-token failure (auto-logout →
 new PLAYER registration — inherits the stale header and gets a 403 (`ActAsInterceptor` rejects
 any non-ADMIN/MODERATOR actor) on every request.
 
+## Game Pause Handling
+
+Client-side counterpart to the backend's `GamePauseInterceptor`/`AuthService` pause checks — see
+[GAME-MECHANICS.md](GAME-MECHANICS.md#global-game-settings) and
+[API.md](API.md#auth--game-pause).
+
+- **`api/gameSettings.ts`** — `gameSettingsApi.getPublic()`, the only unauthenticated call in
+  `src/api/` (`GET /game-settings`, no cookies/guard needed).
+- **`LoginPage.tsx`** — fetches it once on mount (alongside the existing execution-stream SSE
+  connection that drives the Server/Queue status dots) and, when `isPaused`, renders a banner with
+  `pauseMessage` plus a third "Game status" pulsing dot next to Server/Queue. The login form and
+  `REGISTER_ACCOUNT` button both stay fully enabled while paused — an ADMIN/MODERATOR still logs
+  in through this same form, and registration is explicitly not gated.
+- **`api/config.ts`**'s response interceptor — on a `403` whose body carries
+  `code: 'GAME_PAUSED'`, forces the same cleanup+redirect the refresh-failure branch already does
+  (clears `mod.actingAsUserId`/`mod.switchOn`, same reasoning as the Gotcha above, then
+  `POST /auth/logout` and hard-navigates to `/login`), **except** when the failing request was
+  itself `/auth/login` or `/auth/register` — a PLAYER hitting `GAME_PAUSED` there is already on
+  the login screen submitting the form and should see the message inline via the existing
+  `onSubmit` catch/`showError`, not get redirected away from the page they're on. Because the game
+  reloads on every SSE turn-completion tick and after most mutations, an already-open session
+  typically hits this within moments of an admin flipping Pause Game on.
+
 ## Data Flow
 
 1. GamePage mounts → fetches layout (cached in localStorage), state, armies, buildings, techs, actions, users
@@ -371,7 +396,7 @@ source alone — this is how every gotcha above was originally diagnosed.
 ```
 web-map/src/
 ├── api/              config.ts, auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts,
-│                     resources.ts, goods.ts, diplomacy.ts, notifications.ts
+│                     resources.ts, goods.ts, diplomacy.ts, notifications.ts, gameSettings.ts
 ├── components/       MapView, ProvinceShape, SelectedProvinceHover, FastBuildPanel, ArmyBlock,
 │                     ManageArmiesModal, TopBar, TechTree, modals
 ├── pages/            game/index.tsx, auth/login/LoginPage.tsx, auth/register/RegisterPage.tsx

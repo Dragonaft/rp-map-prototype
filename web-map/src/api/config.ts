@@ -56,6 +56,20 @@ const processQueue = (error: AxiosError | null) => {
   failedQueue = [];
 };
 
+// Forces the current session out to /login, clearing the mod-impersonation state the same
+// way the 401/refresh-failure branch below already does (see its comment) — shared because
+// the GAME_PAUSED branch needs the identical cleanup.
+const forceLogoutToLogin = async () => {
+  try {
+    await apiClient.post('/auth/logout');
+  } catch {
+    // Ignore logout errors — we're redirecting regardless.
+  }
+  store.dispatch(setActingAsUserId(null));
+  store.dispatch(setModSwitch(false));
+  window.location.href = '/login';
+};
+
 // Response interceptor to handle token refresh
 apiClient.interceptors.response.use(
   (response) => response,
@@ -84,21 +98,22 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         // If refresh fails, logout and redirect to login
         processQueue(refreshError as AxiosError);
-        try {
-          await apiClient.post('/auth/logout');
-        } catch (logoutError) {
-          // Ignore logout errors
-        }
-        // Same reasoning as TopBar's handleLogout: mod.actingAsUserId/switchOn persist in
-        // localStorage independently of the auth session, so a different account logging in
-        // on this browser must not inherit a stale "acting as an NPC" header.
-        store.dispatch(setActingAsUserId(null));
-        store.dispatch(setModSwitch(false));
-        window.location.href = '/login';
+        await forceLogoutToLogin();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
       }
+    }
+
+    // Game paused mid-session (see GamePauseInterceptor, api/src/settings/): kick the player
+    // to the login screen, which reads /game-settings itself to show why. Excludes /auth/login
+    // and /auth/register — a PLAYER hitting GAME_PAUSED there is already on the login screen
+    // submitting the form, and should see the message inline (LoginPage's own catch handles
+    // it) rather than being redirected away from the page they're already on.
+    const isAuthLoginOrRegister = originalRequest.url?.startsWith('/auth/login') || originalRequest.url?.startsWith('/auth/register');
+    if (error.response?.status === 403 && (error.response?.data as any)?.code === 'GAME_PAUSED' && !isAuthLoginOrRegister) {
+      await forceLogoutToLogin();
+      return Promise.reject(error);
     }
 
     // Show generic error for non-401 responses
