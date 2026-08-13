@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField } from '@mui/material';
 import { HexColorPicker } from 'react-colorful';
+import MDEditor from '@uiw/react-md-editor';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { updateUserProfile, updateUserFlag } from '../../store/slices/userSlice';
 import { usersApi } from '../../api/users';
@@ -20,6 +21,10 @@ interface Props {
 const FLAG_MAX_BYTES = 256 * 1024;
 const ACCEPTED_FLAG_TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
+// Mirrors LORE_MAX_LENGTH in api/src/users/requests/users-update-body.request.ts — same
+// fast-feedback-only duplication convention as FLAG_MAX_BYTES above.
+const LORE_MAX_LENGTH = 20_000;
+
 export const ProfileModal: React.FC<Props> = ({ open, onClose }) => {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state: RootState) => state.user);
@@ -27,6 +32,7 @@ export const ProfileModal: React.FC<Props> = ({ open, onClose }) => {
   const [countryName, setCountryName] = useState('');
   const [color, setColor] = useState('#000000');
   const [hexInput, setHexInput] = useState('');
+  const [lore, setLore] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -38,10 +44,11 @@ export const ProfileModal: React.FC<Props> = ({ open, onClose }) => {
       setCountryName(user.countryName);
       setColor(user.color);
       setHexInput(user.color);
+      setLore(user.lore ?? '');
       setError(null);
       setFlagError(null);
     }
-  }, [open, user.countryName, user.color]);
+  }, [open, user.countryName, user.color, user.lore]);
 
   const handleHexInputChange = (value: string) => {
     setHexInput(value);
@@ -64,11 +71,15 @@ export const ProfileModal: React.FC<Props> = ({ open, onClose }) => {
       setError('Color must be a valid hex (e.g. #a3b2c1)');
       return;
     }
+    if (lore.length > LORE_MAX_LENGTH) {
+      setError(`Lore must be ${LORE_MAX_LENGTH.toLocaleString()} characters or fewer (currently ${lore.length.toLocaleString()})`);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      await usersApi.update(user.id, { countryName: countryName.trim(), color });
-      dispatch(updateUserProfile({ countryName: countryName.trim(), color }));
+      await usersApi.update(user.id, { countryName: countryName.trim(), color, lore });
+      dispatch(updateUserProfile({ countryName: countryName.trim(), color, lore }));
       onClose();
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Failed to save profile');
@@ -121,7 +132,7 @@ export const ProfileModal: React.FC<Props> = ({ open, onClose }) => {
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth disablePortal>
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth disablePortal>
       <DialogTitle>Edit Profile</DialogTitle>
       <DialogContent dividers sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
         <TextField
@@ -167,6 +178,21 @@ export const ProfileModal: React.FC<Props> = ({ open, onClose }) => {
               sx={{ flex: 1, marginTop: 2, width: '100%' }}
             />
           </div>
+        </div>
+        <div>
+          <div className="text-sm font-medium mb-2 text-gray-700">Country lore (markdown, RP)</div>
+          <div data-color-mode="dark" className="rounded-sm overflow-hidden border border-solid border-outline-variant/20">
+            <MDEditor
+              value={lore}
+              onChange={(v) => setLore(v ?? '')}
+              height={220}
+              preview="edit"
+              textareaProps={{ placeholder: 'ENTER_COUNTRY_LORE...' }}
+            />
+          </div>
+          <p className={`text-xs mt-1 ${lore.length > LORE_MAX_LENGTH ? 'text-red-600' : 'text-gray-500'}`}>
+            {lore.length.toLocaleString()} / {LORE_MAX_LENGTH.toLocaleString()}
+          </p>
         </div>
         {error && <p className="text-xs text-red-600">{error}</p>}
       </DialogContent>

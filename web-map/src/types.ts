@@ -162,6 +162,7 @@ export interface UserUpdate {
   id: string;
   color?: string;
   countryName?: string;
+  lore?: string;
 }
 
 export interface User {
@@ -184,6 +185,9 @@ export interface User {
   isNpc?: boolean;
   /** `/users/{id}/flag?v={hash}` (relative to the API base), or null when no flag is set. */
   flagUrl: string | null;
+  /** Freeform markdown RP background text. Owner-only field — not present on PartialUser;
+   *  other players' lore is fetched on demand via usersApi.getLore. */
+  lore: string | null;
 }
 
 export interface UserActive extends User {

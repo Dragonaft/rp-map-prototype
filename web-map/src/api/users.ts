@@ -12,8 +12,13 @@ export const usersApi = {
     return response.data;
   },
 
-  update: async (id: string, data: Partial<UserUpdate>): Promise<{ countryName: string, color: string }> => {
+  update: async (id: string, data: Partial<UserUpdate>): Promise<{ countryName: string, color: string, lore?: string | null }> => {
     const response = await apiClient.patch<User>(`/users/${id}`, data);
+    return response.data;
+  },
+
+  getLore: async (id: string): Promise<{ lore: string | null }> => {
+    const response = await apiClient.get<{ lore: string | null }>(`/users/${id}/lore`);
     return response.data;
   },
 

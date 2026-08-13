@@ -72,4 +72,12 @@ export class UsersController {
     });
     res.send(flag.data);
   }
+
+  // No ownership check — any authenticated player may view any other's lore, same as
+  // GET /diplomacy/treaties/public/:userId. Read through ClassSerializerInterceptor normally
+  // (plain JSON, unlike the binary flag route above).
+  @Get(':id/lore')
+  getLore(@Param('id') id: string) {
+    return this.usersService.getLore(id);
+  }
 }

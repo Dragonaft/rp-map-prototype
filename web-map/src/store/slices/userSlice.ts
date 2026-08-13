@@ -25,6 +25,8 @@ interface UserState {
   isNpc?: boolean;
   /** `/users/{id}/flag?v={hash}` (relative to the API base), or null when no flag is set. */
   flagUrl: string | null;
+  /** Freeform markdown RP background text. */
+  lore: string | null;
 }
 
 const initialState: UserState = {
@@ -49,6 +51,7 @@ const initialState: UserState = {
   role: null,
   isNpc: false,
   flagUrl: null,
+  lore: null,
 };
 
 const userSlice = createSlice({
@@ -77,6 +80,7 @@ const userSlice = createSlice({
       state.role = action.payload.role ?? null;
       state.isNpc = action.payload.isNpc ?? false;
       state.flagUrl = action.payload.flagUrl ?? null;
+      state.lore = action.payload.lore ?? null;
     },
     updateUserTroops: (state, action: PayloadAction<number>) => {
       state.troops = action.payload;
@@ -84,9 +88,12 @@ const userSlice = createSlice({
     updateUserMoney: (state, action: PayloadAction<number>) => {
       state.money = action.payload;
     },
-    updateUserProfile: (state, action: PayloadAction<{ countryName: string; color: string }>) => {
+    updateUserProfile: (state, action: PayloadAction<{ countryName: string; color: string; lore?: string }>) => {
       state.countryName = action.payload.countryName;
       state.color = action.payload.color;
+      if (action.payload.lore !== undefined) {
+        state.lore = action.payload.lore;
+      }
     },
     updateUserFlag: (state, action: PayloadAction<string | null>) => {
       state.flagUrl = action.payload;
@@ -111,6 +118,7 @@ const userSlice = createSlice({
       state.role = null;
       state.isNpc = false;
       state.flagUrl = null;
+      state.lore = null;
     },
   },
 });

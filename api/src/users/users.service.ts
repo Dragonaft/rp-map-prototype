@@ -112,7 +112,12 @@ export class UsersService {
   }
 
   async findAll(): Promise<PartialUser[]> {
-    const users = await this.usersRepository.find();
+    // Explicit select — `lore` (mediumtext) has no `select: false` at the column level, since
+    // the owner's single-user GET /users/:id needs it included for free (see UsersController's
+    // getLore doc comment). Without narrowing here, this bulk list (fetched once per player on
+    // every load, backing the otherUsers slice) would drag every player's full lore text
+    // through the DB round-trip even though the mapped response below never uses it.
+    const users = await this.usersRepository.find({ select: ['id', 'country_name', 'color', 'flag_hash'] });
     return users.map(user => ({
       id: user.id,
       countryName: user.country_name,
@@ -282,12 +287,14 @@ export class UsersService {
     };
   }
 
-  async update(id: string, updateUserDto: UsersUpdateBodyRequest, callerId: string): Promise<{ countryName: string, color: string }> {
+  async update(id: string, updateUserDto: UsersUpdateBodyRequest, callerId: string): Promise<{ countryName: string, color: string, lore?: string }> {
     const user = await this.findOneEntity(id);
 
     // TODO: Maybe move this logic to guards or something
     if (callerId !== id) {
-      throw new Error('User id dont match caller id');
+      // ForbiddenException (not a plain Error) so this 403s cleanly instead of bubbling up as
+      // an unhandled 500 — matches the convention setFlag/deleteFlag already use below.
+      throw new ForbiddenException('User id does not match caller id');
     }
 
     await this.assertCountryIdentityAvailable(updateUserDto.country_name, updateUserDto.color, id);
@@ -298,7 +305,8 @@ export class UsersService {
 
     return {
       countryName: updateUserDto.country_name,
-      color: updateUserDto.color
+      color: updateUserDto.color,
+      lore: updateUserDto.lore,
     };
   }
 
@@ -360,6 +368,17 @@ export class UsersService {
       return null;
     }
     return { data: user.flag_data, mime: user.flag_mime, hash: user.flag_hash };
+  }
+
+  /** Light single-field read for GET /users/:id/lore — deliberately not `findOneEntity`,
+   *  which eagerly loads provinces/buildings that a lore fetch has no use for. Public: any
+   *  authenticated player may view any other's lore, same as GET /diplomacy/treaties/public/:userId. */
+  async getLore(id: string): Promise<{ lore: string | null }> {
+    const user = await this.usersRepository.findOne({ where: { id }, select: ['id', 'lore'] });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return { lore: user.lore };
   }
 
   async remove(id: string): Promise<void> {

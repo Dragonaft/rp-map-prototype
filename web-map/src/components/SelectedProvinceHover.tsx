@@ -237,6 +237,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
         projectedTroops: response.user.projectedTroops,
         projectedFood: response.user.projectedFood,
         flagUrl: null, // a freshly-set-up player has never had the chance to upload one
+        lore: null,
       }));
     }
     if (response?.province) {

@@ -7,6 +7,7 @@ import { DiplomaticState, TreatyKind } from '../../types';
 import { TreatyNegotiationModal } from './TreatyNegotiationModal';
 import { PeaceNegotiationModal } from './PeaceNegotiationModal';
 import { PlayerTreatiesModal } from './PlayerTreatiesModal';
+import { LoreModal } from './LoreModal';
 import { ActionButton } from '../ActionButton.tsx';
 import { APP_VERSION } from '../../constants/appVersion.ts';
 
@@ -31,6 +32,7 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
   const [negotiation, setNegotiation] = useState<{ receiverId: string; receiverName: string; kind: TreatyKind.ALLIANCE | TreatyKind.TRADE | TreatyKind.TROOPS_PASS | TreatyKind.ARTICLE } | null>(null);
   const [peaceTarget, setPeaceTarget] = useState<{ id: string; name: string } | null>(null);
   const [treatiesOf, setTreatiesOf] = useState<{ id: string; name: string } | null>(null);
+  const [loreOf, setLoreOf] = useState<{ id: string; name: string } | null>(null);
   const [moneyTarget, setMoneyTarget] = useState<{ id: string; name: string } | null>(null);
   const [moneyAmount, setMoneyAmount] = useState(0);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -232,12 +234,20 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
                           onClick={() => setMoneyTarget({ id: other.id, name: other.countryName })}
                         />
                       )}
-                      <button
-                        onClick={() => setTreatiesOf({ id: other.id, name: other.countryName })}
-                        className="bg-transparent col-span-full border border-primary text-primary py-1.5 font-headline text-[11px] tracking-[0.2em] uppercase hover:bg-primary/10 transition-all rounded-sm cursor-pointer"
-                      >
-                        Player Treaties
-                      </button>
+                      <div className="col-span-full grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => setTreatiesOf({ id: other.id, name: other.countryName })}
+                          className="bg-transparent border border-primary text-primary py-1.5 font-headline text-[11px] tracking-[0.2em] uppercase hover:bg-primary/10 transition-all rounded-sm cursor-pointer"
+                        >
+                          Player Treaties
+                        </button>
+                        <button
+                          onClick={() => setLoreOf({ id: other.id, name: other.countryName })}
+                          className="bg-transparent border border-primary text-primary py-1.5 font-headline text-[11px] tracking-[0.2em] uppercase hover:bg-primary/10 transition-all rounded-sm cursor-pointer"
+                        >
+                          Lore
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -274,6 +284,15 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
           onClose={() => setTreatiesOf(null)}
           userId={treatiesOf.id}
           userName={treatiesOf.name}
+        />
+      )}
+
+      {loreOf && (
+        <LoreModal
+          open={!!loreOf}
+          onClose={() => setLoreOf(null)}
+          userId={loreOf.id}
+          userName={loreOf.name}
         />
       )}
 

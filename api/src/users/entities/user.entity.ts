@@ -91,6 +91,12 @@ export class User extends BaseEntity {
   @Exclude({ toPlainOnly: true })
   public flag_hash: string | null;
 
+  /** Freeform markdown RP background text, player-edited via the profile modal. Readable by
+   *  other players via GET /users/:id/lore (not shipped in the bulk GET /users list). Null =
+   *  never written. No @Exclude — rides the owner's GET /users/:id response for free. */
+  @Column({ type: 'mediumtext', nullable: true })
+  public lore: string | null;
+
   @OneToMany(() => Province, (province) => province.user)
   public readonly provinces?: Province[];
 }
