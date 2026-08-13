@@ -5,6 +5,10 @@ export interface GameSettings {
   isPaused: boolean;
   pauseMessage: string | null;
   turnsEnabled: boolean;
+  /** Content hash of the current map, recomputed by import-provinces.ts on every
+   *  map re-import. null until the first import after this field was introduced —
+   *  see provincesApi.getLayoutCached() for how the web client uses this. */
+  mapChecksum: string | null;
 }
 
 export const gameSettingsApi = {

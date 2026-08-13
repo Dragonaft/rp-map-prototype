@@ -5,7 +5,7 @@
 - **ORM:** TypeORM 0.3 (NestJS integration via `@nestjs/typeorm`)
 - **Database:** MySQL 8
 - **Config:** `api/src/db/data-source.ts` (dev), `data-source.prod.ts` (prod; compiled to `dist/db/data-source.prod.js`)
-- **Migrations:** `api/src/db/migrations/` (49 migration files)
+- **Migrations:** `api/src/db/migrations/` (50 migration files)
 
 ## Entity Relationship Diagram
 
@@ -338,12 +338,15 @@ reads it on every authenticated request.
 | is_paused       | boolean       | Default false. While true: `AuthService.login`/`refreshTokens` reject non-ADMIN/MODERATOR logins, and `GamePauseInterceptor` 403s every other authenticated PLAYER request (`code: 'GAME_PAUSED'`) — see [GAME-MECHANICS.md](GAME-MECHANICS.md#global-game-settings) |
 | pause_message   | varchar, nullable | Shown on the web client's login screen and in the 403 body; a default string is used when null |
 | turns_enabled   | boolean       | Default true. When false, `ActionSchedulerService.executeScheduledActions` returns before acquiring the distributed `ExecutionLock` — the cron tick becomes a no-op, independent of `is_paused` |
+| map_checksum    | varchar, nullable | SHA-256 content hash of the current map's layout, recomputed and stored by `api/src/scripts/import-provinces.ts` on every province reimport (`computeMapChecksum`, `api/src/provinces/map-checksum.util.ts` — hashed from the source `provinces.json`, not post-import DB rows, since import always wipes-and-reinserts from that same file so the two never diverge). `NULL` until the first import after this column existed. See [GAME-MECHANICS.md](GAME-MECHANICS.md#map-checksum--layout-cache-invalidation) |
 
-> Seeded by migration `1786028413989-CreateGameSettingsTable` (the single `'global'` row, both
-> flags at their defaults). Admin-editable via the admin panel's Settings tab
-> (`GET`/`PATCH /admin/game-settings`, ADMIN role only); publicly readable (no auth) via
-> `GET /game-settings` since the login screen must read pause state before anyone is
-> authenticated.
+> Seeded by migration `1786028413989-CreateGameSettingsTable` (the single `'global'` row, all
+> flags at their defaults); `map_checksum` added by a later migration,
+> `1786030156280-AddMapChecksumToGameSettings`. Admin-editable via the admin panel's Settings tab
+> (`GET`/`PATCH /admin/game-settings`, ADMIN role only) — though `map_checksum` itself is
+> write-only from `import-provinces.ts`, not exposed as an editable form field; publicly readable
+> (no auth) via `GET /game-settings` since the login screen must read pause state (and the web
+> client must read the map checksum) before anyone is authenticated.
 
 ### DiplomaticRelation
 One row per unordered player pair, created lazily on first non-neutral event — see

@@ -127,11 +127,12 @@ Notifications Center's "System Logs" tab, `admin` → "News" tab.
 ### Game Settings (`/game-settings`)
 | Method | Path | Auth   | Description |
 |--------|------|--------|-------------|
-| GET    | /    | Public | `{id, isPaused, pauseMessage, turnsEnabled}` — the singleton `game_settings` row. Public (no guard) because the login screen must read it before anyone is authenticated; nothing exposed here is sensitive. Admin read/write is `/admin/game-settings` (below), ADMIN-gated |
+| GET    | /    | Public | `{id, isPaused, pauseMessage, turnsEnabled, mapChecksum}` — the singleton `game_settings` row. Public (no guard) because the login screen must read pause state, and the web client's province-layout cache must read `mapChecksum`, before anyone is authenticated. Nothing exposed here is sensitive. Admin read/write is `/admin/game-settings` (below), ADMIN-gated |
 
 Read/write, singleton entity, and the pause-enforcement mechanism are covered in
 [GAME-MECHANICS.md](GAME-MECHANICS.md#global-game-settings). See also
-[Auth — Game Pause](#auth--game-pause) below.
+[Auth — Game Pause](#auth--game-pause) below and
+[GAME-MECHANICS.md](GAME-MECHANICS.md#map-checksum--layout-cache-invalidation) for `mapChecksum`.
 
 ### Armies (`/armies`)
 | Method | Path         | Auth | Description |
@@ -191,8 +192,8 @@ Read/write, singleton entity, and the pause-enforcement mechanism are covered in
 | POST   | /classes       | Admin | Create class (`{key, name, is_visible?}`) |
 | PATCH  | /classes/:id   | Admin | Update class (rename, toggle `is_visible`) |
 | DELETE | /classes/:id   | Admin | Delete class (does not touch existing `User.class`/`Tech.branch` string values) |
-| GET    | /game-settings | Admin only | Read the singleton `game_settings` row (`is_paused`, `pause_message`, `turns_enabled`, snake_case — no `ClassSerializerInterceptor` here, unlike the public `GET /game-settings`) |
-| PATCH  | /game-settings | Admin only | Update any subset of the three fields. **ADMIN role only** — overrides the controller's default ADMIN\|MODERATOR gate via a route-level `@Roles(ADMIN)`, since pausing the whole game is treated as an ADMIN-only action, unlike every other row in this table |
+| GET    | /game-settings | Admin only | Read the singleton `game_settings` row (`is_paused`, `pause_message`, `turns_enabled`, `map_checksum`, snake_case — no `ClassSerializerInterceptor` here, unlike the public `GET /game-settings`) |
+| PATCH  | /game-settings | Admin only | Update any subset of the four fields (though `map_checksum` has no admin-panel form control — it's write-only from `import-provinces.ts`, this endpoint just doesn't reject it if sent). **ADMIN role only** — overrides the controller's default ADMIN\|MODERATOR gate via a route-level `@Roles(ADMIN)`, since pausing the whole game is treated as an ADMIN-only action, unlike every other row in this table |
 | GET    | /diplomacy-relations     | Admin | List diplomatic relations |
 | POST   | /diplomacy-relations     | Admin | Create diplomatic relation |
 | PATCH  | /diplomacy-relations/:id | Admin | Update diplomatic relation |
@@ -423,7 +424,8 @@ api/src/
 ├── app.module.ts
 ├── auth/           controllers, services, strategies, guards, decorators
 ├── users/          controller, service, entity, request DTOs
-├── provinces/      controller, service, entity, request DTOs
+├── provinces/      controller, service, entity, request DTOs, map-checksum.util.ts
+│                   (pure sha256 hash of map layout, used by scripts/import-provinces.ts)
 ├── buildings/      controller, service, entity, types
 ├── techs/          controller, service, entity, tech-effects.service.ts, effect-types.ts,
 │                   user-tech-progress.service.ts, entities (tech, user-tech-progress), dto/

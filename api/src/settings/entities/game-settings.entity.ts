@@ -23,4 +23,8 @@ export class GameSettings extends BaseEntity {
   @Column({ name: 'turns_enabled', default: true })
   @Expose({ name: 'turnsEnabled' })
   public turns_enabled: boolean;
+
+  @Column({ name: 'map_checksum', nullable: true, type: 'varchar' })
+  @Expose({ name: 'mapChecksum' })
+  public map_checksum: string | null;
 }

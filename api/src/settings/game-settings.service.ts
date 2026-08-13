@@ -34,7 +34,7 @@ export class GameSettingsService {
     if (!settings) {
       // Defensive: keeps a DB that somehow skipped the migration seed from 500ing on
       // every request (same instinct as UserGoodsService.createRowsForNewUser).
-      settings = this.repo.create({ id: GLOBAL_ROW_ID, is_paused: false, pause_message: null, turns_enabled: true });
+      settings = this.repo.create({ id: GLOBAL_ROW_ID, is_paused: false, pause_message: null, turns_enabled: true, map_checksum: null });
       settings = await this.repo.save(settings);
     }
 
@@ -43,7 +43,7 @@ export class GameSettingsService {
     return settings;
   }
 
-  async update(patch: Partial<Pick<GameSettings, 'is_paused' | 'pause_message' | 'turns_enabled'>>): Promise<GameSettings> {
+  async update(patch: Partial<Pick<GameSettings, 'is_paused' | 'pause_message' | 'turns_enabled' | 'map_checksum'>>): Promise<GameSettings> {
     const current = await this.get();
     Object.assign(current, patch);
     const saved = await this.repo.save(current);

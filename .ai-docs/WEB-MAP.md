@@ -301,9 +301,35 @@ Client-side counterpart to the backend's `GamePauseInterceptor`/`AuthService` pa
   reloads on every SSE turn-completion tick and after most mutations, an already-open session
   typically hits this within moments of an admin flipping Pause Game on.
 
+## Map Layout Cache
+
+`provincesApi.getLayoutCached()` (`api/provinces.ts`) caches `GET /provinces/layout`'s response
+(polygons, landscape, resource, neighbors — never changes except at a map re-import) in
+localStorage under `rp_provinces_layout_v2`, since refetching ~600 provinces' SVG polygon
+strings on every load is wasteful. See
+[GAME-MECHANICS.md](GAME-MECHANICS.md#map-checksum--layout-cache-invalidation) for the
+server-side half (`game_settings.map_checksum`, computed by `import-provinces.ts`).
+
+- **Stored shape:** `{ checksum: string | null, layout: ProvinceLayout[] }` — a single object,
+  not two separate keys, so a read is always atomic (no split-brain where the checksum updates
+  but the layout doesn't, or vice versa).
+- **Validity check, every call:** fetches `gameSettingsApi.getPublic()` (cheap, public, the same
+  call `LoginPage.tsx` makes) and compares its `mapChecksum` against the cached entry's
+  `checksum`. Match → return the cached `layout`, no `/provinces/layout` call. Mismatch (or no
+  cache) → `console.info` the old→new checksum transition, fetch fresh, re-cache both together.
+- **No more `forceRefresh` param.** The old design only bypassed the cache for a brand-new
+  player (`User.is_new`) — `GamePage`'s `fetchProvinces` (`pages/game/index.tsx`) called
+  `getLayoutCached(userData?.isNew === true)`. That missed every **existing** player's map
+  changing underneath them. The checksum check subsumes new users for free (no cache yet is
+  itself a mismatch) so `fetchProvinces` no longer takes or depends on `userData` at all.
+- **Old `_v1` key** (a bare array, no checksum wrapper) is left to age out of localStorage
+  rather than actively removed — matching this codebase's existing key-bump convention (see the
+  `mod` slice's similar localStorage handling above).
+
 ## Data Flow
 
-1. GamePage mounts → fetches layout (cached in localStorage), state, armies, buildings, techs, actions, users
+1. GamePage mounts → fetches layout (localStorage-cached, checksum-validated — see
+   [Map Layout Cache](#map-layout-cache)), state, armies, buildings, techs, actions, users
 2. Data dispatched to Redux slices
 3. Components read via `useAppSelector`
 4. User actions → `POST /actions` → queued server-side

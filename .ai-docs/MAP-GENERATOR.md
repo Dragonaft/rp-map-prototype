@@ -19,6 +19,12 @@ Generates `provinces.json` — the map data consumed by the API. This is a **loc
 5. Frontend renders SVG polygons from province.polygon strings
 ```
 
+Step 3 also recomputes and stores a content checksum of the map
+(`game_settings.map_checksum`) so every web client's localStorage layout cache
+automatically detects and refreshes past this re-import — no manual cache-busting
+step needed on the frontend side. See
+[GAME-MECHANICS.md](GAME-MECHANICS.md#map-checksum--layout-cache-invalidation).
+
 ## Output Format
 
 Array of province objects:
