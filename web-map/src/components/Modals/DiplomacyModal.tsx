@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Dialog } from '@mui/material';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { diplomacyApi } from '../../api/diplomacy';
@@ -8,12 +8,16 @@ import { TreatyNegotiationModal } from './TreatyNegotiationModal';
 import { PeaceNegotiationModal } from './PeaceNegotiationModal';
 import { PlayerTreatiesModal } from './PlayerTreatiesModal';
 import { LoreModal } from './LoreModal';
+import { CountryFlag } from '../CountryFlag';
 import { ActionButton } from '../ActionButton.tsx';
 import { APP_VERSION } from '../../constants/appVersion.ts';
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** Pre-fills the search box on open (e.g. a specific country name), so the list narrows to
+   *  just that player. Optional — the TopBar's own "Diplomacy" button opens with no target. */
+  initialSearchQuery?: string;
 }
 
 /** Border/text color for the state badge — terminal aesthetic uses bare currentColor, no fills. */
@@ -24,7 +28,7 @@ const STATE_BADGE_CLASSES: Record<DiplomaticState, string> = {
   [DiplomaticState.ALLIANCE]: 'border-secondary/40 text-secondary',
 };
 
-export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
+export const DiplomacyModal: React.FC<Props> = ({ open, onClose, initialSearchQuery }) => {
   const dispatch = useAppDispatch();
   const currentUserId = useAppSelector((state) => state.user.id);
   const otherUsers = useAppSelector((state) => state.otherUsers.otherUsers);
@@ -38,6 +42,15 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Re-seeds the search box every time the modal opens — a fresh TopBar open (no target)
+  // clears any stale search from a previous province-triggered open, and a province-triggered
+  // open narrows straight to that owner's country.
+  useEffect(() => {
+    if (open) {
+      setSearchQuery(initialSearchQuery ?? '');
+    }
+  }, [open, initialSearchQuery]);
 
   const relationByUserId = useMemo(() => {
     const map = new Map(relations.map((r) => [r.otherUserId, r]));
@@ -169,6 +182,9 @@ export const DiplomacyModal: React.FC<Props> = ({ open, onClose }) => {
                     <div className="flex justify-between items-center pb-1 gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <span className="w-2.5 h-2.5 rounded-full inline-block shrink-0" style={{ backgroundColor: other.color }} />
+                        {other.flagUrl && (
+                          <CountryFlag flagUrl={other.flagUrl} color={other.color} countryName={other.countryName} />
+                        )}
                         <h2 className="font-headline text-lg tracking-widest uppercase truncate">{other.countryName}</h2>
                       </div>
                       <span className={`font-headline text-[11px] tracking-widest border border-solid px-2 py-0.5 rounded-full shrink-0 ${STATE_BADGE_CLASSES[state]}`}>

@@ -16,6 +16,7 @@ import { BuildingActionsModal } from "./Modals/BuildingActionsModal.tsx";
 import { CancelActionModal } from "./Modals/CancelActionModal.tsx";
 import { DeleteBuildingModal } from "./Modals/DeleteBuildingModal.tsx";
 import { PlayerTreatiesModal } from "./Modals/PlayerTreatiesModal.tsx";
+import { DiplomacyModal } from "./Modals/DiplomacyModal.tsx";
 import { ModStocksModal } from "./Modals/ModStocksModal.tsx";
 import { modApi } from "../api/mod.ts";
 import { CountryFlag } from "./CountryFlag.tsx";
@@ -50,6 +51,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
   // Owner is cut off from building while occupied; the occupier never gains build rights either.
   const canBuildHere = isUserOwner && !isOccupied;
   const [openPlayerTreaties, setOpenPlayerTreaties] = useState(false);
+  const [openDiplomacyModal, setOpenDiplomacyModal] = useState(false);
 
   // Player's resource ledger (GET /resources/mine), keyed by resource key for
   // quick lookup — already nets out everything currently built.
@@ -498,9 +500,14 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
             </p>
           )}
           {selectedProvince.userId && (
-            <Button size="small" variant="outlined" onClick={() => setOpenPlayerTreaties(true)}>
-              Player Treaties
-            </Button>
+            <div className="flex gap-2">
+              <Button size="small" variant="outlined" onClick={() => setOpenPlayerTreaties(true)}>
+                Player Treaties
+              </Button>
+              <Button size="small" variant="outlined" onClick={() => setOpenDiplomacyModal(true)}>
+                Diplomacy
+              </Button>
+            </div>
           )}
           {builtInProvince.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
@@ -938,6 +945,14 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
           onClose={() => setOpenPlayerTreaties(false)}
           userId={selectedProvince.userId}
           userName={provinceOwner?.countryName ?? 'This player'}
+        />
+      )}
+
+      {selectedProvince.userId && (
+        <DiplomacyModal
+          open={openDiplomacyModal}
+          onClose={() => setOpenDiplomacyModal(false)}
+          initialSearchQuery={provinceOwner?.countryName}
         />
       )}
 
