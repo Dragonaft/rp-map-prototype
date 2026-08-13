@@ -9,7 +9,11 @@ export type EffectTarget =
   | 'building_cap'
   | 'army_attack'
   | 'army_defense'
-  | 'road_hops';
+  | 'road_hops'
+  | 'water_turns_bonus'
+  | 'goods_production'
+  | 'supply_range'
+  | 'troop_pool';
 
 export type EffectOp = 'add' | 'add_scaled' | 'multiply' | 'set';
 
@@ -35,6 +39,10 @@ export const EFFECT_TARGETS: { value: EffectTarget; label: string }[] = [
   { value: 'army_attack', label: 'Army Attack' },
   { value: 'army_defense', label: 'Army Defense' },
   { value: 'road_hops', label: 'Road Hops' },
+  { value: 'water_turns_bonus', label: 'Water Turns Bonus' },
+  { value: 'goods_production', label: 'Goods Production' },
+  { value: 'supply_range', label: 'Supply Range' },
+  { value: 'troop_pool', label: 'Troop Pool' },
 ];
 
 export const EFFECT_OPS: { value: EffectOp; label: string }[] = [
@@ -53,8 +61,10 @@ export const TARGET_SCALE_OPTIONS: Partial<Record<EffectTarget, string[]>> = {
 /** Only 'building_cap' effects support a `when` condition. */
 export const CONDITIONAL_TARGETS: EffectTarget[] = ['building_cap'];
 
-/** Known landscape values across the map generator + seed data; the field also accepts free text. */
-export const LANDSCAPE_OPTIONS = ['plains', 'forest', 'mountain', 'desert', 'hills', 'swamp', 'coast'];
+/** Known landscape values across the map generator + seed data; the field also accepts free text.
+ *  No `coast` — no province in the current map data carries that landscape (matches
+ *  LANDSCAPE_BUILDING_CAPS in api/src/techs/tech-effects.service.ts). */
+export const LANDSCAPE_OPTIONS = ['plains', 'forest', 'mountain', 'desert', 'hills', 'swamp'];
 
 export function emptyEffect(): TechEffect {
   return { target: 'income', op: 'add', value: 0 };

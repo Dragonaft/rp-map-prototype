@@ -15,6 +15,7 @@ import {
   SUPPLY_ATTRITION_RATE,
   SUPPLY_BFS_MAX_DEPTH,
 } from './supply-utils';
+import { TechEffectsService } from '../techs/tech-effects.service';
 
 interface ArmySupplyPlan {
   army: Army;
@@ -38,7 +39,10 @@ interface ArmySupplyPlan {
 export class SupplyActionService {
   private readonly logger = new Logger(SupplyActionService.name);
 
-  constructor(private readonly userGoodsService: UserGoodsService) {}
+  constructor(
+    private readonly userGoodsService: UserGoodsService,
+    private readonly techEffects: TechEffectsService,
+  ) {}
 
   async execute(state: UserGameState, manager: EntityManager): Promise<void> {
     const { users } = state;
@@ -84,10 +88,11 @@ export class SupplyActionService {
       if (userArmies.length === 0) continue;
 
       const dist = bfsDistances(adjacency, sourcesByUser.get(user.id) ?? [], SUPPLY_BFS_MAX_DEPTH);
+      const freeRadius = this.techEffects.supplyRange(user.completed_research ?? []);
 
       const plans: ArmySupplyPlan[] = userArmies.map((army) => {
         const distance = dist.get(army.province_id) ?? null;
-        const multiplier = supplyMultiplierForDistance(distance);
+        const multiplier = supplyMultiplierForDistance(distance, freeRadius);
         const need = scaleFoodNeed(computeArmyBaseFoodNeed(army), multiplier);
         army.supply_distance = distance;
         return { army, distance, multiplier, need };

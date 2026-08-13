@@ -117,6 +117,16 @@ export class Building extends BaseEntity {
   @Expose({ name: 'resourceProductionAmount' })
   public resource_production_amount: number | null;
 
+  /**
+   * Overrides which resource key resource_production_amount credits, instead of the
+   * province's own resource — e.g. PORT sits on land (grain/wood/whatever) but produces
+   * fish. Null (the common case) keeps the existing "credit the province's own resource"
+   * behavior unchanged.
+   */
+  @Column({ nullable: true })
+  @Expose({ name: 'resourceProductionKey' })
+  public resource_production_key: string | null;
+
   /** Per-turn amount of production_requirement_resource consumed (via tryReserve) to produce production_amount of the good. Production skips the turn if unavailable. */
   @Column({ nullable: true })
   @Expose({ name: 'productionRequirementResourceAmount' })
@@ -139,5 +149,29 @@ export class Building extends BaseEntity {
   @Column({ nullable: true })
   @Expose({ name: 'requirementGoodAmount' })
   public requirement_good_amount: number | null;
+
+  /**
+   * A second, independent one-time goods cost paid alongside requirement_good_id —
+   * same tryReserve-at-build/refund-on-demolish mechanic. Introduced so Lumber (which
+   * has no per-turn sink) can be a universal construction cost without displacing the
+   * existing Weapons/Bricks slot already used by BARRACKS/SAWMILL/FORT.
+   */
+  @Column({ name: 'requirement_good_2_id', nullable: true })
+  @Exclude()
+  public requirement_good_2_id: string | null;
+
+  @ManyToOne(() => Good, { nullable: true })
+  @JoinColumn({ name: 'requirement_good_2_id' })
+  @Exclude()
+  public requirementGood2Entity?: Good | null;
+
+  @Expose({ name: 'requirementGood2' })
+  get requirementGood2(): string | null {
+    return this.requirement_good_2_id;
+  }
+
+  @Column({ nullable: true })
+  @Expose({ name: 'requirementGood2Amount' })
+  public requirement_good_2_amount: number | null;
 
 }

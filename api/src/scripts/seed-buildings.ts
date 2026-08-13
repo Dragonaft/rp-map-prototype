@@ -47,9 +47,15 @@ interface BuildingSeedRow {
   production_amount?: number | null;
   /** Per-turn amount of the province's resource credited to the ledger — MINE/FORESTRY. */
   resource_production_amount?: number | null;
+  /** Overrides which resource key resource_production_amount credits instead of the province's
+   *  own resource (e.g. PORT sits on land but produces fish). Null = province's own resource. */
+  resource_production_key?: string | null;
   /** Good.name to resolve to requirement_good_id at seed time — a one-time BUILD cost, like requirement_resource but for goods. */
   requirement_good_name?: string | null;
   requirement_good_amount?: number | null;
+  /** A second, independent one-time goods cost — same resolution as requirement_good_name. */
+  requirement_good_2_name?: string | null;
+  requirement_good_2_amount?: number | null;
 }
 
 const BUILDING_TYPE_VALUES = new Set<string>(Object.values(BuildingTypes));
@@ -165,6 +171,19 @@ async function seedBuildings() {
       requirement_good_id = good.id;
     }
 
+    let requirement_good_2_id: string | null = null;
+    if (row.requirement_good_2_name) {
+      const good = await goodRepo.findOne({ where: { name: row.requirement_good_2_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.type}: requirement_good_2_name "${row.requirement_good_2_name}" not found — run seed:goods before seed:buildings`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      requirement_good_2_id = good.id;
+    }
+
     const patch = {
       name: row.name,
       description: row.description,
@@ -191,8 +210,11 @@ async function seedBuildings() {
       production_requirement_resource_amount: row.production_requirement_resource_amount ?? null,
       production_amount: row.production_amount ?? null,
       resource_production_amount: row.resource_production_amount ?? null,
+      resource_production_key: row.resource_production_key ?? null,
       requirement_good_id,
       requirement_good_amount: row.requirement_good_amount ?? null,
+      requirement_good_2_id,
+      requirement_good_2_amount: row.requirement_good_2_amount ?? null,
     };
 
     const existing = await repo.find({

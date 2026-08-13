@@ -1,6 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EntityManager, In } from 'typeorm';
-import { BuildingTypes } from '../buildings/types/building.types';
 import { User } from '../users/entities/user.entity';
 import { Army } from '../armies/entities/army.entity';
 import { UserGameState } from './user-state-loader.service';
@@ -10,12 +9,6 @@ function parseUpkeep(upkeep: string | null | undefined): number {
   const n = Number(upkeep);
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
-
-const ARMY_UPKEEP_BUILDINGS = new Set<string>([
-  BuildingTypes.FORT,
-  BuildingTypes.BARRACKS,
-  BuildingTypes.ARMORY,
-]);
 
 /** Runs once per scheduled queue tick before any queued player actions. */
 @Injectable()
@@ -46,15 +39,16 @@ export class UpkeepActionService {
       const userProvinces = provincesByUser.get(user.id) ?? [];
       const userArmies = armiesByUser.get(user.id) ?? [];
 
-      // Building upkeep (FORT, BARRACKS, ARMORY)
+      // Building upkeep — every building's seeded upkeep is charged, not just a fixed
+      // FORT/BARRACKS/ARMORY whitelist (that whitelist meant 13 of 20 buildings were
+      // effectively free, and let CASTLE strictly dominate FORT: better defense modifier,
+      // +100 income, and its 150 upkeep was never billed while FORT's 80 was).
       let buildingUpkeep = 0;
       for (const province of userProvinces) {
         if (province.occupier_id) continue; // occupied: owner gets no benefit, pays no upkeep either
         if (!province.buildings?.length) continue;
         for (const b of province.buildings) {
-          if (ARMY_UPKEEP_BUILDINGS.has(b.type)) {
-            buildingUpkeep += parseUpkeep(b.upkeep as any);
-          }
+          buildingUpkeep += parseUpkeep(b.upkeep as any);
         }
       }
 

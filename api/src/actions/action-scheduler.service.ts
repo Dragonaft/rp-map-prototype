@@ -33,6 +33,7 @@ import {
   applyCasualties,
   armyAttackPower,
   armyDefensePower,
+  armyGroupCategoryMix,
   armyTotalTroops,
   computeBuildModifier,
   deleteArmy,
@@ -456,17 +457,29 @@ export class ActionSchedulerService {
             return a[0].localeCompare(b[0]);
           });
 
-          // Process each attacker group sequentially. Note: unlike the single-move combat
-          // path in ArmyMoveHandler, this batch resolution doesn't apply tech
-          // army_attack/army_defense effects — an existing asymmetry preserved here rather
-          // than fixed as part of the water feature.
+          // Process each attacker group sequentially, applying the same army_attack/
+          // army_defense tech effects and counter-matrix composition scaling as the
+          // single-move combat path in ArmyMoveHandler — this used to be a documented
+          // asymmetry (this batch path skipped tech effects entirely); fixed here so the
+          // same battle resolves identically regardless of which code path handles it.
           for (const [attackerUserId, attackerArmies] of orderedAttackers) {
-            const attackerPower = attackerArmies.reduce(
-              (sum, a) => sum + armyAttackPower(a, isWater), 0,
+            const attacker = usersById.get(attackerUserId);
+            const defender = usersById.get(defenderUserId);
+            const defenderMix = armyGroupCategoryMix(defenderArmies);
+            const attackerMix = armyGroupCategoryMix(attackerArmies);
+
+            const attackerRawPower = attackerArmies.reduce(
+              (sum, a) => sum + armyAttackPower(a, isWater, defenderMix), 0,
+            );
+            const attackerPower = this.techEffects.apply(
+              'army_attack', attackerRawPower, {}, attacker?.completed_research ?? [],
             ) * powerMultiplier(attackerUserId);
 
-            const defenderBasePower = defenderArmies.reduce(
-              (sum, a) => sum + armyDefensePower(a, isWater), 0,
+            const defenderRawPower = defenderArmies.reduce(
+              (sum, a) => sum + armyDefensePower(a, isWater, attackerMix), 0,
+            );
+            const defenderBasePower = this.techEffects.apply(
+              'army_defense', defenderRawPower, {}, defender?.completed_research ?? [],
             ) * powerMultiplier(defenderUserId);
             const buildingModifier = computeBuildModifier(province.buildings);
             const defenderPower = defenderBasePower * buildingModifier;

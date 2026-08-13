@@ -27,6 +27,44 @@ export enum BuildingTypes {
   SAWMILL = 'SAWMILL',
   BRICKYARD = 'BRICKYARD',
   BARN = 'BARN',
+  PORT = 'PORT',
+  /** NOBLE-only prestige building — produces Warhorses from grain. */
+  STUD_FARM = 'STUD_FARM',
+  /** HOLY-only prestige building — produces Relics from gold. Requires TEMPLE. */
+  RELIQUARY = 'RELIQUARY',
+  /** GUILD-only prestige building — produces Spices from fish. Requires PORT. */
+  SPICE_WHARF = 'SPICE_WHARF',
+}
+
+// Mirrors api/src/techs/effect-types.ts — a tech's mechanical effect is data, not code.
+// Kept in sync manually, same convention as admin-panel/src/pages/dashboard/effectsSchema.ts.
+export type EffectTarget =
+  | 'income'
+  | 'upkeep'
+  | 'research_points'
+  | 'building_cap'
+  | 'army_attack'
+  | 'army_defense'
+  | 'road_hops'
+  | 'water_turns_bonus'
+  | 'goods_production'
+  | 'supply_range'
+  | 'troop_pool';
+
+export type EffectOp = 'add' | 'add_scaled' | 'multiply' | 'set';
+
+export interface EffectCondition {
+  landscape?: string;
+  resource?: string;
+}
+
+export interface TechEffect {
+  target: EffectTarget;
+  op: EffectOp;
+  value: number;
+  scaleBy?: string;
+  when?: EffectCondition;
+  note?: string;
 }
 
 export interface Tech {
@@ -40,6 +78,8 @@ export interface Tech {
   prerequisites: string[];
   /** Caller's saved research progress toward `cost` (0 if never started). */
   progress: number;
+  /** Data-driven mechanical effect(s) of this tech — see effect-types.ts. Null/empty = flavor-only. */
+  effects: TechEffect[] | null;
 }
 
 
@@ -94,8 +134,13 @@ export interface Building {
   productionRequirementResourceAmount: number | null;
   productionAmount: number | null;
   resourceProductionAmount: number | null;
+  /** Overrides which resource key resourceProductionAmount credits, instead of the province's own resource (e.g. PORT produces fish while sitting on land). */
+  resourceProductionKey: string | null;
   requirementGood: string | null;
   requirementGoodAmount: number | null;
+  /** A second, independent one-time goods cost, same mechanic as requirementGood/requirementGoodAmount. */
+  requirementGood2: string | null;
+  requirementGood2Amount: number | null;
 }
 
 /** A building as it exists in a province — template fields plus the unique
@@ -225,10 +270,16 @@ export interface TroopType {
   required_goods: string | null;
   /** Units of required_goods consumed per 100 troops recruited, one-time (not refunded on disband/removal). */
   goods_amount: number | null;
+  /** A second, independent one-time recruitment goods cost, same mechanic as required_goods/goods_amount. */
+  required_goods_2: string | null;
+  goods_amount_2: number | null;
   /** Good id consumed each turn as food (resolved against goods.mine), scaled by the army's supply_distance. Null = no per-turn supply cost. */
   supply_good_id: string | null;
   /** Units of supply_good_id consumed per 100 troops per turn, before the distance multiplier. */
   supply_per_100: number | null;
+  /** A second per-turn supply good — the class elite units' permanent partner-good dependency. Null = no second supply cost. */
+  supply_good_2_id: string | null;
+  supply_per_100_2: number | null;
 }
 
 export interface ArmyUnit {

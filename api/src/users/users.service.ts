@@ -16,11 +16,8 @@ import { TechEffectsService } from '../techs/tech-effects.service';
 import { colorsTooSimilar } from '../utils/colorDistance';
 import { computeArmyBaseFoodNeed, scaleFoodNeed, supplyMultiplierForDistance } from '../actions/supply-utils';
 
-const BUILDING_UPKEEP_TYPES = new Set<string>([
-  BuildingTypes.FORT,
-  BuildingTypes.BARRACKS,
-  BuildingTypes.ARMORY,
-]);
+/** Mirrors RESEARCH_PER_BUILDING in IncomeActionService. */
+const RESEARCH_PER_BUILDING = 10;
 
 /** Hard byte cap for an uploaded flag image, enforced both by Multer's `limits.fileSize`
  *  (rejects before the buffer is fully read) and again here (belt-and-braces). */
@@ -162,8 +159,8 @@ export class UsersService {
     // ---- Income projection (mirrors IncomeActionService) ----
     let incomeTotal = 0;
     let barracksCount = 0;
+    let capitalCount = 0;
     let farmGardenIncome = 0;
-    const capitalCount = 1; // mirrors hardcoded value in IncomeActionService
 
     for (const p of provinces) {
       for (const b of p.buildings ?? []) {
@@ -179,6 +176,7 @@ export class UsersService {
             break;
           case BuildingTypes.CAPITAL:
             barracksCount++;
+            capitalCount++;
             incomeTotal += parseIncome(b.income);
             break;
           case BuildingTypes.FARM:
@@ -196,12 +194,11 @@ export class UsersService {
     incomeTotal = this.techEffects.apply('income', incomeTotal, incomeCtx, completedResearch);
 
     // ---- Upkeep projection (mirrors UpkeepActionService) ----
+    // Every building's seeded upkeep counts now, not a fixed FORT/BARRACKS/ARMORY whitelist.
     let buildingUpkeep = 0;
     for (const p of provinces) {
       for (const b of p.buildings ?? []) {
-        if (BUILDING_UPKEEP_TYPES.has(b.type)) {
-          buildingUpkeep += Number(b.upkeep) || 0;
-        }
+        buildingUpkeep += Number(b.upkeep) || 0;
       }
     }
 
@@ -220,8 +217,8 @@ export class UsersService {
     let researchTotal = 0;
     for (const p of provinces) {
       for (const b of p.buildings ?? []) {
-        if (b.type === BuildingTypes.CAPITAL) researchTotal++;
-        if (b.type === BuildingTypes.LIBRARY)  researchTotal++;
+        if (b.type === BuildingTypes.CAPITAL) researchTotal += RESEARCH_PER_BUILDING;
+        if (b.type === BuildingTypes.LIBRARY)  researchTotal += RESEARCH_PER_BUILDING;
       }
     }
     const rpCtx = { researchTotal, capitalCount };
@@ -267,20 +264,22 @@ export class UsersService {
       }
     }
 
+    const freeSupplyRadius = this.techEffects.supplyRange(completedResearch);
     let foodConsumption = 0;
     for (const army of armies) {
-      const multiplier = supplyMultiplierForDistance(army.supply_distance ?? null);
+      const multiplier = supplyMultiplierForDistance(army.supply_distance ?? null, freeSupplyRadius);
       const need = scaleFoodNeed(computeArmyBaseFoodNeed(army), multiplier);
       for (const amount of need.values()) foodConsumption += amount;
     }
 
     const projectedFood = foodProduction - foodConsumption;
+    const troopsPerBuilding = this.techEffects.troopPoolPerBuilding(completedResearch);
 
     return {
       ...instanceToPlain(user),
       flagUrl: buildFlagUrl(user.id, user.flag_hash),
       projectedIncome: incomeTotal - totalUpkeep,
-      projectedTroops: barracksCount * 50,
+      projectedTroops: barracksCount * troopsPerBuilding,
       projectedResearch,
       projectedPiety,
       projectedFood,

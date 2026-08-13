@@ -19,6 +19,10 @@ export const BUILDING_ICONS: Record<string, string> = {
   SAWMILL: '🪚',
   BRICKYARD: '🏭',
   BARN: '🌾',
+  PORT: '⚓',
+  STUD_FARM: '🐎',
+  RELIQUARY: '📿',
+  SPICE_WHARF: '🌶️',
 };
 
 export const LANDSCAPE_ICONS: Record<string, string> = {
@@ -36,4 +40,5 @@ export const RESOURCE_ICONS: Record<string, string> = {
   stone: '🧱',
   wood: '🪵',
   grain: '🌾',
+  fish: '🐟',
 };

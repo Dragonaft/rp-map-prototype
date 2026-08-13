@@ -31,6 +31,8 @@ export interface CombatTroopType {
   defense: number;
   /** Power multiplier applied while fighting on a water province (default 1.0 = no penalty). */
   water_combat_modifier?: number;
+  /** TroopCategory string (INFANTRY/RANGED/CAVALRY/SPECIAL/PEASANT) — drives the counter matrix below. */
+  category?: string | null;
 }
 
 export interface CombatArmyUnit {
@@ -41,6 +43,57 @@ export interface CombatArmyUnit {
 export interface CombatArmy<Unit extends CombatArmyUnit = CombatArmyUnit> {
   units: Unit[];
 }
+
+/** Fraction of a force's total troops in each category, e.g. { INFANTRY: 0.6, CAVALRY: 0.4 }. */
+export type CategoryMix = Partial<Record<string, number>>;
+
+/**
+ * Rock-paper-scissors triangle: INFANTRY (pikes) stops CAVALRY, CAVALRY rides down RANGED,
+ * RANGED shoots INFANTRY. SPECIAL (the class units, including the elite capstones) and
+ * PEASANT are absent from this table entirely, so they're neutral on *both* sides of every
+ * matchup — they win or lose on raw stats alone, and never dilute or benefit from composition.
+ *
+ * Each entry is a delta added to a base multiplier of 1.0, weighted by how much of the *enemy*
+ * force's troop count sits in the countered/countering category — see counterFactor below. A
+ * mono-category enemy force gives the full swing; a 50/50 mix only gives half.
+ */
+export const TROOP_COUNTER_MATRIX: Record<string, CategoryMix> = {
+  INFANTRY: { CAVALRY: 0.4, RANGED: -0.3 },
+  RANGED: { INFANTRY: 0.4, CAVALRY: -0.3 },
+  CAVALRY: { RANGED: 0.4, INFANTRY: -0.3 },
+};
+
+/** Category composition of a single army, as a fraction of its own total troops. */
+export const armyCategoryMix = (army: CombatArmy): CategoryMix => armyGroupCategoryMix([army]);
+
+/** Category composition across a group of armies (e.g. every defender in a province), as a
+ *  fraction of the group's combined total troops — used when several armies fight as one side. */
+export const armyGroupCategoryMix = (armies: CombatArmy[]): CategoryMix => {
+  const total = armies.reduce((sum, a) => sum + armyTotalTroops(a), 0);
+  if (total === 0) return {};
+  const mix: CategoryMix = {};
+  for (const army of armies) {
+    for (const u of army.units ?? []) {
+      const cat = u.troopType.category;
+      if (!cat) continue;
+      mix[cat] = (mix[cat] ?? 0) + u.count / total;
+    }
+  }
+  return mix;
+};
+
+/** Composition-weighted counter multiplier for a single unit's category against the enemy's mix. */
+const counterFactor = (category: string | null | undefined, enemyMix: CategoryMix): number => {
+  if (!category) return 1;
+  const row = TROOP_COUNTER_MATRIX[category];
+  if (!row) return 1;
+  let factor = 1;
+  for (const [enemyCategory, share] of Object.entries(enemyMix)) {
+    const delta = row[enemyCategory];
+    if (delta) factor += delta * (share ?? 0);
+  }
+  return factor;
+};
 
 export const parseBuildingModifier = (modifier: string | null | undefined): number => {
   const n = Number(modifier);
@@ -69,11 +122,22 @@ export const armyTotalTroops = (army: CombatArmy): number =>
 const waterFactor = (troopType: CombatTroopType, onWater: boolean): number =>
   onWater ? (troopType.water_combat_modifier ?? 1) : 1;
 
-export const armyAttackPower = (army: CombatArmy, onWater = false): number =>
-  (army.units ?? []).reduce((sum, u) => sum + u.count * u.troopType.attack * waterFactor(u.troopType, onWater), 0);
+/**
+ * `enemyMix` defaults to {} (every counterFactor resolves to 1, i.e. no composition effect) so
+ * existing callers that don't pass it keep the pre-counter-matrix behavior rather than silently
+ * changing — pass the *opposing* side's armyGroupCategoryMix() to get the counter bonus/penalty.
+ */
+export const armyAttackPower = (army: CombatArmy, onWater = false, enemyMix: CategoryMix = {}): number =>
+  (army.units ?? []).reduce(
+    (sum, u) => sum + u.count * u.troopType.attack * waterFactor(u.troopType, onWater) * counterFactor(u.troopType.category, enemyMix),
+    0,
+  );
 
-export const armyDefensePower = (army: CombatArmy, onWater = false): number =>
-  (army.units ?? []).reduce((sum, u) => sum + u.count * u.troopType.defense * waterFactor(u.troopType, onWater), 0);
+export const armyDefensePower = (army: CombatArmy, onWater = false, enemyMix: CategoryMix = {}): number =>
+  (army.units ?? []).reduce(
+    (sum, u) => sum + u.count * u.troopType.defense * waterFactor(u.troopType, onWater) * counterFactor(u.troopType.category, enemyMix),
+    0,
+  );
 
 export const applyCasualties = <ArmyType extends CombatArmy>(
   army: ArmyType,

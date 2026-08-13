@@ -4,18 +4,29 @@ import { Repository } from 'typeorm';
 import { Tech } from './entities/tech.entity';
 import { EffectCondition, EffectTarget, TechEffect } from './effect-types';
 
-/** Landscape base building caps — unchanged from the old research-effects.ts constants. */
+/**
+ * Landscape base building caps. `coast` was a dead entry — no province in the current map data
+ * carries that landscape (water provinces have no landscape at all; coastal land provinces are
+ * just plains/forest/hills/etc.). `hills` and `swamp` were previously missing, so 150 of 532
+ * land provinces (28%) silently fell through to DEFAULT_BUILDING_CAP instead of an intentional
+ * value — both are filled in now rather than left to the default.
+ */
 export const DEFAULT_BUILDING_CAP = 3;
 export const LANDSCAPE_BUILDING_CAPS: Record<string, number> = {
   plains: 4,
   mountain: 2,
   forest: 3,
-  coast: 3,
+  hills: 3,
   desert: 2,
+  swamp: 2,
 };
 export const DEFAULT_ROAD_HOPS = 2;
 /** Base number of consecutive turns an army may spend on a water province before being lost. */
 export const DEFAULT_WATER_TURNS = 6;
+/** Base tiles of penalty-free supply range — mirrors SUPPLY_FREE_RADIUS in supply-utils.ts. */
+export const DEFAULT_SUPPLY_RANGE = 4;
+/** Base flat troop-pool grant per BARRACKS/CAPITAL building each turn (see IncomeActionService). */
+export const DEFAULT_TROOP_POOL_PER_BUILDING = 50;
 
 /** Targets whose result is floored instead of rounded (money-like quantities). */
 const FLOOR_TARGETS: EffectTarget[] = ['upkeep'];
@@ -136,5 +147,15 @@ export class TechEffectsService implements OnModuleInit {
   /** Max consecutive turns an army may spend on water before being lost, given the owner's completed research. */
   waterTurnsAllowed(completedResearch: string[]): number {
     return this.apply('water_turns_bonus', DEFAULT_WATER_TURNS, {}, completedResearch);
+  }
+
+  /** Tiles of penalty-free supply range, given the owner's completed research. */
+  supplyRange(completedResearch: string[]): number {
+    return this.apply('supply_range', DEFAULT_SUPPLY_RANGE, {}, completedResearch);
+  }
+
+  /** Troop-pool grant per BARRACKS/CAPITAL building this turn, given the owner's completed research. */
+  troopPoolPerBuilding(completedResearch: string[]): number {
+    return this.apply('troop_pool', DEFAULT_TROOP_POOL_PER_BUILDING, {}, completedResearch);
   }
 }

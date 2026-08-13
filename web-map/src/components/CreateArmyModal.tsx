@@ -5,43 +5,8 @@ import { addAction } from '../store/slices/actionsSlice';
 import type { RootState } from '../store/store';
 import { TroopType } from '../types';
 import { armiesApi } from '../api/armies';
-
-const PIETY_TROOPS = new Set(['paladins']);
-const MONEY_TROOPS = new Set(['mercenaries']);
-
-function calcMaxAdd(troopType: TroopType, userTroops: number, userMoney: number, userPiety: number, goodsAvailable: number): number {
-  let max: number;
-  if (MONEY_TROOPS.has(troopType.key)) {
-    max = troopType.cost_per_100 ? Math.floor(userMoney * 10 / troopType.cost_per_100) * 10 : 0;
-  } else if (PIETY_TROOPS.has(troopType.key)) {
-    max = troopType.cost_per_100 ? Math.floor(userPiety * 10 / troopType.cost_per_100) * 10 : userTroops;
-  } else {
-    max = userTroops;
-  }
-  if (troopType.required_goods && troopType.goods_amount) {
-    max = Math.min(max, Math.floor(goodsAvailable * 10 / troopType.goods_amount) * 10);
-  }
-  return max;
-}
-
-const TroopTooltipContent: React.FC<{ troopType: TroopType; goodName?: string }> = ({ troopType, goodName }) => (
-  <div style={{ fontSize: '0.9rem' }}>
-    <div style={{ marginBottom: 2 }} className="font-bold">{troopType.name}</div>
-    {troopType.description && <div style={{ marginBottom: 2 }} className="mb-1 text-gray-300">{troopType.description}</div>}
-    <div style={{ marginBottom: 2 }}>Category: {troopType.category}</div>
-    <div style={{ marginBottom: 2 }}>Attack: {troopType.attack}</div>
-    <div style={{ marginBottom: 2 }}>Defense: {troopType.defense}</div>
-    <div style={{ marginBottom: 2 }}>
-      Cost per 100: {troopType.cost_per_100 > 0 ? `${troopType.cost_per_100} ${
-        PIETY_TROOPS.has(troopType.key) ? 'piety' : 'gold'
-      }` : 'Free'}
-    </div>
-    {troopType.required_goods && troopType.goods_amount && (
-      <div style={{ marginBottom: 2 }}>Goods per 100: {troopType.goods_amount} {goodName ?? 'goods'}</div>
-    )}
-    <div style={{ marginBottom: 2 }}>Upkeep per 100: {troopType.upkeep_per_100}</div>
-  </div>
-);
+import { calcMaxAdd } from '../utils/armyUpkeep';
+import { TroopTooltipContent } from './TroopTooltip';
 
 interface Props {
   open: boolean;
@@ -147,13 +112,19 @@ export const CreateArmyModal: React.FC<Props> = ({ open, provinceId, onClose, on
               const buildingReason = getBuildingDisabledReason(tt);
               const disabled = !!buildingReason;
               const goodHolding = tt.required_goods ? goodsById.get(tt.required_goods) : undefined;
-              const maxAdd = calcMaxAdd(tt, user.troops, user.money, user.piety, goodHolding?.quantity ?? 0);
+              const goodHolding2 = tt.required_goods_2 ? goodsById.get(tt.required_goods_2) : undefined;
+              const maxAdd = calcMaxAdd(tt, user.troops, user.money, user.piety, goodHolding?.quantity ?? 0, goodHolding2?.quantity ?? 0);
               const count = selectedCounts[tt.key] ?? 0;
 
               return (
                 <Tooltip
                   key={tt.key}
-                  title={<TroopTooltipContent troopType={tt} goodName={goodHolding?.good.name} />}
+                  title={<TroopTooltipContent
+                    troopType={tt}
+                    goodName={goodHolding?.good.name}
+                    goodName2={goodHolding2?.good.name}
+                    supplyGoodName2={tt.supply_good_2_id ? goodsById.get(tt.supply_good_2_id)?.good.name : undefined}
+                  />}
                   placement="left"
                   arrow
                 >

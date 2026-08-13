@@ -23,7 +23,9 @@ import {
   CASUALTY_FLOOR,
   applyCasualties,
   armyAttackPower,
+  armyCategoryMix,
   armyDefensePower,
+  armyGroupCategoryMix,
   armyTotalTroops,
   computeBuildModifier,
   deleteArmy,
@@ -466,16 +468,19 @@ interface RecruitEntry {
 
 // Troop types that require a specific player class to recruit
 const CLASS_RESTRICTED_TROOPS: Partial<Record<string, UserClasses>> = {
-  'noble_knights': UserClasses.NOBLE,
-  'paladins':      UserClasses.HOLY,
-  'mercenaries':   UserClasses.GUILD,
+  'noble_knights':  UserClasses.NOBLE,
+  'paladins':       UserClasses.HOLY,
+  'mercenaries':    UserClasses.GUILD,
+  'grand_host':     UserClasses.NOBLE,
+  'templar_order':  UserClasses.HOLY,
+  'free_company':   UserClasses.GUILD,
 };
 
 // Troop types whose recruitment cost is paid in piety instead of money
-const PIETY_COST_TROOPS = new Set(['paladins']);
+const PIETY_COST_TROOPS = new Set(['paladins', 'templar_order']);
 
 // Troop types that do NOT consume the draft pool (user.troops) on recruitment
-const NO_POOL_TROOPS = new Set(['mercenaries']);
+const NO_POOL_TROOPS = new Set(['mercenaries', 'free_company']);
 
 /** Validates and executes troop recruitment into an army within a transaction. */
 const executeRecruitment = async (
@@ -902,21 +907,26 @@ export class ArmyMoveHandler implements ActionHandler {
 
       // Power calculations — on water, each side's per-unit power is scaled by that
       // troop type's water_combat_modifier (e.g. cavalry fights at a fraction of its
-      // strength at sea).
+      // strength at sea). Composition also matters now: each side's per-unit power is
+      // further scaled by the counter matrix against the *opposing* side's category mix
+      // (see combat-calculator.ts) — the attacker is scaled by the combined defenders'
+      // mix, and each defending army is scaled by the single attacking army's mix.
+      const defenderMix = armyGroupCategoryMix(enemyArmies);
       let attackerPower = this.techEffects.apply(
-        'army_attack', armyAttackPower(army, isWater), {}, attacker?.completed_research ?? [],
+        'army_attack', armyAttackPower(army, isWater, defenderMix), {}, attacker?.completed_research ?? [],
       );
       if (isBankruptcyDebuffed(attacker)) attackerPower *= BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER;
 
       // Defense power is boosted per-defender by their own army_defense research, then
       // reduced if that defender is bankruptcy-debuffed.
+      const attackerMix = armyCategoryMix(army);
       const defenderUserIds = [...new Set(enemyArmies.map((a) => a.user_id))];
       const defenderUsers = await manager.find(User, { where: { id: In(defenderUserIds) } });
       const defenderUserById = new Map(defenderUsers.map((u) => [u.id, u]));
       const defenderBasePower = enemyArmies.reduce((sum, a) => {
         const defender = defenderUserById.get(a.user_id);
         const power = this.techEffects.apply(
-          'army_defense', armyDefensePower(a, isWater), {}, defender?.completed_research ?? [],
+          'army_defense', armyDefensePower(a, isWater, attackerMix), {}, defender?.completed_research ?? [],
         );
         return sum + (isBankruptcyDebuffed(defender) ? power * BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER : power);
       }, 0);

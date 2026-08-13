@@ -5,7 +5,7 @@
     "description": "Basic extraction techniques allow workers to exploit iron, stone, and gold deposits on the surface. Unlocks the Mine building.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 1,
+    "cost": 50,
     "prerequisites": []
   },
   {
@@ -14,7 +14,7 @@
     "description": "Systematic logging and replanting turns forests into a reliable source of timber income. Unlocks the Forestry building.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 1,
+    "cost": 50,
     "prerequisites": []
   },
   {
@@ -23,7 +23,7 @@
     "description": "Scribes and ledgers allow rulers to extract more research value from their capitals, generating an additional research point per capital each turn.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 2,
+    "cost": 50,
     "prerequisites": [],
     "effects": [
       { "target": "research_points", "op": "add_scaled", "value": 1, "scaleBy": "capitalCount" }
@@ -35,7 +35,7 @@
     "description": "Improved farming techniques and crop management boost yields from farms and gardens by 15%.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 5,
+    "cost": 50,
     "prerequisites": [],
     "effects": [
       { "target": "income", "op": "add_scaled", "value": 0.15, "scaleBy": "farmGardenIncome" }
@@ -47,7 +47,7 @@
     "description": "Investment in scholarly infrastructure unlocks the construction of Libraries, which generate research points each turn.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 5,
+    "cost": 150,
     "prerequisites": ["economy.record_keeping"]
   },
   {
@@ -56,38 +56,80 @@
     "description": "Rotating crops between seasons dramatically increases agricultural output. Unlocks a Farm building.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 10,
+    "cost": 150,
     "prerequisites": ["economy.agriculture"]
   },
   {
     "key": "economy.banking",
     "name": "Banking System",
-    "description": "Formal banking institutions enable capital accumulation at scale. Unlocks the Bank building.",
+    "description": "Formal banking institutions enable capital accumulation at scale, trimming administrative overhead and reducing total upkeep by 5%.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 5,
-    "prerequisites": ["economy.record_keeping"]
+    "cost": 150,
+    "prerequisites": ["economy.record_keeping"],
+    "effects": [
+      { "target": "upkeep", "op": "multiply", "value": 0.95 }
+    ]
+  },
+  {
+    "key": "economy.logistics",
+    "name": "Supply Logistics",
+    "description": "Guild-run supply chains extend how far an army can range from a supply source before distance penalties kick in, adding 2 tiles of penalty-free supply range.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 150,
+    "prerequisites": ["economy.record_keeping"],
+    "effects": [
+      { "target": "supply_range", "op": "add", "value": 2 }
+    ]
+  },
+  {
+    "key": "economy.trade_efficiency",
+    "name": "Trade Efficiency",
+    "description": "Streamlined workshops and standardized measures boost all goods production by 15%.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 150,
+    "prerequisites": ["economy.banking"],
+    "effects": [
+      { "target": "goods_production", "op": "multiply", "value": 1.15 }
+    ]
   },
   {
     "key": "economy.advanced_taxation",
     "name": "Advanced Taxation",
-    "description": "Sophisticated guild tax collectors extract a flat 10 gold from every owned province each turn.",
+    "description": "Sophisticated tax collectors extract a flat 10 gold from every owned province each turn.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 10,
+    "cost": 400,
     "prerequisites": ["economy.banking"],
     "effects": [
       { "target": "income", "op": "add_scaled", "value": 10, "scaleBy": "provinceCount" }
     ]
   },
   {
-    "key": "economy.logistics",
-    "name": "Supply Logistics",
-    "description": "Guild-run supply chains eliminate the cost of deploying troops between provinces.",
+    "key": "economy.zoning",
+    "name": "Zoning Laws",
+    "description": "Denser building codes on flat, arable land raise the construction cap on Plains provinces by 1.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 10,
-    "prerequisites": ["economy.record_keeping"]
+    "cost": 400,
+    "prerequisites": ["economy.advanced_taxation"],
+    "effects": [
+      { "target": "building_cap", "op": "add", "value": 1, "when": { "landscape": "plains" } }
+    ]
+  },
+  {
+    "key": "economy.mountain_engineering",
+    "name": "Mountain Engineering",
+    "description": "Terracing and retaining-wall techniques let engineers pack one more building into a Mountain province.",
+    "branch": "economy",
+    "isClassRoot": false,
+    "cost": 400,
+    "prerequisites": ["economy.surface_mining"],
+    "effects": [
+      { "target": "building_cap", "op": "add", "value": 1, "when": { "landscape": "mountain" } }
+    ]
   },
   {
     "key": "economy.monopoly",
@@ -95,7 +137,7 @@
     "description": "Total dominance of regional trade networks. All income is boosted by 10%.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 25,
+    "cost": 400,
     "prerequisites": ["economy.banking", "economy.advanced_taxation"],
     "effects": [
       { "target": "income", "op": "multiply", "value": 1.1 }
@@ -104,20 +146,23 @@
   {
     "key": "economy.grand_treasury",
     "name": "Grand Treasury",
-    "description": "A central treasury consolidates the nation's immense wealth. Unlocks the Treasury building.",
+    "description": "A central treasury consolidates the nation's immense wealth, boosting all income by a further 15%.",
     "branch": "economy",
     "isClassRoot": false,
-    "cost": 25,
-    "prerequisites": ["economy.banking", "economy.monopoly"]
+    "cost": 800,
+    "prerequisites": ["economy.banking", "economy.monopoly"],
+    "effects": [
+      { "target": "income", "op": "multiply", "value": 1.15 }
+    ]
   },
 
   {
     "key": "military.sword_training",
     "name": "Sword Training",
-    "description": "Train your soldiers in advanced swordsmanship, increasing attacking army power by 15% and unlocking the infantry type.\nInfantry:\nAttack:1.0\nDefense:1.2\nCost for deploy 100: 0\nUnkeep per 100: 100",
+    "description": "Train your soldiers in advanced swordsmanship, increasing attacking army power by 15% and unlocking the Infantry troop type.",
     "branch": "military",
     "isClassRoot": false,
-    "cost": 20,
+    "cost": 50,
     "prerequisites": [],
     "effects": [
       { "target": "army_attack", "op": "multiply", "value": 1.15 }
@@ -126,40 +171,109 @@
   {
     "key": "military.ranged_units",
     "name": "Archery Doctrine",
-    "description": "Organized training in ranged warfare. Unlocks Archers for recruitment into armies.\nArchers:\nAttack:1.4\nDefense:0.7\nCost for deploy 100: 75\nUnkeep per 100: 150",
+    "description": "Organized training in ranged warfare. Unlocks Archers for recruitment into armies.",
     "branch": "military",
     "isClassRoot": false,
-    "cost": 10,
+    "cost": 50,
     "prerequisites": []
   },
   {
     "key": "military.pikemen",
     "name": "Pike Formations",
-    "description": "Disciplined pike squares provide an unbreakable defensive line. Unlocks Pikemen for recruitment.\nPikemen:\nAttack:0.9\nDefense:1.8\nCost for deploy 100: 60\nUnkeep per 100: 120",
+    "description": "Disciplined pike squares provide an unbreakable defensive line. Unlocks Pikemen for recruitment.",
     "branch": "military",
     "isClassRoot": false,
-    "cost": 10,
+    "cost": 50,
     "prerequisites": []
+  },
+  {
+    "key": "military.seafaring",
+    "name": "Seafaring",
+    "description": "Experienced crews can keep an army at sea longer before it is lost, adding 4 turns to the water residency limit.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 50,
+    "prerequisites": [],
+    "effects": [
+      { "target": "water_turns_bonus", "op": "add", "value": 4 }
+    ]
+  },
+  {
+    "key": "military.improved_logistics",
+    "name": "Improved Logistics",
+    "description": "Unlocks road construction, letting armies move further per turn along a friendly road network.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 150,
+    "prerequisites": ["military.sword_training"]
+  },
+  {
+    "key": "military.best_logistics",
+    "name": "Best Logistics",
+    "description": "Higher-grade road surfaces extend the maximum road-move range by 1 hop.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 150,
+    "prerequisites": ["military.improved_logistics"],
+    "effects": [
+      { "target": "road_hops", "op": "add", "value": 1 }
+    ]
   },
   {
     "key": "military.heavy_cavalry",
     "name": "Heavy Cavalry",
-    "description": "Mastery of mounted warfare and armoured horsemanship. Unlocks Knights for recruitment (requires an Armory).\nKnights:\nAttack:2.0\nDefense:1.5\nCost for deploy 100: 200\nUnkeep per 100: 500",
+    "description": "Mastery of mounted warfare and armoured horsemanship. Unlocks Knights for recruitment (requires an Armory).",
     "branch": "military",
     "isClassRoot": false,
-    "cost": 25,
+    "cost": 150,
     "prerequisites": ["military.sword_training"]
   },
   {
     "key": "military.veteran_officers",
     "name": "Veteran Officers",
-    "description": "Experienced commanders improve coordination across all unit types, granting an additional 10% attack power.",
+    "description": "Experienced commanders improve offensive coordination across all unit types, granting an additional 10% attack power.",
     "branch": "military",
     "isClassRoot": false,
-    "cost": 20,
+    "cost": 150,
     "prerequisites": ["military.sword_training"],
     "effects": [
       { "target": "army_attack", "op": "multiply", "value": 1.1 }
+    ]
+  },
+  {
+    "key": "military.shield_wall",
+    "name": "Shield Wall Doctrine",
+    "description": "Drilled defensive formations hold the line better, granting 15% additional defense power.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 150,
+    "prerequisites": ["military.sword_training"],
+    "effects": [
+      { "target": "army_defense", "op": "multiply", "value": 1.15 }
+    ]
+  },
+  {
+    "key": "military.conscription",
+    "name": "Mandatory Conscription",
+    "description": "Wider mobilization laws let every Barracks and Capital muster 20 extra troops into the draft pool each turn.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 150,
+    "prerequisites": ["military.sword_training"],
+    "effects": [
+      { "target": "troop_pool", "op": "add", "value": 20 }
+    ]
+  },
+  {
+    "key": "military.elite_discipline",
+    "name": "Elite Discipline",
+    "description": "Rigorous drilling further hardens defensive lines, granting a further 10% defense power.",
+    "branch": "military",
+    "isClassRoot": false,
+    "cost": 400,
+    "prerequisites": ["military.veteran_officers", "military.shield_wall"],
+    "effects": [
+      { "target": "army_defense", "op": "multiply", "value": 1.1 }
     ]
   },
   {
@@ -168,52 +282,33 @@
     "description": "Streamlined supply chains and quartermaster corps reduce total army upkeep by 20%.",
     "branch": "military",
     "isClassRoot": false,
-    "cost": 25,
+    "cost": 400,
     "prerequisites": ["military.ranged_units", "military.pikemen", "military.sword_training"],
     "effects": [
       { "target": "upkeep", "op": "multiply", "value": 0.8 }
     ]
   },
   {
-    "key": "military.improved_logistics",
-    "name": "Improved Logistics",
-    "description": "Unlocks road construction.",
+    "key": "military.grand_strategy",
+    "name": "Grand Strategy",
+    "description": "Mastery of large-scale campaign doctrine. A further 10% to both attack and defense power across all armies.",
     "branch": "military",
     "isClassRoot": false,
-    "cost": 10,
-    "prerequisites": ["military.sword_training"]
-  },
-  {
-    "key": "military.best_logistics",
-    "name": "Best Logistics",
-    "description": "Roads are better quality not, extend their reach by 1.",
-    "branch": "military",
-    "isClassRoot": false,
-    "cost": 15,
-    "prerequisites": ["military.improved_logistics"],
+    "cost": 800,
+    "prerequisites": ["military.elite_discipline", "military.army_logistics"],
     "effects": [
-      { "target": "road_hops", "op": "add", "value": 1 }
+      { "target": "army_attack", "op": "multiply", "value": 1.1 },
+      { "target": "army_defense", "op": "multiply", "value": 1.1 }
     ]
   },
-  {
-    "key": "military.seafaring",
-    "name": "Seafaring",
-    "description": "Experienced crews can keep an army at sea longer before it is lost.",
-    "branch": "military",
-    "isClassRoot": false,
-    "cost": 10,
-    "prerequisites": [],
-    "effects": [
-      { "target": "water_turns_bonus", "op": "add", "value": 4 }
-    ]
-  },
+
   {
     "key": "guild.merchant_guilds",
     "name": "Merchant Guild Charter",
     "description": "A formal charter establishes the Merchant Guild as the ruling class. Streamlined economic administration reduces all upkeep by 15%. Commits your nation to the Merchant Guild path.",
     "branch": "guild",
     "isClassRoot": true,
-    "cost": 10,
+    "cost": 150,
     "prerequisites": [],
     "effects": [
       { "target": "upkeep", "op": "multiply", "value": 0.85 }
@@ -225,100 +320,231 @@
     "description": "Buy! Sell! Buy! Sell! Unlocks the Trade House building.",
     "branch": "guild",
     "isClassRoot": false,
-    "cost": 10,
+    "cost": 150,
     "prerequisites": ["guild.merchant_guilds"]
   },
   {
     "key": "guild.mercenary_corps",
     "name": "Mercenary Corps",
-    "description": "Why recruit when you can hire? Unlocks the Mercenary unit type.\nMercenaries:\nAttack:1.8\nDefense:1.8\nCost for deploy 100: 700\nUnkeep per 100: 600",
+    "description": "Formal contracts with sellsword companies. Unlocks the Mercenary unit type, hired directly with money and bypassing the draft pool entirely.",
     "branch": "guild",
     "isClassRoot": false,
-    "cost": 15,
+    "cost": 400,
     "prerequisites": ["guild.trade_house"]
   },
   {
-    "key": "guild.spy_network",
-    "name": "Spy network",
-    "description": "Allows you to spy on other players army composition.",
+    "key": "guild.spice_trade",
+    "name": "Spice Trade",
+    "description": "Guild captains open trade routes for rare spices hauled in off the water. Unlocks the Spice Wharf building, which turns Fish into Spices — the guild class's unique prestige good. Requires a Port.",
     "branch": "guild",
     "isClassRoot": false,
-    "cost": 20,
+    "cost": 400,
     "prerequisites": ["guild.trade_house"]
   },
+  {
+    "key": "guild.banking_cartel",
+    "name": "Banking Cartel",
+    "description": "A cartel of guild bankers streamlines financing for every workshop in the realm, boosting goods production by 15%.",
+    "branch": "guild",
+    "isClassRoot": false,
+    "cost": 400,
+    "prerequisites": ["guild.merchant_guilds"],
+    "effects": [
+      { "target": "goods_production", "op": "multiply", "value": 1.15 }
+    ]
+  },
+  {
+    "key": "guild.smuggling_routes",
+    "name": "Smuggling Routes",
+    "description": "Back-channel supply routes known only to the guild extend penalty-free supply range by 1 tile.",
+    "branch": "guild",
+    "isClassRoot": false,
+    "cost": 400,
+    "prerequisites": ["guild.trade_house"],
+    "effects": [
+      { "target": "supply_range", "op": "add", "value": 1 }
+    ]
+  },
+  {
+    "key": "guild.monopoly_charter",
+    "name": "Monopoly Charter",
+    "description": "A royal charter grants the guild exclusive trading rights across the realm, boosting all income by 10%.",
+    "branch": "guild",
+    "isClassRoot": false,
+    "cost": 400,
+    "prerequisites": ["guild.banking_cartel", "guild.trade_house"],
+    "effects": [
+      { "target": "income", "op": "multiply", "value": 1.1 }
+    ]
+  },
+  {
+    "key": "guild.free_company",
+    "name": "Free Company",
+    "description": "The guild's ultimate mercenary contract. Unlocks the Free Company unit type, hired with money and the guild's own Spices — but permanently fed on Warhorses, NOBLE's prestige good. Requires a Spice Wharf.",
+    "branch": "guild",
+    "isClassRoot": false,
+    "cost": 800,
+    "prerequisites": ["guild.mercenary_corps", "guild.monopoly_charter"]
+  },
+
   {
     "key": "holy.holy_order",
     "name": "Holy Order",
-    "description": "A devoted way for your God, heretics will burn, locks you to path of God! Unlocks piety.",
+    "description": "A devoted way for your God, heretics will burn, locks you to the path of God! Unlocks piety income from Temples and Cathedrals.",
     "branch": "holy",
     "isClassRoot": true,
-    "cost": 10,
+    "cost": 150,
     "prerequisites": []
   },
   {
     "key": "holy.temple",
-    "name": "Holy Order",
-    "description": "A place to pray and worship. Unlocks the Temple building.",
+    "name": "Temple Consecration",
+    "description": "Consecrated ground for prayer and worship. Unlocks the Temple building.",
     "branch": "holy",
     "isClassRoot": false,
-    "cost": 5,
+    "cost": 150,
     "prerequisites": ["holy.holy_order"]
   },
   {
     "key": "holy.warriors_of_god",
-    "name": "Paladins",
-    "description": "True followers of faith. Unlocks the Paladin unit type. Takes piety to recruit.\nPaladins:\nAttack:2.0\nDefense:2.5\nCost for deploy 100: 300\nUnkeep per 100: 500",
+    "name": "Warriors of God",
+    "description": "True followers of faith. Unlocks the Paladin unit type, recruited and maintained on piety instead of money. Requires a Temple.",
     "branch": "holy",
     "isClassRoot": false,
-    "cost": 10,
+    "cost": 400,
     "prerequisites": ["holy.temple"]
   },
   {
     "key": "holy.cathedral",
     "name": "Cathedral",
-    "description": "Great palace of god!. Gives more piety and protection.",
+    "description": "A grand palace of God, drawing pilgrims and their donations. Unlocks the Cathedral building, which gives more piety and protection.",
     "branch": "holy",
     "isClassRoot": false,
-    "cost": 20,
+    "cost": 400,
     "prerequisites": ["holy.temple"]
   },
   {
+    "key": "holy.relics",
+    "name": "Relic Veneration",
+    "description": "Sanctified bones and shrouds, bought with gold and enshrined for veneration. Unlocks the Reliquary building, which turns Gold into Relics — the holy class's unique prestige good. Requires a Temple.",
+    "branch": "holy",
+    "isClassRoot": false,
+    "cost": 400,
+    "prerequisites": ["holy.temple"]
+  },
+  {
+    "key": "holy.inquisition",
+    "name": "Inquisition",
+    "description": "Rooting out heresy within the ranks sharpens religious zeal, granting a further 10% attack power.",
+    "branch": "holy",
+    "isClassRoot": false,
+    "cost": 400,
+    "prerequisites": ["holy.warriors_of_god"],
+    "effects": [
+      { "target": "army_attack", "op": "multiply", "value": 1.1 }
+    ]
+  },
+  {
+    "key": "holy.tithe",
+    "name": "Mandatory Tithe",
+    "description": "A compulsory tithe from every parish under the Cathedral's reach boosts all income by 10%.",
+    "branch": "holy",
+    "isClassRoot": false,
+    "cost": 400,
+    "prerequisites": ["holy.cathedral"],
+    "effects": [
+      { "target": "income", "op": "multiply", "value": 1.1 }
+    ]
+  },
+  {
+    "key": "holy.templar_order",
+    "name": "Templar Order",
+    "description": "Sworn knight-monks bound to God and gold alike. Unlocks the Templar Order unit type, recruited on piety and the holy class's own Relics — but permanently fed on Spices, GUILD's prestige good. Requires a Reliquary.",
+    "branch": "holy",
+    "isClassRoot": false,
+    "cost": 800,
+    "prerequisites": ["holy.inquisition", "holy.tithe"]
+  },
+
+  {
     "key": "noble.house",
     "name": "Noble House",
-    "description": "Way of sword and fire. Locks you in noble path.",
+    "description": "Way of sword and fire. Locks you into the noble path.",
     "branch": "noble",
     "isClassRoot": true,
-    "cost": 10,
+    "cost": 150,
     "prerequisites": []
   },
   {
     "key": "noble.knights",
     "name": "Noble Knights",
-    "description": "Most noble of all. Unlocks the Noble Knight unit type.\nNoble Knight:\nAttack:2.5\nDefense:2.0\nCost for deploy 100: 400\nUnkeep per 100: 600",
+    "description": "Most noble of all. Unlocks the Noble Knight unit type.",
     "branch": "noble",
     "isClassRoot": false,
-    "cost": 10,
+    "cost": 150,
     "prerequisites": ["noble.house"]
   },
   {
-    "key": "noble.better_fortifications",
-    "name": "Noble Castle",
-    "description": "Best castle from best stone. Unlocks castle building.",
-    "branch": "noble",
-    "isClassRoot": false,
-    "cost": 20,
-    "prerequisites": ["noble.knights"]
-  },
-  {
     "key": "noble.better_training",
-    "name": "Better training",
-    "description": "Train your soldiers in advanced swordsmanship, increasing units power by 10%.",
+    "name": "Better Training",
+    "description": "Train your soldiers in advanced swordsmanship, increasing attack power by a further 10%.",
     "branch": "noble",
     "isClassRoot": false,
-    "cost": 25,
+    "cost": 150,
     "prerequisites": ["noble.house"],
     "effects": [
       { "target": "army_attack", "op": "multiply", "value": 1.1 }
     ]
+  },
+  {
+    "key": "noble.better_fortifications",
+    "name": "Noble Castle",
+    "description": "The finest stone and the finest masons. Unlocks the Castle building, upgraded from a Fort.",
+    "branch": "noble",
+    "isClassRoot": false,
+    "cost": 400,
+    "prerequisites": ["noble.knights"]
+  },
+  {
+    "key": "noble.horse_breeding",
+    "name": "Horse Breeding",
+    "description": "Noble stables breed warhorses on grain fodder. Unlocks the Stud Farm building, which turns Grain into Warhorses — the noble class's unique prestige good.",
+    "branch": "noble",
+    "isClassRoot": false,
+    "cost": 400,
+    "prerequisites": ["noble.house"]
+  },
+  {
+    "key": "noble.chivalric_code",
+    "name": "Chivalric Code",
+    "description": "A code of honor stiffens the resolve of noble householders and their retainers in defense, granting a further 10% defense power.",
+    "branch": "noble",
+    "isClassRoot": false,
+    "cost": 400,
+    "prerequisites": ["noble.better_training"],
+    "effects": [
+      { "target": "army_defense", "op": "multiply", "value": 1.1 }
+    ]
+  },
+  {
+    "key": "noble.levy_reform",
+    "name": "Levy Reform",
+    "description": "Reformed feudal levies let noble estates muster troops faster, granting 20 extra troops into the draft pool from every Barracks and Capital each turn.",
+    "branch": "noble",
+    "isClassRoot": false,
+    "cost": 400,
+    "prerequisites": ["noble.horse_breeding"],
+    "effects": [
+      { "target": "troop_pool", "op": "add", "value": 20 }
+    ]
+  },
+  {
+    "key": "noble.grand_host",
+    "name": "Grand Host",
+    "description": "The full might of noble cavalry, mustered as one grand host. Unlocks the Grand Host unit type, recruited on the noble class's own Warhorses — but permanently fed on Relics, HOLY's prestige good. Requires a Stud Farm.",
+    "branch": "noble",
+    "isClassRoot": false,
+    "cost": 800,
+    "prerequisites": ["noble.chivalric_code", "noble.levy_reform"]
   }
 ]

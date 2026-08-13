@@ -4,6 +4,7 @@ import { UserGameState } from './user-state-loader.service';
 import { UserResourcesService } from '../resources/user-resources.service';
 import { UserGoodsService } from '../goods/user-goods.service';
 import { isBankruptcyDebuffed } from './combat-calculator';
+import { TechEffectsService } from '../techs/tech-effects.service';
 
 /**
  * Runs once per scheduled queue tick alongside income, in two passes:
@@ -31,6 +32,7 @@ export class ProductionActionService {
   constructor(
     private readonly userResourcesService: UserResourcesService,
     private readonly userGoodsService: UserGoodsService,
+    private readonly techEffects: TechEffectsService,
   ) {}
 
   async execute(state: UserGameState, manager: EntityManager): Promise<void> {
@@ -42,15 +44,17 @@ export class ProductionActionService {
       const userProvinces = provincesByUser.get(user.id) ?? [];
       for (const province of userProvinces) {
         if (province.occupier_id) continue; // occupied: nobody produces from it
-        const resourceKey = province.resource?.key;
-        if (!resourceKey) continue;
 
         for (const building of province.buildings ?? []) {
-          if (building.resource_production_amount) {
-            await this.userResourcesService.adjustQuantity(
-              manager, user.id, resourceKey, building.resource_production_amount,
-            );
-          }
+          if (!building.resource_production_amount) continue;
+          // resource_production_key overrides the province's own resource — e.g. PORT sits
+          // on land (grain/wood/whatever) but produces fish. Null = credit the province's
+          // own resource, the pre-existing behavior for MINE/FORESTRY/BARN.
+          const resourceKey = building.resource_production_key || province.resource?.key;
+          if (!resourceKey) continue;
+          await this.userResourcesService.adjustQuantity(
+            manager, user.id, resourceKey, building.resource_production_amount,
+          );
         }
       }
     }
@@ -58,6 +62,7 @@ export class ProductionActionService {
     for (const user of users) {
       if (isBankruptcyDebuffed(user)) continue; // post-bankruptcy penalty: no goods production
       const userProvinces = provincesByUser.get(user.id) ?? [];
+      const completedResearch = user.completed_research ?? [];
       for (const province of userProvinces) {
         if (province.occupier_id) continue; // occupied: nobody produces from it
         for (const building of province.buildings ?? []) {
@@ -71,7 +76,8 @@ export class ProductionActionService {
             if (!ok) continue;
           }
 
-          const producedAmount = building.production_amount ?? 1;
+          const baseAmount = building.production_amount ?? 1;
+          const producedAmount = this.techEffects.apply('goods_production', baseAmount, {}, completedResearch);
           await this.userGoodsService.adjustQuantity(manager, user.id, building.production_good_id, producedAmount);
         }
       }

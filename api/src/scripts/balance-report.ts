@@ -10,6 +10,7 @@ import {
   CombatBuilding,
   applyCasualties,
   armyAttackPower,
+  armyCategoryMix,
   armyDefensePower,
   armyTotalTroops,
   computeBuildModifier,
@@ -328,9 +329,16 @@ function applyAttackTechs(basePower: number, techs: string[]): number {
     if (effect.op === 'set') result = effect.value;
   }
 
+  // Matches TechEffectsService.apply's real stacking rule: 'add_scaled' multiplies by a
+  // whitelisted ctx quantity (provinceCount/capitalCount/etc.), which this offline combat
+  // simulator has no ctx for — army_attack/army_defense aren't even in TARGET_SCALE_OPTIONS
+  // in effect-types.ts, so validateEffects rejects add_scaled on those targets today, but
+  // this used to silently treat it as a full-value plain 'add' instead of contributing 0,
+  // which would have mis-modeled it the moment that changed.
   let additive = 0;
   for (const effect of effects) {
-    if (effect.op === 'add' || effect.op === 'add_scaled') additive += effect.value;
+    if (effect.op === 'add') additive += effect.value;
+    // 'add_scaled' intentionally contributes 0 here — no ctx quantity is available offline.
   }
   result += additive;
 
@@ -480,9 +488,13 @@ function simulateArmyCombat(
   const attacker = cloneArmy(attackerInput);
   const defender = cloneArmy(defenderInput);
 
-  const attackerBasePower = armyAttackPower(attacker);
+  // Counter matrix: each side's power is scaled against the *opposing* side's category mix,
+  // mirroring ArmyMoveHandler/resolveArmyConflicts (see combat-calculator.ts).
+  const defenderMix = armyCategoryMix(defender);
+  const attackerMix = armyCategoryMix(attacker);
+  const attackerBasePower = armyAttackPower(attacker, false, defenderMix);
   const attackerPower = applyAttackTechs(attackerBasePower, attackerTechs);
-  const defenderBasePower = armyDefensePower(defender);
+  const defenderBasePower = armyDefensePower(defender, false, attackerMix);
   const buildingModifier = computeBuildModifier(defenderBuildings);
   const defenderPower = defenderBasePower * buildingModifier;
 

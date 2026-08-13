@@ -90,7 +90,7 @@ GameSettings (standalone, singleton row id='global' — global pause/turns-enabl
 | Column                      | Type         | Notes |
 |-----------------------------|--------------|-------|
 | id                          | uuid (PK)    | |
-| type                        | varchar      | Holds a `BuildingTypes` value: CAPITAL, FORT, BARRACKS, FARM, SAWMILL, BRICKYARD, BARN, etc. (20 types; not a DB enum) |
+| type                        | varchar      | Holds a `BuildingTypes` value: CAPITAL, FORT, BARRACKS, FARM, SAWMILL, BRICKYARD, BARN, PORT, plus the class-gated prestige buildings STUD_FARM (NOBLE)/RELIQUARY (HOLY)/SPICE_WHARF (GUILD), etc. (23 types; not a DB enum) |
 | name                        | varchar      | Display name |
 | description                 | varchar      | |
 | income                      | int          | Money per turn (nullable). MINE uses a flat value here like every other building — see [Resource](#resource) for why |
@@ -107,16 +107,19 @@ GameSettings (standalone, singleton row id='global' — global pause/turns-enabl
 | production_requirement_resource | varchar   | Nullable, references `Resource.key`. Optional **input**: if set, production each turn atomically reserves (spends) `production_requirement_resource_amount` of this resource from `UserResource` — production is skipped for the turn if that reservation fails. If null, the building produces unconditionally (e.g. CAPITAL → Food) |
 | production_requirement_resource_amount | int | How much of `production_requirement_resource` is consumed per turn (nullable, defaults to 1 in code) |
 | production_amount           | int          | How many units of `productionGoodEntity` are credited to the owner's `UserGood` ledger per turn, once the reservation above (if any) succeeds (nullable, defaults to 1 in code — see `ProductionActionService`) |
-| resource_production_amount  | int          | Nullable. Per-turn amount of the **province's own resource** (`province.resource.key`) credited into the owner's `UserResource` stockpile — this is what MINE/FORESTRY actually do each turn now (replaced a one-time "+1 capacity at build" grant) |
+| resource_production_amount  | int          | Nullable. Per-turn amount credited into the owner's `UserResource` stockpile — this is what MINE/FORESTRY actually do each turn now (replaced a one-time "+1 capacity at build" grant) |
+| resource_production_key     | varchar      | Nullable, references `Resource.key`. Overrides which resource key `resource_production_amount` credits, instead of the province's own resource (`province.resource.key`) — e.g. PORT produces Fish while sitting on a province whose own resource is grain/wood/whatever. Null (the common case, MINE/FORESTRY/BARN) keeps crediting the province's own resource |
 | buildable                   | boolean      | Whether players can construct this (default true). CAPITAL/CAPITOL = false |
 | destructible                | boolean      | Whether players can demolish this (default true). CAPITAL = false |
-| unique_per_province         | boolean      | Only one per province allowed (default false). MINE, BRICKYARD, FORESTRY, SAWMILL, ARMORY, BARN, FARM, FORT, CASTLE, PORT = true |
+| unique_per_province         | boolean      | Only one per province allowed (default false). MINE, BRICKYARD, FORESTRY, SAWMILL, ARMORY, BARN, FARM, FORT, CASTLE, PORT, STUD_FARM, RELIQUARY, SPICE_WHARF = true |
 | requires_neighbor_water     | boolean      | Buildable only if at least one neighboring province is `type: water` (default false; checked in `BuildActionHandler` by loading the target province's neighbor rows — the only building-placement check that inspects neighbors rather than the province itself). PORT = true |
-| allowed_province_resources  | simple-array | Province resource key filter (nullable), references `Resource.key`. MINE=['iron','gold','stone'], BRICKYARD=['stone'], FORESTRY/SAWMILL=['wood'], BARN/FARM=['grain']. Null = any province |
+| allowed_province_resources  | simple-array | Province resource key filter (nullable), references `Resource.key`. MINE=['iron','gold','stone'], BRICKYARD=['stone'], FORESTRY/SAWMILL=['wood'], BARN/FARM=['grain']. Null = any province — includes ARMORY and the three prestige buildings (STUD_FARM/RELIQUARY/SPICE_WHARF), which process a resource from the *national* stockpile via `production_requirement_resource` rather than requiring the local deposit |
 | requirement_resource        | varchar      | User resource reserved from the `UserResource` stockpile **once**, at build/upgrade time (nullable), references `Resource.key`. ARMORY='iron', FORT/CASTLE='stone' |
 | requirement_resource_amount | int          | How much of that resource is reserved at build time (nullable). Usually 1 |
-| requirement_good_id         | uuid (FK)    | → Good, nullable. A one-time BUILD cost paid in goods (same mechanic as `requirement_resource`, but from `UserGood`) — BARRACKS/FORT need Weapons, SAWMILL needs Bricks. Exposed as `requirementGood` getter (FK id) |
+| requirement_good_id         | uuid (FK)    | → Good, nullable. A one-time BUILD cost paid in goods (same mechanic as `requirement_resource`, but from `UserGood`) — BARRACKS needs Weapons, SAWMILL/FORT need Bricks. Exposed as `requirementGood` getter (FK id) |
 | requirement_good_amount     | int          | How much of that good is reserved at build time (nullable, defaults to 1 in code) |
+| requirement_good_2_id       | uuid (FK)    | → Good, nullable. A second, independent one-time BUILD cost — same `tryReserve`-at-build/refund-on-demolish mechanic as `requirement_good_id`, added so Lumber (previously with no per-turn sink at all) could become a near-universal construction cost without displacing the existing Weapons/Bricks slot. Exposed as `requirementGood2` getter |
+| requirement_good_2_amount   | int          | How much of `requirement_good_2_id` is reserved at build time (nullable) |
 | supply_building              | boolean      | Default false. Whether this building acts as an army supply source (`SupplyActionService`'s BFS origin). Seeded true on CAPITAL, FORT, CASTLE — not CATHEDRAL, not PORT — see [GAME-MECHANICS.md](GAME-MECHANICS.md#supply-food) |
 
 > Building has no direct relation to Province. The link is the **ProvinceBuilding** join entity (see below). Building's resource fields reference `Resource.key` (not a FK) — they're plain strings sourced from a dropdown in the admin panel, resolved against the `UserResource` ledger at BUILD/UPGRADE/REMOVE time (see [UserResource](#userresource)).
@@ -159,18 +162,22 @@ Join entity linking provinces and buildings (replaced the old ManyToMany join ta
 | key                | varchar   | Unique (infantry, cavalry, paladins, etc.) |
 | name               | varchar   | Display name |
 | description        | text      | Nullable |
-| category           | enum      | INFANTRY, RANGED, CAVALRY, SPECIAL, PEASANT (real DB enum) |
-| cost_per_100       | int       | Money per 100 recruited |
-| attack             | float     | Combat attack stat |
+| category           | enum      | INFANTRY, RANGED, CAVALRY, SPECIAL, PEASANT (real DB enum). Load-bearing now, not decorative — drives the counter matrix, see [GAME-MECHANICS.md](GAME-MECHANICS.md#counter-matrix-composition) |
+| cost_per_100       | int       | Money (or piety, for `PIETY_COST_TROOPS`) per 100 recruited |
+| attack             | float     | Combat attack stat (10–1000 range as of the economy/class rework's ×10 rescale) |
 | defense            | float     | Combat defense stat |
 | water_combat_modifier | float  | Power multiplier applied to attack/defense while fighting on a water province (default 1.0 = no penalty; seeded e.g. Cavalry 0.2, Infantry 0.6, Ranged 0.55, Special 0.5) |
-| upkeep_per_100     | int       | Money per 100 per turn |
+| upkeep_per_100     | int       | Money (or piety, for Paladins only) per 100 per turn |
 | tech_requirement   | varchar   | Tech key required to recruit |
 | building_requirement| varchar  | Building type required in province (nullable; not a DB enum) |
-| required_goods     | uuid (FK) | → Good, nullable. One-time goods cost to recruit, same mechanic as Building's `requirement_good_id` but scaled per 100 troops like `cost_per_100`. Null = no goods needed (e.g. Peasants — money/pool only; Knights require Weapons) |
+| required_goods     | uuid (FK) | → Good, nullable. One-time goods cost to recruit, same mechanic as Building's `requirement_good_id` but scaled per 100 troops like `cost_per_100`. Null = no goods needed (e.g. Peasants — money/pool only; Knights require Weapons; the class elite units require 50 of their own class's prestige good) |
 | goods_amount       | int       | Units of `required_goods` consumed per 100 troops recruited (nullable). Not refunded on disband/removal, same as `cost_per_100` |
+| required_goods_2   | uuid (FK) | → Good, nullable. A second, independent one-time recruit-goods cost, same mechanic as `required_goods` |
+| goods_amount_2     | int       | Units of `required_goods_2` consumed per 100 troops recruited (nullable) |
 | supply_good_id     | uuid (FK) | → Good, nullable, `ON DELETE SET NULL`. Good consumed each turn as food upkeep (Food in current seed data), same mechanic shape as `required_goods` but charged every turn, not once. Null = this troop type has no per-turn supply cost |
 | supply_per_100     | int, nullable | Units of `supply_good_id` consumed per 100 troops per turn, before `SupplyActionService`'s distance multiplier — see [GAME-MECHANICS.md](GAME-MECHANICS.md#supply-food) |
+| supply_good_2_id   | uuid (FK) | → Good, nullable, `ON DELETE SET NULL`. A second, independent per-turn supply good, same mechanic as `supply_good_id` — this is how the three class elite units draw their permanent trade-partner dependency (e.g. Grand Host eats Relics every turn on top of Food; see [the prestige-goods ring](GAME-MECHANICS.md#the-prestige-goods-ring-class-economy)) |
+| supply_per_100_2   | int, nullable | Units of `supply_good_2_id` consumed per 100 troops per turn, before the distance multiplier |
 
 ### Resource
 | Column        | Type      | Notes |
@@ -209,7 +216,9 @@ Per-player **manufacturing stockpile** — raw materials mined/harvested each tu
 | type          | varchar   | `civilian` or `military` (not a DB enum) |
 | price_per_one | int       | Money cost per unit |
 
-> Seeded: Lumber, Food, Weapons, Bricks (`api/data/goods.json`). Editable via the admin panel's Goods tab.
+> Seeded: Lumber, Food, Weapons, Bricks, plus the three class prestige goods — Warhorses (NOBLE),
+> Relics (HOLY), Spices (GUILD) — see [the prestige-goods ring](GAME-MECHANICS.md#the-prestige-goods-ring-class-economy)
+> (`api/data/goods.json`). Editable via the admin panel's Goods tab.
 
 ### UserGood
 Per-player goods inventory (ledger), mirroring the `Army`/`ArmyUnit`/`TroopType` shape.
@@ -226,10 +235,10 @@ Per-player goods inventory (ledger), mirroring the `Army`/`ArmyUnit`/`TroopType`
 ### Goods & Resource Production (turn logic)
 Each turn, `ProductionActionService` runs right after income, before upkeep (see [GAME-MECHANICS.md](GAME-MECHANICS.md#income-calculation)), in two passes over every building the user owns:
 
-1. **Resource production** (unconditional): any building with `resource_production_amount` set credits that amount of `province.resource.key` into `UserResource` — this is what MINE and FORESTRY do (both 25/turn in the current seed data).
+1. **Resource production** (unconditional): any building with `resource_production_amount` set credits that amount into `UserResource` — normally of `province.resource.key` (the province's own resource), or of `resource_production_key` instead when that override is set. This is what MINE and FORESTRY do (both 25/turn in the current seed data), and it's how PORT produces Fish (25/turn) while sitting on a province whose own resource is something else.
 2. **Goods production**: skipped unless `isProduction` and `production_good_id` are set.
    - **Input (optional):** if `production_requirement_resource` is set, atomically reserve `production_requirement_resource_amount` of it from `UserResource` (via `tryReserve`) — this turn's production is skipped if that fails. If null, production is unconditional (CAPITAL→Food has no input).
-   - **Output:** on success (or if there was no input to check), credit `production_amount` of `productionGoodEntity` to `UserGood`.
+   - **Output:** on success (or if there was no input to check), credit `production_amount` of `productionGoodEntity` to `UserGood`, scaled by the `goods_production` tech effect target (multiply — e.g. `economy.trade_efficiency` ×1.15).
 
 Pass 1 always finishes before pass 2 starts, so a building's own resource production is available to that same building's (or another building's) goods manufacturing within the same turn, regardless of iteration order.
 
@@ -239,12 +248,20 @@ Seed data (`api/data/buildings.json`):
 | MINE (iron/gold/stone provinces) | 25 of province's resource | — | — |
 | BARN (grain provinces only) | 25 grain | — | — |
 | FORESTRY | 25 wood | 25 Lumber | 25 wood |
-| SAWMILL (upgrade of FORESTRY, costs 25 Bricks to build) | — | 25 Lumber | 25 wood |
+| SAWMILL (upgrade of FORESTRY, costs 25 Bricks to build) | 25 wood | 25 Lumber | 25 wood |
 | BRICKYARD (stone provinces only) | — | 25 Bricks | 25 stone |
 | ARMORY | — | 25 Weapons | 25 iron |
 | CAPITAL | — | 25 Food | none (unconditional) |
 | GARDEN | — | 35 Food | 5 grain |
 | FARM (upgrade of GARDEN) | — | 50 Food | 10 grain |
+| PORT | 25 Fish (`resource_production_key` override) | — | — |
+| STUD_FARM (NOBLE-only) | — | 20 Warhorses | 50 grain |
+| RELIQUARY (HOLY-only, requires TEMPLE) | — | 20 Relics | 20 gold |
+| SPICE_WHARF (GUILD-only, requires PORT) | — | 20 Spices | 40 fish |
+
+SAWMILL previously lost FORESTRY's `resource_production_amount` on upgrade, turning a
+wood-neutral building into a net wood consumer for the same Lumber output — restored, so the
+upgrade is now purely additive (better income, same wood-neutral footprint).
 
 GARDEN/FARM's grain input is satisfiable once a BARN is built (25 grain/turn — one BARN sustains
 5 GARDENs or 2.5 FARMs). CAPITAL is deliberately the smallest of the three Food producers — a
@@ -445,11 +462,11 @@ this is the only place a non-admin player can see why a queued action failed aft
 
 Located in `api/data/`:
 - `resources.json` — Resource definitions (key, name, type, plain_income)
-- `goods.json` — Good definitions (name, type, price_per_one)
+- `goods.json` — Good definitions (name, type, price_per_one). 7 rows: Lumber, Food, Weapons, Bricks, plus the three class prestige goods (Warhorses, Relics, Spices)
 - `provinces.json` — Map geometry and metadata (generated by map-generator; `resource_type` is a resource **key** string, resolved to `resource_id` at import time)
-- `buildings.json` — Building type definitions, including `production_good_name` (a Good **name** string, resolved to `production_good_id` at seed time — Good has no natural key like Resource does)
-- `techs.json` — Tech tree definitions
-- `troop-types.json` — Troop type stats, including `required_goods_name` (a Good **name** string, resolved to `required_goods` at seed time — same mechanic as `buildings.json`'s `production_good_name`)
+- `buildings.json` — Building type definitions, including `production_good_name` (a Good **name** string, resolved to `production_good_id` at seed time — Good has no natural key like Resource does) and `requirement_good_2_name`/`resource_production_key` (the second one-time goods cost and the resource-key production override, added in the economy/class rework). 23 rows
+- `techs.json` — Tech tree definitions. 51 rows across 5 branches (economy 14, military 13, guild/holy/noble 8 each), tiered T1=50/T2=150/T3=400/T4=800
+- `troop-types.json` — Troop type stats, including `required_goods_name` (a Good **name** string, resolved to `required_goods` at seed time — same mechanic as `buildings.json`'s `production_good_name`) and the second goods/supply slots (`required_goods_2_name`, `supply_good_2_name`, added for the class elite units). 11 rows: 5 base + 3 class + 3 class-elite capstones
 
 Import scripts in `api/src/scripts/`:
 - `seed-resources.ts` — Seeds the resources table. **Must run before `import-provinces.ts`**, which looks up each province's resource key against this table and fails loudly on an unknown key

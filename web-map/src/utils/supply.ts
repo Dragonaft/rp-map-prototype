@@ -23,7 +23,10 @@ export const supplyMultiplierForDistance = (distance: number | null): number => 
   return Math.min(SUPPLY_MAX_MULTIPLIER, 1 + SUPPLY_PENALTY_PER_TILE * (distance - SUPPLY_FREE_RADIUS));
 };
 
-/** Total distance-scaled food cost for a hypothetical composition this turn, summed across every good it draws on (in practice just Food). */
+/** Total distance-scaled food cost for a hypothetical composition this turn (the first supply-good
+ *  slot — in practice always Food). Every troop type in the current seed data sets this slot, so
+ *  this alone is a reasonable "does this army need supply at all" signal — see calcSecondaryGoodUpkeepForComposition
+ *  below for the class elite units' second supply good (their trade-partner dependency). */
 export const calcFoodUpkeepForComposition = (units: CompositionEntry[], supplyDistance: number | null): number => {
   const multiplier = supplyMultiplierForDistance(supplyDistance);
   let base = 0;
@@ -32,6 +35,28 @@ export const calcFoodUpkeepForComposition = (units: CompositionEntry[], supplyDi
     base += Math.ceil(Math.max(0, unit.count) / 100) * unit.troopType.supply_per_100;
   }
   return Math.ceil(base * multiplier);
+};
+
+/**
+ * Total distance-scaled cost of the SECOND supply-good slot (supply_good_2_id/supply_per_100_2)
+ * for a hypothetical composition, grouped by good id — a map because a mixed army could contain
+ * elite units from different classes drawing on different partner goods (e.g. Grand Host needs
+ * Relics, Templar Order needs Spices). Empty map for any composition with no elite units.
+ */
+export const calcSecondaryGoodUpkeepForComposition = (
+  units: CompositionEntry[],
+  supplyDistance: number | null,
+): Map<string, number> => {
+  const multiplier = supplyMultiplierForDistance(supplyDistance);
+  const base = new Map<string, number>();
+  for (const unit of units) {
+    if (!unit.troopType.supply_good_2_id || !unit.troopType.supply_per_100_2) continue;
+    const amount = Math.ceil(Math.max(0, unit.count) / 100) * unit.troopType.supply_per_100_2;
+    base.set(unit.troopType.supply_good_2_id, (base.get(unit.troopType.supply_good_2_id) ?? 0) + amount);
+  }
+  const scaled = new Map<string, number>();
+  for (const [goodId, amount] of base) scaled.set(goodId, Math.ceil(amount * multiplier));
+  return scaled;
 };
 
 /** Total distance-scaled food cost for an army this turn. */

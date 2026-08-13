@@ -8,6 +8,10 @@ import { TechsService } from '../techs/techs.service';
 import { UserTechProgressService } from '../techs/user-tech-progress.service';
 import { parseIncome } from "../utils/parseIncome";
 
+/** Research points granted per CAPITAL or LIBRARY building each turn, before tech effects. Scaled
+ *  ×10 alongside the rest of the economy/combat numbers — see .ai-docs/GAME-MECHANICS.md. */
+const RESEARCH_PER_BUILDING = 10;
+
 /** Runs once per scheduled queue tick before upkeep; credits building income for all users. */
 @Injectable()
 export class IncomeActionService {
@@ -29,7 +33,7 @@ export class IncomeActionService {
       const userProvinces = provincesByUser.get(user.id) ?? [];
       let incomeTotal = 0;
       let barracksCount = 0;
-      let capitalCount = 1;
+      let capitalCount = 0;
       let researchTotal = 0;
       let farmGardenIncome = 0;
       let pietyCount = 0;
@@ -44,11 +48,12 @@ export class IncomeActionService {
               break;
             case BuildingTypes.CAPITAL:
               barracksCount++;
-              researchTotal++;
+              capitalCount++;
+              researchTotal += RESEARCH_PER_BUILDING;
               incomeTotal += parseIncome(b.income);
               break;
             case BuildingTypes.LIBRARY:
-              researchTotal++;
+              researchTotal += RESEARCH_PER_BUILDING;
               break;
             case BuildingTypes.FORT:
               break;
@@ -89,11 +94,11 @@ export class IncomeActionService {
 
       const currentMoney = Number(user.money ?? 0);
       user.money = currentMoney + incomeTotal;
-      
-      const barracksTroopsIncome = 50;
+
+      const troopsPerBuilding = this.techEffects.troopPoolPerBuilding(completedResearch);
 
       if (currentMoney > 0 && barracksCount > 0) {
-        user.troops = Number(user.troops ?? 0) + barracksCount * barracksTroopsIncome;
+        user.troops = Number(user.troops ?? 0) + barracksCount * troopsPerBuilding;
       }
 
       // research_points is now a per-turn rate (research speed), not a bankable stockpile —

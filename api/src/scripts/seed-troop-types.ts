@@ -31,9 +31,15 @@ interface TroopTypeSeedRow {
   /** Good.name to resolve to required_goods at seed time — one-time cost per 100 troops, like cost_per_100 but paid in goods. */
   required_goods_name?: string | null;
   goods_amount?: number | null;
+  /** A second, independent one-time recruitment goods cost — same resolution as required_goods_name. */
+  required_goods_2_name?: string | null;
+  goods_amount_2?: number | null;
   /** Good.name to resolve to supply_good_id at seed time — per-turn food cost per 100 troops, scaled by SupplyActionService's distance multiplier. */
   supply_good_name?: string | null;
   supply_per_100?: number | null;
+  /** A second, independent per-turn supply good — the class elite units' permanent partner-good dependency. */
+  supply_good_2_name?: string | null;
+  supply_per_100_2?: number | null;
 }
 
 const VALID_CATEGORIES = new Set<string>(Object.values(TroopCategory));
@@ -138,6 +144,19 @@ async function seedTroopTypes() {
       required_goods = good.id;
     }
 
+    let required_goods_2: string | null = null;
+    if (row.required_goods_2_name) {
+      const good = await goodRepo.findOne({ where: { name: row.required_goods_2_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.key}: required_goods_2_name "${row.required_goods_2_name}" not found — run seed:goods before seed:troop-types`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      required_goods_2 = good.id;
+    }
+
     let supply_good_id: string | null = null;
     if (row.supply_good_name) {
       const good = await goodRepo.findOne({ where: { name: row.supply_good_name } });
@@ -149,6 +168,19 @@ async function seedTroopTypes() {
         process.exit(1);
       }
       supply_good_id = good.id;
+    }
+
+    let supply_good_2_id: string | null = null;
+    if (row.supply_good_2_name) {
+      const good = await goodRepo.findOne({ where: { name: row.supply_good_2_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.key}: supply_good_2_name "${row.supply_good_2_name}" not found — run seed:goods before seed:troop-types`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      supply_good_2_id = good.id;
     }
 
     const patch = {
@@ -164,8 +196,12 @@ async function seedTroopTypes() {
       building_requirement: row.building_requirement ?? null,
       required_goods,
       goods_amount: row.goods_amount ?? null,
+      required_goods_2,
+      goods_amount_2: row.goods_amount_2 ?? null,
       supply_good_id,
       supply_per_100: row.supply_per_100 ?? null,
+      supply_good_2_id,
+      supply_per_100_2: row.supply_per_100_2 ?? null,
     };
 
     const existing = await repo.findOne({ where: { key: row.key } });

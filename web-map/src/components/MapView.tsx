@@ -46,7 +46,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const currentUserMoney = useAppSelector((state: RootState) => state.user.money);
   const completedResearch = useAppSelector((state: RootState) => state.user.completedResearch);
   const buildings = useAppSelector((state: RootState) => state.buildings.buildings);
-  const resources = useAppSelector((state: RootState) => state.resources.resources);
+  const techs = useAppSelector((state: RootState) => state.techs.techs);
   const mapMode = useAppSelector((state: RootState) => state.provinces.mapMode);
   const mapModeFilterValue = useAppSelector((state: RootState) => state.provinces.mapModeFilterValue);
   const fastBuild = useAppSelector((state: RootState) => state.provinces.fastBuild);
@@ -105,11 +105,6 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     [provinces],
   );
 
-  const plainIncomeByResourceKey = useMemo(
-    () => Object.fromEntries(resources.map((r) => [r.key, r.plainIncome])),
-    [resources],
-  );
-
   const mapModeRenderData = useMemo<MapModeRenderData>(() => {
     const pendingBuildCountsByProvinceId = getPendingBuildCountsByProvinceId(userActions);
     const pendingUpgradeBuildingIdsByProvinceId = getPendingProvinceBuildingIdsByProvinceId(userActions, ActionType.UPGRADE);
@@ -146,11 +141,11 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
       );
       buildingSlotsByProvinceId[province.id] = slots;
 
-      const economy = getProvinceEconomy(province, completedResearch, plainIncomeByResourceKey);
+      const economy = getProvinceEconomy(province, completedResearch, techs);
       economyByProvinceId[province.id] = economy;
       economyMaxAbs = Math.max(economyMaxAbs, Math.abs(economy.net));
 
-      const recruits = getProvinceRecruits(province);
+      const recruits = getProvinceRecruits(province, completedResearch, techs);
       recruitsByProvinceId[province.id] = recruits;
       recruitsMax = Math.max(recruitsMax, recruits);
 
@@ -192,7 +187,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     };
   }, [
     userActions, provinces, currentUserId, currentUserMoney, completedResearch, buildings,
-    plainIncomeByResourceKey, mapMode, mapModeFilterValue, fastBuild, provinceTypeById,
+    techs, mapMode, mapModeFilterValue, fastBuild, provinceTypeById,
     userResourcesByKey, pendingResourceUsage, userGoodsById, pendingGoodUsage,
   ]);
 

@@ -1,4 +1,4 @@
-import { ActionType, Building, BuildingTypes, MapMode, Province, ProvinceBuilding, ProvinceType } from '../types';
+import { ActionType, Building, BuildingTypes, EffectTarget, MapMode, Province, ProvinceBuilding, ProvinceType, Tech } from '../types';
 
 export const MAP_MODE_OPTIONS: { value: MapMode; label: string }[] = [
   { value: 'normal', label: 'Normal' },
@@ -53,12 +53,6 @@ interface MinimalAction {
   actionType: ActionType;
   actionData?: Record<string, unknown> | null;
 }
-
-const BUILDING_UPKEEP_TYPES = new Set<string>([
-  BuildingTypes.FORT,
-  BuildingTypes.BARRACKS,
-  BuildingTypes.ARMORY,
-]);
 
 const LANDSCAPE_MODE_COLORS: Record<string, string> = {
   plains: '#87c66b',
@@ -130,63 +124,99 @@ export function positiveScaleColor(value: number, maxValue: number): string {
   return mixColor([220, 252, 231], [22, 163, 74], intensity);
 }
 
+/**
+ * Applies every completed tech's effects for one target, using the same stacking rule as the
+ * server's TechEffectsService.apply (api/src/techs/tech-effects.service.ts): last `set` wins ->
+ * sum all add/add_scaled -> multiply (product of all `multiply`) -> round (income) or floor
+ * (upkeep). Reads the real `effects` array off each Tech rather than a hardcoded key/value list,
+ * so it can't drift out of sync with techs.json the way the old if-chain did (it referenced a
+ * tech that no longer exists and was missing several real ones).
+ *
+ * `provinceCount` in ctx is fixed at 1 — this is a per-province display, so a nation-scoped
+ * add_scaled-by-provinceCount effect (e.g. Advanced Taxation) is approximated as "this much
+ * attributable to each province", same approximation the old hardcoded version made.
+ */
+function applyTechEffects(
+  target: EffectTarget,
+  base: number,
+  ctx: Record<string, number>,
+  techs: Tech[],
+  completedResearch: string[],
+  floor: boolean,
+): number {
+  const completed = new Set(completedResearch);
+  const effects = techs
+    .filter((t) => completed.has(t.key))
+    .flatMap((t) => t.effects ?? [])
+    .filter((e) => e.target === target);
+
+  if (effects.length === 0) return floor ? Math.floor(base) : Math.round(base);
+
+  let result = base;
+  for (const e of effects) {
+    if (e.op === 'set') result = e.value;
+  }
+
+  let additive = 0;
+  for (const e of effects) {
+    if (e.op === 'add') additive += e.value;
+    else if (e.op === 'add_scaled') additive += e.value * (ctx[e.scaleBy ?? ''] ?? 0);
+  }
+  result += additive;
+
+  for (const e of effects) {
+    if (e.op === 'multiply') result *= e.value;
+  }
+
+  return floor ? Math.floor(result) : Math.round(result);
+}
+
 export function getProvinceEconomy(
   province: Province,
   completedResearch: string[],
-  plainIncomeByResourceKey: Record<string, number> = {},
+  techs: Tech[] = [],
 ): ProvinceEconomy {
   let income = 0;
   let upkeep = 0;
   let farmGardenIncome = 0;
 
+  // Every building's income/upkeep counts uniformly now — mirrors IncomeActionService/
+  // UpkeepActionService, both of which sum every building's flat income/upkeep field
+  // (buildings that don't earn/cost anything just have income/upkeep 0 or null).
   for (const building of province.buildings ?? []) {
-    switch (building.type) {
-      case BuildingTypes.MINE:
-        income += plainIncomeByResourceKey[province.resourceType] ?? 0;
-        break;
-      case BuildingTypes.FARM:
-      case BuildingTypes.GARDEN: {
-        const buildingIncome = positiveNumber(building.income);
-        farmGardenIncome += buildingIncome;
-        income += buildingIncome;
-        break;
-      }
-      default:
-        income += positiveNumber(building.income);
+    const buildingIncome = positiveNumber(building.income);
+    income += buildingIncome;
+    if (building.type === BuildingTypes.FARM || building.type === BuildingTypes.GARDEN) {
+      farmGardenIncome += buildingIncome;
     }
-
-    if (BUILDING_UPKEEP_TYPES.has(building.type)) {
-      upkeep += positiveNumber(building.upkeep);
-    }
+    upkeep += positiveNumber(building.upkeep);
   }
 
-  for (const techKey of completedResearch) {
-    if (techKey === 'economy.trade_routes') {
-      income = Math.round(income * 1.2);
-    } else if (techKey === 'economy.agriculture') {
-      income += Math.round(farmGardenIncome * 0.15);
-    } else if (techKey === 'economy.advanced_taxation') {
-      income += 10;
-    } else if (techKey === 'economy.monopoly') {
-      income = Math.round(income * 1.1);
-    } else if (techKey === 'guild.merchant_guilds') {
-      upkeep = Math.floor(upkeep * 0.85);
-    } else if (techKey === 'military.army_logistics') {
-      upkeep = Math.floor(upkeep * 0.8);
-    }
-  }
+  const incomeCtx = { farmGardenIncome, provinceCount: 1 };
+  income = applyTechEffects('income', income, incomeCtx, techs, completedResearch, false);
+  upkeep = applyTechEffects('upkeep', upkeep, {}, techs, completedResearch, true);
 
   return { income, upkeep, net: income - upkeep };
 }
 
-export function getProvinceRecruits(province: Province): number {
+/** Mirrors DEFAULT_TROOP_POOL_PER_BUILDING in api/src/techs/tech-effects.service.ts. */
+const DEFAULT_TROOP_POOL_PER_BUILDING = 50;
+
+export function getProvinceRecruits(
+  province: Province,
+  completedResearch: string[] = [],
+  techs: Tech[] = [],
+): number {
   let recruitBuildings = 0;
   for (const building of province.buildings ?? []) {
     if (building.type === BuildingTypes.BARRACKS || building.type === BuildingTypes.CAPITAL) {
       recruitBuildings += 1;
     }
   }
-  return recruitBuildings * 50;
+  const perBuilding = applyTechEffects(
+    'troop_pool', DEFAULT_TROOP_POOL_PER_BUILDING, {}, techs, completedResearch, false,
+  );
+  return recruitBuildings * perBuilding;
 }
 
 export function getPendingBuildCountsByProvinceId(actions: MinimalAction[]): Record<string, number> {
@@ -278,7 +308,8 @@ export function getPendingResourceUsage(
   return used;
 }
 
-/** Same as {@link getPendingResourceUsage}, but for requirement_good costs. */
+/** Same as {@link getPendingResourceUsage}, but for requirement_good costs (both slots — a
+ *  building can have an independent second one-time goods cost, e.g. Lumber alongside Bricks). */
 export function getPendingGoodUsage(
   actions: MinimalAction[],
   buildingTemplates: Building[],
@@ -291,6 +322,9 @@ export function getPendingGoodUsage(
     const template = templateById.get(String(bid));
     if (template?.requirementGood && template?.requirementGoodAmount) {
       used[template.requirementGood] = (used[template.requirementGood] ?? 0) + template.requirementGoodAmount;
+    }
+    if (template?.requirementGood2 && template?.requirementGood2Amount) {
+      used[template.requirementGood2] = (used[template.requirementGood2] ?? 0) + template.requirementGood2Amount;
     }
   }
   return used;
@@ -364,6 +398,14 @@ export function evaluateBuildRequirements(
     : Infinity;
   const goodInsufficient = goodCost ? goodAvailable < goodAmount : false;
 
+  const goodCost2 = building.requirementGood2;
+  const goodAmount2 = building.requirementGood2Amount ?? 1;
+  const totalGoodUsed2 = goodCost2 ? (ctx.pendingGoodUsage[goodCost2] ?? 0) : 0;
+  const goodAvailable2 = goodCost2
+    ? (ctx.userGoodsById[goodCost2] ?? 0) - totalGoodUsed2
+    : Infinity;
+  const goodInsufficient2 = goodCost2 ? goodAvailable2 < goodAmount2 : false;
+
   const missingTechKey = (building.requirementTech ?? []).find(
     (t) => !ctx.completedResearch.includes(t),
   );
@@ -383,12 +425,14 @@ export function evaluateBuildRequirements(
           ? `Not enough ${resourceCost}: ${(resourceCost && ctx.userResourcesByKey[resourceCost]) ?? 0} available, ${totalResourceUsed} queued, ${Math.max(0, resourceAvailable)} free`
           : goodInsufficient
             ? `Not enough of the required good - ${(goodCost && ctx.goodNameById?.[goodCost]) ?? 'the required good'}, ${goodAmount}: ${Math.max(0, goodAvailable)} available(free to use), ${totalGoodUsed} queued`
-            : missingTechName
-              ? `Missing required technology: ${missingTechName}`
-              : null;
+            : goodInsufficient2
+              ? `Not enough of the required good - ${(goodCost2 && ctx.goodNameById?.[goodCost2]) ?? 'the required good'}, ${goodAmount2}: ${Math.max(0, goodAvailable2)} available(free to use), ${totalGoodUsed2} queued`
+              : missingTechName
+                ? `Missing required technology: ${missingTechName}`
+                : null;
 
   const passes = !resourceMismatch && !uniqueAlreadyBuilt && !missingWaterNeighbor &&
-    !resourceInsufficient && !goodInsufficient && !missingTechKey && !moneyInsufficient;
+    !resourceInsufficient && !goodInsufficient && !goodInsufficient2 && !missingTechKey && !moneyInsufficient;
 
   return { passes, reason };
 }

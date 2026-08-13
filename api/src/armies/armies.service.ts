@@ -10,9 +10,12 @@ import { UserClasses } from '../users/types/users.types';
 import { Province } from '../provinces/entities/province.entity';
 
 const CLASS_RESTRICTED_TROOPS: Partial<Record<string, UserClasses>> = {
-  noble_knights: UserClasses.NOBLE,
-  paladins:      UserClasses.HOLY,
-  mercenaries:   UserClasses.GUILD,
+  noble_knights:  UserClasses.NOBLE,
+  paladins:       UserClasses.HOLY,
+  mercenaries:    UserClasses.GUILD,
+  grand_host:     UserClasses.NOBLE,
+  templar_order:  UserClasses.HOLY,
+  free_company:   UserClasses.GUILD,
 };
 
 @Injectable()

@@ -16,7 +16,7 @@ import {
   calcUpkeepForComposition,
   subtractTotals,
   MONEY_TROOPS,
-  PIETY_TROOPS,
+  PIETY_RECRUIT_TROOPS,
   UpkeepTotals,
 } from '../utils/armyUpkeep';
 import { TroopTooltipWrapper } from './TroopTooltip';
@@ -273,13 +273,20 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
     (tt: TroopType, count: number): string | null => {
       if (!count) return 'Amount must be > 0';
       const cost = Math.ceil((count / 100) * tt.cost_per_100);
-      if (PIETY_TROOPS.has(tt.key) && user.piety < cost) return `Not enough piety (need ${cost})`;
+      if (PIETY_RECRUIT_TROOPS.has(tt.key) && user.piety < cost) return `Not enough piety (need ${cost})`;
       if (MONEY_TROOPS.has(tt.key) && user.money < cost) return `Not enough money (need ${cost})`;
-      if (!MONEY_TROOPS.has(tt.key) && !PIETY_TROOPS.has(tt.key) && user.troops < count)
+      if (!MONEY_TROOPS.has(tt.key) && !PIETY_RECRUIT_TROOPS.has(tt.key) && user.troops < count)
         return `Not enough troops in pool (have ${user.troops})`;
       if (tt.required_goods && tt.goods_amount) {
         const goodsNeeded = Math.ceil((count / 100) * tt.goods_amount);
         const holding = goodsById.get(tt.required_goods);
+        if ((holding?.quantity ?? 0) < goodsNeeded) {
+          return `Not enough ${holding?.good.name ?? 'goods'} (need ${goodsNeeded}, have ${holding?.quantity ?? 0})`;
+        }
+      }
+      if (tt.required_goods_2 && tt.goods_amount_2) {
+        const goodsNeeded = Math.ceil((count / 100) * tt.goods_amount_2);
+        const holding = goodsById.get(tt.required_goods_2);
         if ((holding?.quantity ?? 0) < goodsNeeded) {
           return `Not enough ${holding?.good.name ?? 'goods'} (need ${goodsNeeded}, have ${holding?.quantity ?? 0})`;
         }
@@ -559,14 +566,15 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
             const isAddOpen = addSliderOpen === tt.key;
             const isRemoveOpen = removeSliderOpen === tt.key;
             const goodHolding = tt.required_goods ? goodsById.get(tt.required_goods) : undefined;
-            const maxAdd = calcMaxAdd(tt, user.troops, user.money, user.piety, goodHolding?.quantity ?? 0);
+            const goodHolding2 = tt.required_goods_2 ? goodsById.get(tt.required_goods_2) : undefined;
+            const maxAdd = calcMaxAdd(tt, user.troops, user.money, user.piety, goodHolding?.quantity ?? 0, goodHolding2?.quantity ?? 0);
             const maxRemove = unit.count;
             const addReason = getAddButtonDisabledReason(tt, maxAdd);
             const removeReason = getRemoveButtonDisabledReason(tt, unit.count);
 
             return (
               <div key={unit.id} className={CARD}>
-                <TroopTooltipWrapper troopType={tt} goodName={goodHolding?.good.name}>
+                <TroopTooltipWrapper troopType={tt} goodName={goodHolding?.good.name} supplyGoodName2={tt.supply_good_2_id ? goodsById.get(tt.supply_good_2_id)?.good.name : undefined}>
                   <div className="flex items-center gap-2 cursor-default">
                     <span className="flex-1 font-medium text-sm truncate text-gray-900">{tt.name}</span>
                     <span className="font-headline text-sm tabular-nums text-gray-900">{unit.count.toLocaleString()}</span>
@@ -710,7 +718,7 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
           <div className="flex flex-col gap-1.5">
             {pendingNewTypeRows.map(({ tt, entries }) => (
               <div key={tt.key} className={CARD_MUTED}>
-                <TroopTooltipWrapper troopType={tt} goodName={tt.required_goods ? goodsById.get(tt.required_goods)?.good.name : undefined}>
+                <TroopTooltipWrapper troopType={tt} goodName={tt.required_goods ? goodsById.get(tt.required_goods)?.good.name : undefined} supplyGoodName2={tt.supply_good_2_id ? goodsById.get(tt.supply_good_2_id)?.good.name : undefined}>
                   <div className="flex items-center gap-2 cursor-default">
                     <span className="flex-1 font-medium text-sm truncate text-gray-500 italic">{tt.name}</span>
                     <span className="font-headline text-sm tabular-nums text-gray-400">0</span>
@@ -745,7 +753,7 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
                 const affordNote = !disabled ? getAffordDisabledReason(tt, 100) : null;
                 const tooltipText = buildingReason ?? (affordNote ? `Selectable, but: ${affordNote}` : '');
                 return (
-                  <TroopTooltipWrapper key={tt.key} troopType={tt} goodName={tt.required_goods ? goodsById.get(tt.required_goods)?.good.name : undefined}>
+                  <TroopTooltipWrapper key={tt.key} troopType={tt} goodName={tt.required_goods ? goodsById.get(tt.required_goods)?.good.name : undefined} supplyGoodName2={tt.supply_good_2_id ? goodsById.get(tt.supply_good_2_id)?.good.name : undefined}>
                     <Tooltip title={tooltipText} placement="top" disableHoverListener={!tooltipText}>
                       <span>
                         <button
@@ -771,7 +779,8 @@ export const ArmyBlock: React.FC<Props> = ({ army, onClose }) => {
           const tt = troopTypes.find((t) => t.key === addSliderOpen);
           if (!tt) return null;
           const goodHolding = tt.required_goods ? goodsById.get(tt.required_goods) : undefined;
-          const maxAdd = calcMaxAdd(tt, user.troops, user.money, user.piety, goodHolding?.quantity ?? 0);
+          const goodHolding2 = tt.required_goods_2 ? goodsById.get(tt.required_goods_2) : undefined;
+          const maxAdd = calcMaxAdd(tt, user.troops, user.money, user.piety, goodHolding?.quantity ?? 0, goodHolding2?.quantity ?? 0);
           return (
             <div className={CARD_MUTED}>
               <div className="font-headline text-sm text-gray-900">{tt.name}</div>

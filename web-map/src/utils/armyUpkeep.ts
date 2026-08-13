@@ -1,17 +1,25 @@
 import { Army, TroopType } from '../types';
-import { CompositionEntry, calcFoodUpkeepForComposition } from './supply';
+import { CompositionEntry, calcFoodUpkeepForComposition, calcSecondaryGoodUpkeepForComposition } from './supply';
 
 export type { CompositionEntry };
 
-/** Mirrors `upkeep-action.service.ts`'s hardcoded `'paladins'` check — piety upkeep instead of money. */
+/** Mirrors `upkeep-action.service.ts`'s hardcoded `'paladins'` check — ONGOING per-turn upkeep
+ *  paid in piety instead of money. NOT the same set as recruit-cost currency below: Templar
+ *  Order's recruit cost is piety but its ongoing upkeep_per_100 is money (its per-turn cost
+ *  instead comes from the second supply-good slot — see supply.ts). */
 export const PIETY_TROOPS = new Set(['paladins']);
+/** Mirrors `PIETY_COST_TROOPS` in `action-executor.service.ts` — one-time RECRUIT cost paid in piety instead of money. */
+export const PIETY_RECRUIT_TROOPS = new Set(['paladins', 'templar_order']);
 /** Mirrors `NO_POOL_TROOPS` in `action-executor.service.ts` — recruited with money, not the draft pool. */
-export const MONEY_TROOPS = new Set(['mercenaries']);
+export const MONEY_TROOPS = new Set(['mercenaries', 'free_company']);
 
 export interface UpkeepTotals {
   money: number;
   piety: number;
   food: number;
+  /** Second supply-good slot, keyed by good id — the class elite units' partner-good
+   *  dependency (e.g. Grand Host eats Relics). Empty for any composition with no elite units. */
+  secondaryGoods: Map<string, number>;
 }
 
 /**
@@ -38,36 +46,55 @@ export const calcUpkeepForComposition = (
       money += cost;
     }
   }
-  return { money, piety, food: calcFoodUpkeepForComposition(units, supplyDistance) };
+  return {
+    money,
+    piety,
+    food: calcFoodUpkeepForComposition(units, supplyDistance),
+    secondaryGoods: calcSecondaryGoodUpkeepForComposition(units, supplyDistance),
+  };
 };
 
 export const calcArmyUpkeep = (army: Army): UpkeepTotals =>
   calcUpkeepForComposition(army.units, army.flat_upkeep, army.supply_distance ?? null);
 
-export const subtractTotals = (a: UpkeepTotals, b: UpkeepTotals): UpkeepTotals => ({
-  money: a.money - b.money,
-  piety: a.piety - b.piety,
-  food: a.food - b.food,
-});
+export const subtractTotals = (a: UpkeepTotals, b: UpkeepTotals): UpkeepTotals => {
+  const goodIds = new Set([...a.secondaryGoods.keys(), ...b.secondaryGoods.keys()]);
+  const secondaryGoods = new Map<string, number>();
+  for (const id of goodIds) {
+    secondaryGoods.set(id, (a.secondaryGoods.get(id) ?? 0) - (b.secondaryGoods.get(id) ?? 0));
+  }
+  return {
+    money: a.money - b.money,
+    piety: a.piety - b.piety,
+    food: a.food - b.food,
+    secondaryGoods,
+  };
+};
 
-/** Max troops of `troopType` the user can currently afford, across pool/money/piety/goods constraints. */
+/** Max troops of `troopType` the user can currently afford, across pool/money/piety/goods constraints.
+ *  `goodsAvailable2` is the stockpile for `required_goods_2` (the elite units' second one-time
+ *  recruit cost) — irrelevant and safe to omit for every troop type that doesn't set that slot. */
 export const calcMaxAdd = (
   troopType: TroopType,
   userTroops: number,
   userMoney: number,
   userPiety: number,
   goodsAvailable: number,
+  goodsAvailable2 = 0,
 ): number => {
   let max: number;
   if (MONEY_TROOPS.has(troopType.key)) {
     max = troopType.cost_per_100 ? Math.floor(userMoney * 10 / troopType.cost_per_100) * 10 : 0;
-  } else if (PIETY_TROOPS.has(troopType.key)) {
+  } else if (PIETY_RECRUIT_TROOPS.has(troopType.key)) {
     max = troopType.cost_per_100 ? Math.floor(userPiety * 10 / troopType.cost_per_100) * 10 : userTroops;
   } else {
     max = userTroops;
   }
   if (troopType.required_goods && troopType.goods_amount) {
     max = Math.min(max, Math.floor(goodsAvailable * 10 / troopType.goods_amount) * 10);
+  }
+  if (troopType.required_goods_2 && troopType.goods_amount_2) {
+    max = Math.min(max, Math.floor(goodsAvailable2 * 10 / troopType.goods_amount_2) * 10);
   }
   return max;
 };

@@ -24,11 +24,19 @@ export const SUPPLY_ATTRITION_RATE = 0.10;
 /** BFS depth bound — distances beyond this all resolve to the same SUPPLY_MAX_MULTIPLIER anyway. */
 export const SUPPLY_BFS_MAX_DEPTH = 16;
 
-/** `null` distance = no reachable supply_building within SUPPLY_BFS_MAX_DEPTH tiles. */
-export const supplyMultiplierForDistance = (distance: number | null): number => {
+/**
+ * `null` distance = no reachable supply_building within SUPPLY_BFS_MAX_DEPTH tiles.
+ * `freeRadius` defaults to SUPPLY_FREE_RADIUS but can be widened by the owner's completed
+ * research (see TechEffectsService.supplyRange) — passed explicitly rather than read from a
+ * module-level constant so this function stays pure and per-user.
+ */
+export const supplyMultiplierForDistance = (
+  distance: number | null,
+  freeRadius: number = SUPPLY_FREE_RADIUS,
+): number => {
   if (distance === null) return SUPPLY_MAX_MULTIPLIER;
-  if (distance <= SUPPLY_FREE_RADIUS) return 1;
-  return Math.min(SUPPLY_MAX_MULTIPLIER, 1 + SUPPLY_PENALTY_PER_TILE * (distance - SUPPLY_FREE_RADIUS));
+  if (distance <= freeRadius) return 1;
+  return Math.min(SUPPLY_MAX_MULTIPLIER, 1 + SUPPLY_PENALTY_PER_TILE * (distance - freeRadius));
 };
 
 export interface SupplyUnit {
@@ -36,6 +44,9 @@ export interface SupplyUnit {
   troopType: {
     supply_good_id?: string | null;
     supply_per_100?: number | null;
+    /** Second per-turn supply good — the class elite units' permanent partner-good dependency (see TroopType entity). */
+    supply_good_2_id?: string | null;
+    supply_per_100_2?: number | null;
   } | null;
 }
 
@@ -45,18 +56,25 @@ export interface SupplyArmy {
 
 /**
  * Base (pre-distance-multiplier) food need for an army, grouped by good id — a map rather than a
- * single number because different troop types could in principle draw on different supply goods,
- * even though the current seed data only ever uses Food. Troop types with no supply_good_id/
- * supply_per_100 contribute nothing (e.g. Peasants could be seeded that way, though currently
- * every troop type does eat).
+ * single number because different troop types can draw on different supply goods (every base
+ * troop type eats Food; the class elite units additionally eat their trade partner's prestige
+ * good via the second supply_good_2/supply_per_100_2 slot). Troop types with no supply good set
+ * in a given slot contribute nothing for that slot.
  */
 export const computeArmyBaseFoodNeed = (army: SupplyArmy): Map<string, number> => {
   const need = new Map<string, number>();
+  const addNeed = (goodId: string, amount: number) => need.set(goodId, (need.get(goodId) ?? 0) + amount);
+
   for (const unit of army.units ?? []) {
     const tt = unit.troopType;
-    if (!tt?.supply_good_id || !tt.supply_per_100) continue;
-    const amount = Math.ceil(Math.max(0, unit.count) / 100) * tt.supply_per_100;
-    need.set(tt.supply_good_id, (need.get(tt.supply_good_id) ?? 0) + amount);
+    if (!tt) continue;
+    const blocks = Math.ceil(Math.max(0, unit.count) / 100);
+    if (tt.supply_good_id && tt.supply_per_100) {
+      addNeed(tt.supply_good_id, blocks * tt.supply_per_100);
+    }
+    if (tt.supply_good_2_id && tt.supply_per_100_2) {
+      addNeed(tt.supply_good_2_id, blocks * tt.supply_per_100_2);
+    }
   }
   return need;
 };

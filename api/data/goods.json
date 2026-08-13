@@ -2,5 +2,8 @@
   { "name": "Lumber", "type": "civilian", "price_per_one": 10 },
   { "name": "Food", "type": "civilian", "price_per_one": 5 },
   { "name": "Weapons", "type": "military", "price_per_one": 50 },
-  { "name": "Bricks", "type": "civilian", "price_per_one": 15 }
+  { "name": "Bricks", "type": "civilian", "price_per_one": 15 },
+  { "name": "Warhorses", "type": "military", "price_per_one": 40 },
+  { "name": "Relics", "type": "civilian", "price_per_one": 60 },
+  { "name": "Spices", "type": "civilian", "price_per_one": 50 }
 ]
