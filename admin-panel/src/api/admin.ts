@@ -6,6 +6,7 @@ export const adminApi = {
   createUser: (data: Record<string, any>) => apiClient.post('/admin/users', data),
   updateUser: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/users/${id}`, data),
   deleteUser: (id: string) => apiClient.delete(`/admin/users/${id}`),
+  deleteUserFlag: (id: string) => apiClient.delete(`/admin/users/${id}/flag`),
 
   // Buildings
   getBuildings: () => apiClient.get('/admin/buildings'),

@@ -9,6 +9,7 @@ import { ProfileModal } from "./Modals/ProfileModal.tsx";
 import { NotificationsModal } from "./Modals/NotificationsModal.tsx";
 import { DiplomacyModal } from "./Modals/DiplomacyModal.tsx";
 import { CreateNpcModal } from "./Modals/CreateNpcModal.tsx";
+import { CountryFlag } from "./CountryFlag.tsx";
 import { ActionType, ProvinceBuilding, TreatyStatus, UserClasses } from "../types.ts";
 import { MAP_MODE_OPTIONS } from "../utils/mapModes.ts";
 import { setMapMode } from "../store/slices/provincesSlice.ts";
@@ -142,6 +143,15 @@ export const TopBar = () => {
         className="fixed top-0 flex w-full z-50 items-center bg-[#0e0e0e]/80 backdrop-blur-xl bg-gradient-to-b from-[#1a1a1a] to-transparent shadow-[0_4px_20px_rgba(0,0,0,0.5)] border-b border-outline-variant/10">
         <div className="flex w-full items-center justify-between">
           <div className="flex items-center gap-3">
+            <Tooltip title="Edit country profile">
+              <button
+                type="button"
+                className="bg-transparent border-none p-0 cursor-pointer"
+                onClick={() => setOpenProfileModal(true)}
+              >
+                <CountryFlag flagUrl={user.flagUrl} color={user.color} countryName={user.countryName} size="md" />
+              </button>
+            </Tooltip>
             <Button
               className="flex items-center gap-2 px-4 py-2 bg-inverse-primary border rounded hover:bg-on-primary-fixed-variant transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
               onClick={() => setOpenTechModal(true)}

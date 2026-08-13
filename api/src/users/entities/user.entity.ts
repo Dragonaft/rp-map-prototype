@@ -75,6 +75,22 @@ export class User extends BaseEntity {
   @Column({ default: 0 })
   public bankruptcy_debuff_turns: number;
 
+  /** Raw flag image bytes (PNG/JPEG/WebP, size-capped, magic-byte validated). `select: false`
+   *  so ordinary reads/saves (findOneEntity, update) never haul the blob through memory —
+   *  GET /users/:id/flag re-selects it explicitly. Never serialized to JSON. */
+  @Column({ type: 'mediumblob', nullable: true, select: false })
+  @Exclude({ toPlainOnly: true })
+  public flag_data: Buffer | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  @Exclude({ toPlainOnly: true })
+  public flag_mime: string | null;
+
+  /** sha256 of flag_data — the immutable cache-busting token used in flagUrl (?v=hash). */
+  @Column({ type: 'varchar', nullable: true })
+  @Exclude({ toPlainOnly: true })
+  public flag_hash: string | null;
+
   @OneToMany(() => Province, (province) => province.user)
   public readonly provinces?: Province[];
 }

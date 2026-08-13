@@ -2,6 +2,8 @@ export type PartialUser = {
   id: string;
   countryName: string;
   color: string;
+  /** `/users/{id}/flag?v={hash}`, or null when the player has no uploaded flag. */
+  flagUrl: string | null;
 };
 
 export enum UserRoles {

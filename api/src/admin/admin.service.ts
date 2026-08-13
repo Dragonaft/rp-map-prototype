@@ -134,6 +134,10 @@ export class AdminService {
     });
   }
 
+  deleteUserFlag(id: string) {
+    return this.usersService.adminDeleteFlag(id);
+  }
+
   // --- Buildings ---
 
   findAllBuildings() {

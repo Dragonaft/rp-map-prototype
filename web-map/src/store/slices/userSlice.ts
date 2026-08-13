@@ -23,6 +23,8 @@ interface UserState {
   activeResearch: string | null;
   role?: string | null;
   isNpc?: boolean;
+  /** `/users/{id}/flag?v={hash}` (relative to the API base), or null when no flag is set. */
+  flagUrl: string | null;
 }
 
 const initialState: UserState = {
@@ -46,6 +48,7 @@ const initialState: UserState = {
   activeResearch: null,
   role: null,
   isNpc: false,
+  flagUrl: null,
 };
 
 const userSlice = createSlice({
@@ -73,6 +76,7 @@ const userSlice = createSlice({
       state.activeResearch = action.payload.activeResearch ?? null;
       state.role = action.payload.role ?? null;
       state.isNpc = action.payload.isNpc ?? false;
+      state.flagUrl = action.payload.flagUrl ?? null;
     },
     updateUserTroops: (state, action: PayloadAction<number>) => {
       state.troops = action.payload;
@@ -83,6 +87,9 @@ const userSlice = createSlice({
     updateUserProfile: (state, action: PayloadAction<{ countryName: string; color: string }>) => {
       state.countryName = action.payload.countryName;
       state.color = action.payload.color;
+    },
+    updateUserFlag: (state, action: PayloadAction<string | null>) => {
+      state.flagUrl = action.payload;
     },
     setActiveResearch: (state, action: PayloadAction<string>) => {
       state.activeResearch = action.payload;
@@ -103,9 +110,10 @@ const userSlice = createSlice({
       state.activeResearch = null;
       state.role = null;
       state.isNpc = false;
+      state.flagUrl = null;
     },
   },
 });
 
-export const { setUser, updateUserTroops, updateUserMoney, updateUserProfile, setActiveResearch, resetUserState } = userSlice.actions;
+export const { setUser, updateUserTroops, updateUserMoney, updateUserProfile, updateUserFlag, setActiveResearch, resetUserState } = userSlice.actions;
 export default userSlice.reducer;

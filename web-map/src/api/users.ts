@@ -16,4 +16,19 @@ export const usersApi = {
     const response = await apiClient.patch<User>(`/users/${id}`, data);
     return response.data;
   },
+
+  uploadFlag: async (id: string, file: File): Promise<{ flagUrl: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    // Let axios set Content-Type itself (multipart boundary) — the apiClient default of
+    // application/json would otherwise override it and the upload would fail server-side.
+    const response = await apiClient.post<{ flagUrl: string }>(`/users/${id}/flag`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return response.data;
+  },
+
+  deleteFlag: async (id: string): Promise<void> => {
+    await apiClient.delete(`/users/${id}/flag`);
+  },
 };

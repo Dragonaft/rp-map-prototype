@@ -182,6 +182,8 @@ export interface User {
   role?: string | null;
   /** Non-playable "DM" country — created via the mod layer, cannot log in. */
   isNpc?: boolean;
+  /** `/users/{id}/flag?v={hash}` (relative to the API base), or null when no flag is set. */
+  flagUrl: string | null;
 }
 
 export interface UserActive extends User {
@@ -252,6 +254,8 @@ export interface PartialUser {
   id: string;
   countryName: string;
   color: string;
+  /** `/users/{id}/flag?v={hash}` (relative to the API base), or null when no flag is set. */
+  flagUrl: string | null;
 }
 
 export interface SetupUserResponse {

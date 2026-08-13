@@ -18,6 +18,7 @@ import { DeleteBuildingModal } from "./Modals/DeleteBuildingModal.tsx";
 import { PlayerTreatiesModal } from "./Modals/PlayerTreatiesModal.tsx";
 import { ModStocksModal } from "./Modals/ModStocksModal.tsx";
 import { modApi } from "../api/mod.ts";
+import { CountryFlag } from "./CountryFlag.tsx";
 import { getPendingGoodUsage, getPendingResourceUsage, provinceHasWaterNeighbor } from "../utils/mapModes.ts";
 import { ARMY_LOCK_LABELS, getArmyLocks } from "../utils/armyLocks.ts";
 import { calcArmyFoodUpkeep, SUPPLY_FREE_RADIUS } from "../utils/supply.ts";
@@ -235,6 +236,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
         projectedResearch: response.user.projectedResearch,
         projectedTroops: response.user.projectedTroops,
         projectedFood: response.user.projectedFood,
+        flagUrl: null, // a freshly-set-up player has never had the chance to upload one
       }));
     }
     if (response?.province) {
@@ -480,7 +482,14 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
           <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
           <p className="mb-0 mt-1">Landscape: {selectedProvince.landscape}</p>
           <p className="mb-0 mt-1">Resource: {selectedProvince.resourceType}</p>
-          {provinceOwner && <p className="mb-0 mt-1">Owner: {provinceOwner.countryName}</p>}
+          {provinceOwner && (
+            <p className="mb-0 mt-1 flex items-center gap-1.5">
+              {provinceOwner.flagUrl && (
+                <CountryFlag flagUrl={provinceOwner.flagUrl} color={provinceOwner.color} countryName={provinceOwner.countryName} />
+              )}
+              Owner: {provinceOwner.countryName}
+            </p>
+          )}
           {isOccupied && (
             <p className="mb-0 mt-1 text-xs bg-red-900/60 border border-red-500 rounded px-2 py-1.5 text-red-200">
               Occupied by {otherUsers.find(u => u.id === selectedProvince.occupierId)?.countryName ?? 'another player'}
@@ -563,7 +572,14 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
           <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
           <p className="mb-0 mt-1">Landscape: {selectedProvince.landscape}</p>
           <p className="mb-0 mt-1">Resource: {selectedProvince.resourceType}</p>
-          {provinceOwner && <p className="mb-0 mt-1">Core owner: {provinceOwner.countryName}</p>}
+          {provinceOwner && (
+            <p className="mb-0 mt-1 flex items-center gap-1.5">
+              {provinceOwner.flagUrl && (
+                <CountryFlag flagUrl={provinceOwner.flagUrl} color={provinceOwner.color} countryName={provinceOwner.countryName} />
+              )}
+              Core owner: {provinceOwner.countryName}
+            </p>
+          )}
           <p className="mb-0 mt-1 text-xs bg-amber-900/60 border border-amber-500 rounded px-2 py-1.5 text-amber-200">
             Occupied by you — cores to you in {Math.max(0, OCCUPATION_CORE_THRESHOLD - selectedProvince.occupationTurns)} turn(s)
           </p>

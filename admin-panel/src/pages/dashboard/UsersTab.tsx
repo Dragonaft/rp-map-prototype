@@ -12,7 +12,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import FlagOffIcon from '@mui/icons-material/OutlinedFlag';
 import { adminApi } from '../../api/admin';
+import { apiBaseUrl } from '../../api/config';
 import { useAuth } from '../../context/AuthContext';
 
 const ROLE_OPTIONS = ['', 'ADMIN', 'MODERATOR', 'PLAYER'];
@@ -61,6 +63,17 @@ export const UsersTab = () => {
     }
   };
 
+  const handleClearFlag = async (id: string) => {
+    if (!window.confirm("Remove this player's flag?")) return;
+    try {
+      await adminApi.deleteUserFlag(id);
+      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, flag_hash: null } : r)));
+      setSnackbar({ msg: 'Flag removed', severity: 'success' });
+    } catch {
+      setSnackbar({ msg: 'Failed to remove flag', severity: 'error' });
+    }
+  };
+
   const processRowUpdate = async (newRow: GridRowModel) => {
     const { id, ...dto } = newRow;
     await adminApi.updateUser(id as string, dto);
@@ -96,6 +109,15 @@ export const UsersTab = () => {
     },
     { field: 'country_name', headerName: 'Country', width: 120, editable: true },
     { field: 'color', headerName: 'Color', width: 90, editable: true },
+    {
+      // Read-only — upload is player-side only (web-map's profile modal). flag_hash (not
+      // flag_data, which is select:false and never sent to this list) doubles as both the
+      // presence check and the cache-busting query param, same as web-map's flagUrl.
+      field: 'flag_hash', headerName: 'Flag', width: 70, editable: false, sortable: false, filterable: false,
+      renderCell: ({ row }) => row.flag_hash
+        ? <img src={`${apiBaseUrl}/users/${row.id}/flag?v=${row.flag_hash}`} alt="" style={{ width: 28, height: 18, objectFit: 'cover', border: '1px solid #666' }} />
+        : <span style={{ opacity: 0.4 }}>—</span>,
+    },
     { field: 'money', headerName: 'Money', type: 'number', width: 90, editable: true },
     { field: 'piety', headerName: 'Piety', type: 'number', width: 80, editable: true },
     { field: 'troops', headerName: 'Troops', type: 'number', width: 80, editable: true },
@@ -145,6 +167,9 @@ export const UsersTab = () => {
         // A MODERATOR can't delete an ADMIN or MODERATOR account — mirrors the server-side check.
         const canDelete = isAdmin || !PROTECTED_ROLES.includes(row.role);
         const actions = [<GridActionsCellItem icon={<EditIcon />} label="Edit" onClick={handleEditClick(id)} />];
+        if (row.flag_hash) {
+          actions.push(<GridActionsCellItem icon={<FlagOffIcon />} label="Clear flag" onClick={() => handleClearFlag(id as string)} />);
+        }
         if (canDelete) {
           actions.push(<GridActionsCellItem icon={<DeleteIcon />} label="Delete" onClick={() => handleDelete(id as string)} />);
         }

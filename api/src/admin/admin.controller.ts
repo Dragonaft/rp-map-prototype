@@ -37,6 +37,14 @@ export class AdminController {
     return this.adminService.deleteUser(id, req.user.role);
   }
 
+  // Moderation takedown for a player-uploaded flag — ordinary ADMIN|MODERATOR gate (class
+  // default), unlike game-settings below which is deliberately narrowed to ADMIN only.
+  @Delete('users/:id/flag')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteUserFlag(@Param('id') id: string) {
+    return this.adminService.deleteUserFlag(id);
+  }
+
   // --- Buildings ---
 
   @Get('buildings')

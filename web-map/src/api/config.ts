@@ -6,7 +6,10 @@ import { setActingAsUserId, setModSwitch } from '../store/slices/modSlice.ts';
 let _onApiError: ((msg: string) => void) | null = null;
 export const setApiErrorHandler = (fn: (msg: string) => void) => { _onApiError = fn; };
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+// Exported so components can build absolute URLs for raw <img>/<a> tags (e.g. flags), which
+// — unlike everything else — go directly to the browser rather than through this axios
+// instance, so they need the base URL prefixed onto the API-relative path themselves.
+export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 export const apiClient = axios.create({
   baseURL: apiBaseUrl,
