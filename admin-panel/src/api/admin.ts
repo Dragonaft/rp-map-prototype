@@ -56,6 +56,21 @@ export const adminApi = {
   updateKnowledgeArticle: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/knowledge/${id}`, data),
   deleteKnowledgeArticle: (id: string) => apiClient.delete(`/admin/knowledge/${id}`),
 
+  // Icons (building/landscape/resource art) — GET reuses the player-facing /icons list, since
+  // the payload (kind/key/hash, no blob) is identical either way and admins are authenticated
+  // too; only upload/delete are admin-gated.
+  getIcons: () => apiClient.get('/icons'),
+  uploadIcon: (kind: string, key: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    // Let axios set Content-Type itself (multipart boundary) — the apiClient default of
+    // application/json would otherwise override it and the upload would fail server-side.
+    return apiClient.post(`/admin/icons/${kind}/${key}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
+  deleteIcon: (kind: string, key: string) => apiClient.delete(`/admin/icons/${kind}/${key}`),
+
   // Game Settings (singleton — no :id)
   getGameSettings: () => apiClient.get('/admin/game-settings'),
   updateGameSettings: (data: Record<string, any>) => apiClient.patch('/admin/game-settings', data),

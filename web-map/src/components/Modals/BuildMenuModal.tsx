@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Tooltip } from '@mui/material';
 import { Building, Tech } from '../../types.ts';
-import { BUILDING_ICONS } from '../../constants/buildingIcons.ts';
+import { GameIcon } from '../GameIcon.tsx';
 import { evaluateBuildRequirements } from '../../utils/mapModes.ts';
 
 interface Props {
@@ -87,7 +87,7 @@ export const BuildMenuModal: React.FC<Props> = ({
                   color="primary"
                   disabled={!passes || pendingBuildTypes.has(building.type)}
                   onClick={() => onBuild(building.id)}
-                  startIcon={<span>{BUILDING_ICONS[building.type] ?? '🏗️'}</span>}
+                  startIcon={<GameIcon kind="building" iconKey={building.type} className="w-5 h-5" />}
                 >
                   {building.name}
                 </Button>

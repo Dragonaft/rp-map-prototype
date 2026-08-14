@@ -3,7 +3,7 @@ import { Building } from '../types.ts';
 import { useAppDispatch, useAppSelector } from '../store/hooks.ts';
 import type { RootState } from '../store/store.ts';
 import { setFastBuild } from '../store/slices/provincesSlice.ts';
-import { BUILDING_ICONS } from '../constants/buildingIcons.ts';
+import { GameIcon } from './GameIcon.tsx';
 
 interface Props {
   buildings: Building[];
@@ -84,7 +84,7 @@ export const FastBuildPanel: React.FC<Props> = ({ buildings }) => {
       {isActive && selectedBuilding && (
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-xl">{BUILDING_ICONS[selectedBuilding.type] ?? '🏗️'}</span>
+            <GameIcon kind="building" iconKey={selectedBuilding.type} className="w-5 h-5" />
             <span className="font-semibold">
               {fastBuild!.action === 'build' ? 'Building' : 'Upgrading to'}: {selectedBuilding.name}
             </span>
@@ -120,7 +120,7 @@ export const FastBuildPanel: React.FC<Props> = ({ buildings }) => {
               className={optionButtonClass}
               onClick={() => dispatch(setFastBuild({ action: 'build', buildingId: b.id }))}
             >
-              <span className="text-lg">{BUILDING_ICONS[b.type] ?? '🏗️'}</span>
+              <GameIcon kind="building" iconKey={b.type} className="w-4 h-4" />
               <span>{b.name}</span>
             </button>
           ))}
@@ -140,7 +140,7 @@ export const FastBuildPanel: React.FC<Props> = ({ buildings }) => {
               className={optionButtonClass}
               onClick={() => dispatch(setFastBuild({ action: 'upgrade', buildingId: b.id }))}
             >
-              <span className="text-lg">{BUILDING_ICONS[b.type] ?? '🏗️'}</span>
+              <GameIcon kind="building" iconKey={b.type} className="w-4 h-4" />
               <span>{b.name}</span>
             </button>
           ))}

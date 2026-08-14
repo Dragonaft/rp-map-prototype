@@ -519,3 +519,15 @@ export interface KnowledgeArticle {
   content: string;
 }
 
+/** Metadata for an admin-uploaded icon (`GET /icons`) — building type / landscape / resource
+ *  art replacing the old emoji maps. No binary data here; the client builds the image URL
+ *  itself (`/icons/{kind}/{key}?v={hash}`), same convention as User.flagUrl. */
+export type GameIconKind = 'building' | 'landscape' | 'resource';
+
+export interface GameIconMeta {
+  id: string;
+  kind: GameIconKind;
+  key: string;
+  hash: string;
+}
+

@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
+import { createHash } from 'crypto';
 import { User } from '../users/entities/user.entity';
 import { UserRoles } from '../users/types/users.types';
 import { Building } from '../buildings/entities/building.entity';
@@ -22,10 +23,14 @@ import { NewsAgency } from '../news/entities/news-agency.entity';
 import { NewsArticle } from '../news/entities/news-article.entity';
 import { Province } from '../provinces/entities/province.entity';
 import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
-import { UsersService } from '../users/users.service';
+import { FLAG_MAX_BYTES, sniffImageMime, UsersService } from '../users/users.service';
 import { PlayerClass } from '../classes/entities/player-class.entity';
 import { GameSettingsService } from '../settings/game-settings.service';
 import { KnowledgeArticle } from '../knowledge/entities/knowledge-article.entity';
+import { GameIcon } from '../icons/entities/game-icon.entity';
+
+/** Reuses the flag upload's size cap for consistency — see UsersService.FLAG_MAX_BYTES. */
+export const ICON_MAX_BYTES = FLAG_MAX_BYTES;
 
 @Injectable()
 export class AdminService {
@@ -44,6 +49,7 @@ export class AdminService {
     @InjectRepository(NewsArticle) private readonly newsArticleRepo: Repository<NewsArticle>,
     @InjectRepository(PlayerClass) private readonly classRepo: Repository<PlayerClass>,
     @InjectRepository(KnowledgeArticle) private readonly knowledgeRepo: Repository<KnowledgeArticle>,
+    @InjectRepository(GameIcon) private readonly iconRepo: Repository<GameIcon>,
     private readonly userGoodsService: UserGoodsService,
     private readonly userResourcesService: UserResourcesService,
     private readonly notificationsService: NotificationsService,
@@ -357,6 +363,45 @@ export class AdminService {
     const article = await this.knowledgeRepo.findOne({ where: { id } });
     if (!article) throw new NotFoundException(`Knowledge article ${id} not found`);
     await this.knowledgeRepo.remove(article);
+  }
+
+  // --- Icons ---
+  // Content art for a building type / landscape / resource key, replacing the old emoji maps.
+  // Unlike Classes/Knowledge, `key` is never pre-seeded for every possible slot — a row only
+  // exists once art has actually been uploaded for that (kind, key) — so upload is a
+  // find-or-create upsert, same shape as UsersService.setFlag.
+
+  async uploadIcon(kind: string, key: string, file: Buffer | undefined): Promise<{ kind: string; key: string; hash: string }> {
+    if (!file || file.length === 0) {
+      throw new BadRequestException('No icon file uploaded');
+    }
+    if (file.length > ICON_MAX_BYTES) {
+      throw new BadRequestException(`Icon image must be ${ICON_MAX_BYTES / 1024}KB or smaller`);
+    }
+
+    const mime = sniffImageMime(file);
+    if (!mime) {
+      throw new BadRequestException('Icon must be a PNG, JPEG, or WebP image');
+    }
+
+    const icon_hash = createHash('sha256').update(file).digest('hex');
+    const existing = await this.iconRepo.findOne({ where: { kind, key } });
+    const icon = existing ?? this.iconRepo.create({ kind, key });
+    icon.icon_data = file;
+    icon.icon_mime = mime;
+    icon.icon_hash = icon_hash;
+    // Explicitly shaped rather than returning the saved entity — unlike every other admin
+    // entity, GameIcon carries a mediumblob column, which AdminController's routes (no
+    // ClassSerializerInterceptor, matching every other admin CRUD route) would otherwise dump
+    // into the JSON response as a giant byte-array.
+    await this.iconRepo.save(icon);
+    return { kind, key, hash: icon_hash };
+  }
+
+  async deleteIcon(kind: string, key: string): Promise<void> {
+    const icon = await this.iconRepo.findOne({ where: { kind, key } });
+    if (!icon) throw new NotFoundException(`No icon for ${kind}/${key}`);
+    await this.iconRepo.remove(icon);
   }
 
   // --- Game Settings ---

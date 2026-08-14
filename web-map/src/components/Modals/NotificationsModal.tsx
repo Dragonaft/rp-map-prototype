@@ -6,7 +6,7 @@ import { diplomacyApi } from '../../api/diplomacy';
 import { setRelations, setTreaties, setWars } from '../../store/slices/diplomacySlice';
 import { AppNotification, NotificationSeverity, NotificationType, Province, Treaty, TreatyArticle, TreatyStatus } from '../../types';
 import { ActionButton } from '../ActionButton.tsx';
-import { RESOURCE_ICONS } from '../../constants/buildingIcons.ts';
+import { GameIcon } from '../GameIcon.tsx';
 import { APP_VERSION } from '../../constants/appVersion.ts';
 import { DEFAULT_MAP_LAND_COLOR, DEFAULT_MAP_WATER_COLOR } from '../../utils/mapModes.ts';
 import { notificationsApi } from '../../api/notifications.ts';
@@ -112,7 +112,10 @@ export const NotificationsModal: React.FC<Props> = ({ open, onClose }) => {
               return (
                 <li key={i}>
                   {nameFor(article.from)} pays{' '}
-                  <span className="text-secondary font-bold">{RESOURCE_ICONS[article.resourceKey] ?? '📦'} {article.amount} {article.resourceKey}</span>
+                  <span className="text-secondary font-bold inline-flex items-center gap-1">
+                    <GameIcon kind="resource" iconKey={article.resourceKey} className="w-4 h-4" />
+                    {article.amount} {article.resourceKey}
+                  </span>
                   {' '}to {nameFor(article.to)}
                 </li>
               );

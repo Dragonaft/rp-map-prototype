@@ -12,6 +12,7 @@ import diplomacyReducer from "./slices/diplomacySlice.ts";
 import notificationsReducer from "./slices/notificationsSlice.ts";
 import newsReducer from "./slices/newsSlice.ts";
 import modReducer from "./slices/modSlice.ts";
+import iconsReducer from "./slices/iconsSlice.ts";
 
 export const store = configureStore({
   reducer: {
@@ -28,6 +29,7 @@ export const store = configureStore({
     notifications: notificationsReducer,
     news: newsReducer,
     mod: modReducer,
+    icons: iconsReducer,
   },
   devTools: process.env.NODE_ENV !== 'production',
 });

@@ -1,0 +1,29 @@
+[
+  { "kind": "building", "key": "FARM", "file": "farm_b_icon.png" },
+  { "kind": "building", "key": "BARRACKS", "file": "barracks_b_icon.png" },
+  { "kind": "building", "key": "FORT", "file": "fort_b_icon.png" },
+  { "kind": "building", "key": "MARKET", "file": "market_b_icon.png" },
+  { "kind": "building", "key": "MINE", "file": "mine_b_icon.png" },
+  { "kind": "building", "key": "FORESTRY", "file": "forestry_b_icon.png" },
+  { "kind": "building", "key": "LIBRARY", "file": "library.png" },
+  { "kind": "building", "key": "GARDEN", "file": "garden_b_icon.png" },
+  { "kind": "building", "key": "BAZAAR", "file": "bazaar_b_icon.png" },
+  { "kind": "building", "key": "ARMORY", "file": "armory_b_icon.png" },
+  { "kind": "building", "key": "TEMPLE", "file": "temple_b_icon.png" },
+  { "kind": "building", "key": "CATHEDRAL", "file": "cathedral_b_icon.png" },
+  { "kind": "building", "key": "TRADE_HOUSE", "file": "tradehouse_b_icon.png" },
+  { "kind": "building", "key": "CASTLE", "file": "castle_b_icon.png" },
+
+  { "kind": "landscape", "key": "plains", "file": "plains_icon.png" },
+  { "kind": "landscape", "key": "forest", "file": "forest_icon.png" },
+  { "kind": "landscape", "key": "mountain", "file": "mountains icon.png" },
+  { "kind": "landscape", "key": "desert", "file": "desrt_icon.png" },
+  { "kind": "landscape", "key": "hills", "file": "hills_icon.png" },
+  { "kind": "landscape", "key": "swamp", "file": "swamp_icon.png" },
+
+  { "kind": "resource", "key": "iron", "file": "iron_r_icon.png" },
+  { "kind": "resource", "key": "gold", "file": "gold_r_icon.png" },
+  { "kind": "resource", "key": "stone", "file": "stone_r_icon.png" },
+  { "kind": "resource", "key": "wood", "file": "wood_r_icon.png" },
+  { "kind": "resource", "key": "grain", "file": "grain_r_icon.png" }
+]

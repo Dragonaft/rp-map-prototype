@@ -21,10 +21,11 @@ import { UsersModule } from '../users/users.module';
 import { PlayerClass } from '../classes/entities/player-class.entity';
 import { GameSettingsModule } from '../settings/game-settings.module';
 import { KnowledgeArticle } from '../knowledge/entities/knowledge-article.entity';
+import { GameIcon } from '../icons/entities/game-icon.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Building, Army, Tech, TroopType, Resource, Good, DiplomaticRelation, War, NewsAgency, NewsArticle, PlayerClass, KnowledgeArticle]),
+    TypeOrmModule.forFeature([User, Building, Army, Tech, TroopType, Resource, Good, DiplomaticRelation, War, NewsAgency, NewsArticle, PlayerClass, KnowledgeArticle, GameIcon]),
     GoodsModule,
     ResourcesModule,
     NotificationsModule,

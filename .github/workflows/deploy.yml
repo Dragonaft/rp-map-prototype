@@ -150,6 +150,9 @@ jobs:
             echo "==> Syncing Codex knowledge base (idempotent upsert by key)"
             docker compose exec -T api npm run seed:knowledge
 
+            echo "==> Syncing icon art (idempotent upsert by kind/key)"
+            docker compose exec -T api npm run seed:icons
+
             if [ "$RESET" = "true" ]; then
               echo "==> provinces.json changed (or forced): FULL MAP RESET"
               docker compose exec -T api npm run seed:resources

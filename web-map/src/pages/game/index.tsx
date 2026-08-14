@@ -21,6 +21,8 @@ import { armiesApi } from "../../api/armies.ts";
 import { setArmies, setTroopTypes } from "../../store/slices/armiesSlice.ts";
 import { resourcesApi } from "../../api/resources.ts";
 import { setResources, setMyResources } from "../../store/slices/resourcesSlice.ts";
+import { iconsApi } from "../../api/icons.ts";
+import { setIcons } from "../../store/slices/iconsSlice.ts";
 import { goodsApi } from "../../api/goods.ts";
 import { setMyGoods } from "../../store/slices/goodsSlice.ts";
 import { diplomacyApi } from "../../api/diplomacy.ts";
@@ -84,6 +86,8 @@ export const GamePage: React.FC = () => {
   const { data: troopTypesData } = useQuery(fetchTroopTypes, []);
   const fetchResources = useCallback(() => resourcesApi.getAll(), []);
   const { data: resourcesData } = useQuery(fetchResources, []);
+  const fetchIcons = useCallback(() => iconsApi.getAll(), []);
+  const { data: iconsData } = useQuery(fetchIcons, []);
   const fetchMyResources = useCallback(() => resourcesApi.getMine(), []);
   const { data: myResourcesData } = useQuery(fetchMyResources, []);
   const fetchMyGoods = useCallback(() => goodsApi.getMine(), []);
@@ -142,6 +146,11 @@ export const GamePage: React.FC = () => {
     if (!resourcesData) return;
     dispatch(setResources(resourcesData));
   }, [resourcesData, dispatch]);
+
+  useEffect(() => {
+    if (!iconsData) return;
+    dispatch(setIcons(iconsData));
+  }, [iconsData, dispatch]);
 
   useEffect(() => {
     if (!myResourcesData) return;

@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
-import { ActionType, ProvinceBuilding, Province } from '../types';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActionType, GameIconKind, ProvinceBuilding, Province } from '../types';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { setSelectedTroops } from '../store/slices/provincesSlice';
 import type { BBox } from '../store/slices/provincesSlice';
-import { BUILDING_ICONS, LANDSCAPE_ICONS, RESOURCE_ICONS } from '../constants/buildingIcons';
+import { useGameIcon, PLACEHOLDER_ICON_URL } from '../hooks/useGameIcon.ts';
 import type { RootState } from "../store/store.ts";
 import {
   BUILDING_PENDING_COLOR,
@@ -35,6 +35,30 @@ interface Props {
 }
 
 const MAP_VISIBLE_BUILDINGS = new Set(['CAPITAL', 'CAPITOL', 'FORT', 'FORESTRY', 'MINE']);
+
+/** SVG-native equivalent of GameIcon.tsx — <img> can't be used inside <svg>, so this renders a
+ *  building/landscape/resource icon as a native <image> element instead, with the same
+ *  useGameIcon resolution + onError-to-placeholder fallback. x/y are the icon's top-left corner
+ *  (unlike the <text> elements this replaces, which were center/start-anchored). */
+const SvgIcon: React.FC<{ kind: GameIconKind; iconKey: string; x: number; y: number; size: number }> = ({
+  kind, iconKey, x, y, size,
+}) => {
+  const src = useGameIcon(kind, iconKey);
+  const [errored, setErrored] = useState(false);
+
+  useEffect(() => {
+    setErrored(false);
+  }, [src]);
+
+  return (
+    <image
+      href={errored ? PLACEHOLDER_ICON_URL : src}
+      x={x} y={y} width={size} height={size}
+      pointerEvents="none"
+      onError={() => setErrored(true)}
+    />
+  );
+};
 
 const ProvinceShapeComponent: React.FC<Props> = ({
   province,
@@ -175,27 +199,22 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   }, [dispatch, province.id, displayTroopCount, isTroopSelected, onArmyCountClick]);
 
   const renderBuildingIcon = (building: ProvinceBuilding, index: number) => {
-    const icon = BUILDING_ICONS[building.type] ?? '🏗️';
     const offsetX = (index % 2) * 15 - 7.5;
     const offsetY = Math.floor(index / 2) * 15 - 7.5;
+    const size = 18;
     return (
-      <text
+      <SvgIcon
         key={building.instanceId}
-        x={cx + offsetX} y={cy + offsetY}
-        fontSize="16" textAnchor="middle" dominantBaseline="middle"
-        pointerEvents="none" style={{ userSelect: 'none' }}
-      >
-        {icon}
-      </text>
+        kind="building" iconKey={building.type}
+        x={cx + offsetX - size / 2} y={cy + offsetY - size / 2}
+        size={size}
+      />
     );
   };
 
   // Show the badge when the province is owned and has troops, OR when there are
   // army troops present regardless of ownership (e.g. naval armies on water tiles).
   const hasLocalTroops = displayTroopCount > 0 && (isCurrentUserProvince || armyTroopCount != null);
-
-  const landscapeIcon = LANDSCAPE_ICONS[province.landscape];
-  const resourceIcon = RESOURCE_ICONS[province.resourceType];
 
   return (
     <g>
@@ -235,25 +254,13 @@ const ProvinceShapeComponent: React.FC<Props> = ({
       )}
 
       {/* Landscape icon — top-left corner */}
-      {!isWater && landscapeIcon && (
-        <text
-          x={bbox.x + 6} y={bbox.y + 10}
-          fontSize="10" textAnchor="start" dominantBaseline="middle"
-          pointerEvents="none" style={{ userSelect: 'none' }}
-        >
-          {landscapeIcon}
-        </text>
+      {!isWater && province.landscape && (
+        <SvgIcon kind="landscape" iconKey={province.landscape} x={bbox.x + 6} y={bbox.y + 4} size={12} />
       )}
 
       {/* Resource icon — next to landscape icon */}
-      {!isWater && resourceIcon && (
-        <text
-          x={bbox.x + 20} y={bbox.y + 10}
-          fontSize="10" textAnchor="start" dominantBaseline="middle"
-          pointerEvents="none" style={{ userSelect: 'none' }}
-        >
-          {resourceIcon}
-        </text>
+      {!isWater && province.resourceType && (
+        <SvgIcon kind="resource" iconKey={province.resourceType} x={bbox.x + 20} y={bbox.y + 4} size={12} />
       )}
 
       {/* Building icons (map-visible only) */}

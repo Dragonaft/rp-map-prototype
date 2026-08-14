@@ -14,7 +14,7 @@ import { CountryFlag } from "./CountryFlag.tsx";
 import { ActionType, ProvinceBuilding, TreatyStatus, UserClasses } from "../types.ts";
 import { MAP_MODE_OPTIONS } from "../utils/mapModes.ts";
 import { setMapMode } from "../store/slices/provincesSlice.ts";
-import { RESOURCE_ICONS } from "../constants/buildingIcons.ts";
+import { GameIcon } from "./GameIcon.tsx";
 import { modApi } from "../api/mod.ts";
 import { setActingAsUserId, setModSwitch, setNpcs } from "../store/slices/modSlice.ts";
 
@@ -257,12 +257,12 @@ export const TopBar = () => {
                   {myResources.length === 0 && <div>No resources yet</div>}
                   {myResources.map((holding) => {
                     const key = holding.resource.key;
-                    const icon = RESOURCE_ICONS[key] ?? '📦';
                     const pending = pendingResourceUsage[key] ?? 0;
                     const free = holding.quantity - pending;
                     return (
-                      <div key={holding.id}>
-                        {icon} {holding.resource.name}: {holding.quantity}
+                      <div key={holding.id} className="flex items-center gap-1">
+                        <GameIcon kind="resource" iconKey={key} className="w-4 h-4" />
+                        <span>{holding.resource.name}: {holding.quantity}</span>
                         {pending > 0 && (
                           <span style={{ color: free <= 0 ? '#ffb3b3' : '#ffd580' }}> ({pending} queued, {Math.max(0, free)} free)</span>
                         )}

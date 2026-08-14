@@ -1,8 +1,9 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Body, Param, Request, UseGuards, HttpCode, HttpStatus,
+  Body, Param, Request, UseGuards, UseInterceptors, UploadedFile, HttpCode, HttpStatus,
 } from '@nestjs/common';
-import { AdminService } from './admin.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { AdminService, ICON_MAX_BYTES } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -227,6 +228,24 @@ export class AdminController {
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteKnowledgeArticle(@Param('id') id: string) {
     return this.adminService.deleteKnowledgeArticle(id);
+  }
+
+  // --- Icons ---
+  // The multer size limit is a memory-safety backstop (rejects before the whole buffer is read
+  // into RAM), same convention as UsersController.uploadFlag — AdminService.uploadIcon re-checks
+  // size and validates the actual image format via magic bytes regardless of what multer/the
+  // client claim.
+
+  @Post('icons/:kind/:key')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: ICON_MAX_BYTES } }))
+  uploadIcon(@Param('kind') kind: string, @Param('key') key: string, @UploadedFile() file: Express.Multer.File) {
+    return this.adminService.uploadIcon(kind, key, file?.buffer);
+  }
+
+  @Delete('icons/:kind/:key')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteIcon(@Param('kind') kind: string, @Param('key') key: string) {
+    return this.adminService.deleteIcon(kind, key);
   }
 
   // --- Game Settings ---

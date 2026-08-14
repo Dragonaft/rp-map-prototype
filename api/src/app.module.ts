@@ -46,6 +46,8 @@ import { GameSettingsModule } from './settings/game-settings.module';
 import { GameSettings } from './settings/entities/game-settings.entity';
 import { KnowledgeModule } from './knowledge/knowledge.module';
 import { KnowledgeArticle } from './knowledge/entities/knowledge-article.entity';
+import { IconsModule } from './icons/icons.module';
+import { GameIcon } from './icons/entities/game-icon.entity';
 
 @Module({
   imports: [
@@ -69,6 +71,7 @@ import { KnowledgeArticle } from './knowledge/entities/knowledge-article.entity'
         PlayerClass,
         GameSettings,
         KnowledgeArticle,
+        GameIcon,
       ],
       synchronize: false,
     }),
@@ -89,6 +92,7 @@ import { KnowledgeArticle } from './knowledge/entities/knowledge-article.entity'
     ClassesModule,
     GameSettingsModule,
     KnowledgeModule,
+    IconsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

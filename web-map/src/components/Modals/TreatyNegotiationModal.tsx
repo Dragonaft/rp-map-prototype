@@ -5,7 +5,7 @@ import { useAppSelector } from '../../store/hooks';
 import { diplomacyApi } from '../../api/diplomacy';
 import { TreatyArticle, TreatyKind, TreatyVisibility } from '../../types';
 import { ActionButton } from '../ActionButton.tsx';
-import { RESOURCE_ICONS } from '../../constants/buildingIcons.ts';
+import { GameIcon } from '../GameIcon.tsx';
 
 interface Props {
   open: boolean;
@@ -378,16 +378,16 @@ const TradeRow: React.FC<{
   onUpdate: (id: string, patch: Partial<TributeRow>) => void;
   onRemove: (id: string) => void;
 }> = ({ row, resources, goodsCatalog, onUpdate, onRemove }) => {
-  const icon = row.kind === 'money'
-    ? '💰'
-    : row.kind === 'resource'
-      ? (RESOURCE_ICONS[row.resourceKey ?? ''] ?? '📦')
-      : goodIcon(goodsCatalog.find((g) => g.id === row.goodId)?.type);
-
   return (
     <div className="bg-surface-container-lowest/50 border border-solid border-outline-variant/10 p-2 flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <span className="text-xl shrink-0">{icon}</span>
+        <span className="text-xl shrink-0 inline-flex items-center">
+          {row.kind === 'money'
+            ? '💰'
+            : row.kind === 'resource'
+              ? <GameIcon kind="resource" iconKey={row.resourceKey ?? ''} className="w-5 h-5" />
+              : goodIcon(goodsCatalog.find((g) => g.id === row.goodId)?.type)}
+        </span>
         <select
           value={row.kind}
           onChange={(e) => onUpdate(row.id, { kind: e.target.value as TributeRow['kind'], resourceKey: undefined, goodId: undefined })}

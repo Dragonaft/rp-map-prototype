@@ -10,7 +10,7 @@ import { buildingsApi } from "../api/buildings.ts";
 import { ActionType, Army, Building, ProvinceBuilding } from "../types.ts";
 import { actionsApi } from "../api/actions.ts";
 import { addAction, removeActionById } from "../store/slices/actionsSlice.ts";
-import { BUILDING_ICONS } from "../constants/buildingIcons.ts";
+import { GameIcon } from "./GameIcon.tsx";
 import { BuildMenuModal } from "./Modals/BuildMenuModal.tsx";
 import { BuildingActionsModal } from "./Modals/BuildingActionsModal.tsx";
 import { CancelActionModal } from "./Modals/CancelActionModal.tsx";
@@ -517,7 +517,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
                   className="w-10 h-10 text-lg border border-gray-400 rounded bg-gray-200/40 flex items-center justify-center cursor-default"
                   title={b.name}
                 >
-                  {BUILDING_ICONS[b.type] ?? '🏗️'}
+                  <GameIcon kind="building" iconKey={b.type} className="w-6 h-6" />
                 </div>
               ))}
             </div>
@@ -599,7 +599,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
                   className="w-10 h-10 text-lg border border-gray-400 rounded bg-gray-200/40 flex items-center justify-center cursor-default"
                   title={b.name}
                 >
-                  {BUILDING_ICONS[b.type] ?? '🏗️'}
+                  <GameIcon kind="building" iconKey={b.type} className="w-6 h-6" />
                 </div>
               ))}
             </div>
@@ -674,7 +674,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
                       onClick={() => canBuildHere && handleBuiltBuildingClick(b)}
                       title={title}
                     >
-                      {BUILDING_ICONS[b.type] ?? '🏗️'}
+                      <GameIcon kind="building" iconKey={b.type} className="w-6 h-6" />
                     </button>
                   );
                 })}
@@ -685,7 +685,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
                     onClick={() => setCancelPendingTarget(a)}
                     title="Pending — click to cancel"
                   >
-                    {BUILDING_ICONS[a.type] ?? '🏗️'}
+                    <GameIcon kind="building" iconKey={a.type} className="w-6 h-6" />
                   </button>
                 ))}
                 {canBuildHere && Array.from({ length: emptySlotCount }).map((_, i) => (
@@ -833,7 +833,9 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmi
                   key={b.instanceId}
                   className="flex items-center justify-between text-xs px-2 py-1 rounded border border-gray-500 bg-gray-200/40"
                 >
-                  <span className="truncate">{BUILDING_ICONS[b.type] ?? '🏗️'} {b.name}</span>
+                  <span className="truncate inline-flex items-center gap-1">
+                    <GameIcon kind="building" iconKey={b.type} className="w-4 h-4" /> {b.name}
+                  </span>
                   <button
                     className="text-red-600 font-bold px-1 disabled:opacity-40"
                     disabled={modBusy}

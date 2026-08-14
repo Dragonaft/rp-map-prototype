@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Tooltip } from '@mui/material';
 import { Building } from '../../types.ts';
-import { BUILDING_ICONS } from '../../constants/buildingIcons.ts';
+import { GameIcon } from '../GameIcon.tsx';
 
 interface Props {
   open: boolean;
@@ -35,7 +35,7 @@ export const BuildingActionsModal: React.FC<Props> = ({
           {upgradeBuildingForTarget && (
             <div className="mb-3 p-2 rounded bg-gray-100 text-sm">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xl">{BUILDING_ICONS[upgradeBuildingForTarget.type] ?? '🏗️'}</span>
+                <GameIcon kind="building" iconKey={upgradeBuildingForTarget.type} className="w-5 h-5" />
                 <strong>{upgradeBuildingForTarget.name}</strong>
               </div>
               {upgradeBuildingForTarget.description && (
