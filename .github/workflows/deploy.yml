@@ -147,6 +147,9 @@ jobs:
             echo "==> Running database migrations"
             docker compose exec -T api npm run migration:run
 
+            echo "==> Syncing Codex knowledge base (idempotent upsert by key)"
+            docker compose exec -T api npm run seed:knowledge
+
             if [ "$RESET" = "true" ]; then
               echo "==> provinces.json changed (or forced): FULL MAP RESET"
               docker compose exec -T api npm run seed:resources

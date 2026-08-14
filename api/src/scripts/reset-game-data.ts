@@ -13,9 +13,12 @@ const LOG_CTX = 'ResetGameData';
 
 // Tables whose rows must survive a map reset. Everything else is wiped and then
 // repopulated by the seed scripts (buildings / techs / troop-types). `provinces`
-// is preserved because the import-provinces script manages it directly, and
-// `migrations` must never be touched or TypeORM would replay every migration.
-const KEEP_TABLES = new Set(['users', 'provinces', 'migrations']);
+// is preserved because the import-provinces script manages it directly,
+// `migrations` must never be touched or TypeORM would replay every migration, and
+// `knowledge_articles` (the Codex) is reference content unrelated to game/map state —
+// unlike buildings/techs/troop-types it has no reseed step in the RESET branch of the
+// deploy workflow, so wiping it here would leave the Codex empty after a map reset.
+const KEEP_TABLES = new Set(['users', 'provinces', 'migrations', 'knowledge_articles']);
 
 async function resetGameData() {
   logger.log('Connecting to database...', LOG_CTX);

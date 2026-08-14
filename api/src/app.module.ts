@@ -44,6 +44,8 @@ import { ClassesModule } from './classes/classes.module';
 import { PlayerClass } from './classes/entities/player-class.entity';
 import { GameSettingsModule } from './settings/game-settings.module';
 import { GameSettings } from './settings/entities/game-settings.entity';
+import { KnowledgeModule } from './knowledge/knowledge.module';
+import { KnowledgeArticle } from './knowledge/entities/knowledge-article.entity';
 
 @Module({
   imports: [
@@ -66,6 +68,7 @@ import { GameSettings } from './settings/entities/game-settings.entity';
         NewsAgency, NewsArticle,
         PlayerClass,
         GameSettings,
+        KnowledgeArticle,
       ],
       synchronize: false,
     }),
@@ -85,6 +88,7 @@ import { GameSettings } from './settings/entities/game-settings.entity';
     ModModule,
     ClassesModule,
     GameSettingsModule,
+    KnowledgeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -15,6 +15,7 @@
     "import:provinces": "node scripts/run-env.js script import-provinces",
     "seed:resources": "node scripts/run-env.js script seed-resources",
     "seed:classes": "node scripts/run-env.js script seed-classes",
+    "seed:knowledge": "node scripts/run-env.js script seed-knowledge",
     "seed:goods": "node scripts/run-env.js script seed-goods",
     "seed:buildings": "node scripts/run-env.js script seed-buildings",
     "seed:techs": "node scripts/run-env.js script seed-techs",

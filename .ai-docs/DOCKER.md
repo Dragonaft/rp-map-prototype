@@ -142,10 +142,16 @@ docker compose exec api npm run seed:buildings
 docker compose exec api npm run seed:techs
 docker compose exec api npm run seed:troop-types
 docker compose exec api npm run import:provinces
+
+# Codex knowledge base — idempotent upsert by key, no ordering dependency on the seeds
+# above; the CI deploy runs this on every deploy (not just map resets), right after migrations
+docker compose exec api npm run seed:knowledge
 ```
 
-> `reset:game` wipes and re-imports game data — the CI deploy runs it
-> (with the seeds) whenever `api/data/provinces.json` changes.
+> `reset:game` wipes and re-imports game data — the CI deploy runs it (with the seeds above)
+> whenever `api/data/provinces.json` changes. `knowledge_articles` is in `reset-game-data.ts`'s
+> `KEEP_TABLES` allowlist, so a reset never touches the Codex — `seed:knowledge` doesn't need to
+> re-run after it and can stay unconditional.
 
 ## Local Development (Without Docker)
 

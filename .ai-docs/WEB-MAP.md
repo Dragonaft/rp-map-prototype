@@ -61,7 +61,7 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 - 403 `GAME_PAUSED` interceptor: forces a logout + redirect to `/login` — see
   [Game Pause Handling](#game-pause-handling)
 
-**API modules:** auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts, resources.ts, goods.ts, diplomacy.ts, notifications.ts, gameSettings.ts
+**API modules:** auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts, resources.ts, goods.ts, diplomacy.ts, notifications.ts, gameSettings.ts, knowledge.ts
 
 **SSE:** `/actions/execution-stream` — listened in `useActionExecutionReload` hook for auto-reload when turn completes.
 
@@ -107,7 +107,7 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 
 ```
 GamePage
-├── TopBar              Resources display, tech tree button, notifications bell, diplomacy, profile, logout
+├── TopBar              Resources display, tech tree button, notifications bell, diplomacy, Codex, profile, logout
 ├── MapView             SVG map canvas (pan/zoom/wrap)
 │   └── ProvinceShape   Individual province rendering (incl. occupied-province stripes)
 ├── SelectedProvinceHover  Right panel (build, deploy, setup, colonize, occupation state, player treaties)
@@ -128,6 +128,7 @@ GamePage
     ├── TreatyNegotiationModal Vic3-style article builder (alliance/trade/troops_pass/article)
     ├── PeaceNegotiationModal  EU4-style peace proposal (province checklist + tribute, contiguity-checked)
     ├── PlayerTreatiesModal    Read-only view of another player's public accepted treaties
+    ├── KnowledgeModal         The "Codex" — player-facing knowledge base (category sidebar + markdown reading pane), fetched from `GET /knowledge`
     ├── CreateNpcModal         ADMIN/MODERATOR-only: creates an NPC country (`POST /mod/npc`)
     └── ModStocksModal         ADMIN/MODERATOR-only: directly edits an NPC's money/troops/piety/goods/resources
 ```
@@ -422,7 +423,7 @@ source alone — this is how every gotcha above was originally diagnosed.
 ```
 web-map/src/
 ├── api/              config.ts, auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts,
-│                     resources.ts, goods.ts, diplomacy.ts, notifications.ts, gameSettings.ts
+│                     resources.ts, goods.ts, diplomacy.ts, notifications.ts, gameSettings.ts, knowledge.ts
 ├── components/       MapView, ProvinceShape, SelectedProvinceHover, FastBuildPanel, ArmyBlock,
 │                     ManageArmiesModal, TopBar, TechTree, modals
 ├── pages/            game/index.tsx, auth/login/LoginPage.tsx, auth/register/RegisterPage.tsx

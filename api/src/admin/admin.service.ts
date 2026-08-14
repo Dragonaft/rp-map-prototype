@@ -25,6 +25,7 @@ import { ProvinceBuilding } from '../buildings/entities/province-building.entity
 import { UsersService } from '../users/users.service';
 import { PlayerClass } from '../classes/entities/player-class.entity';
 import { GameSettingsService } from '../settings/game-settings.service';
+import { KnowledgeArticle } from '../knowledge/entities/knowledge-article.entity';
 
 @Injectable()
 export class AdminService {
@@ -42,6 +43,7 @@ export class AdminService {
     @InjectRepository(NewsAgency) private readonly newsAgencyRepo: Repository<NewsAgency>,
     @InjectRepository(NewsArticle) private readonly newsArticleRepo: Repository<NewsArticle>,
     @InjectRepository(PlayerClass) private readonly classRepo: Repository<PlayerClass>,
+    @InjectRepository(KnowledgeArticle) private readonly knowledgeRepo: Repository<KnowledgeArticle>,
     private readonly userGoodsService: UserGoodsService,
     private readonly userResourcesService: UserResourcesService,
     private readonly notificationsService: NotificationsService,
@@ -329,6 +331,32 @@ export class AdminService {
     const playerClass = await this.classRepo.findOne({ where: { id } });
     if (!playerClass) throw new NotFoundException(`Class ${id} not found`);
     await this.classRepo.remove(playerClass);
+  }
+
+  // --- Knowledge (Codex) ---
+  // Admin edits here are an overlay, not the source of truth — seed-knowledge.ts (upserting from
+  // api/data/knowledge/*.md by `key`) overwrites these on every reseed, same convention as Classes/Goods.
+
+  findAllKnowledgeArticles() {
+    return this.knowledgeRepo.find({ order: { sort_order: 'ASC' } });
+  }
+
+  async createKnowledgeArticle(dto: Record<string, any>) {
+    const article = this.knowledgeRepo.create(dto);
+    return this.knowledgeRepo.save(article);
+  }
+
+  async updateKnowledgeArticle(id: string, dto: Record<string, any>) {
+    const article = await this.knowledgeRepo.findOne({ where: { id } });
+    if (!article) throw new NotFoundException(`Knowledge article ${id} not found`);
+    Object.assign(article, dto);
+    return this.knowledgeRepo.save(article);
+  }
+
+  async deleteKnowledgeArticle(id: string) {
+    const article = await this.knowledgeRepo.findOne({ where: { id } });
+    if (!article) throw new NotFoundException(`Knowledge article ${id} not found`);
+    await this.knowledgeRepo.remove(article);
   }
 
   // --- Game Settings ---

@@ -206,6 +206,29 @@ export class AdminController {
     return this.adminService.deleteClass(id);
   }
 
+  // --- Knowledge (Codex) ---
+
+  @Get('knowledge')
+  getKnowledgeArticles() {
+    return this.adminService.findAllKnowledgeArticles();
+  }
+
+  @Post('knowledge')
+  createKnowledgeArticle(@Body() body: Record<string, any>) {
+    return this.adminService.createKnowledgeArticle(body);
+  }
+
+  @Patch('knowledge/:id')
+  updateKnowledgeArticle(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateKnowledgeArticle(id, body);
+  }
+
+  @Delete('knowledge/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteKnowledgeArticle(@Param('id') id: string) {
+    return this.adminService.deleteKnowledgeArticle(id);
+  }
+
   // --- Game Settings ---
   // Singleton (no :id) — ADMIN only, overriding the class-level ADMIN|MODERATOR gate:
   // pausing the whole game is an ADMIN action, not a MODERATOR one.

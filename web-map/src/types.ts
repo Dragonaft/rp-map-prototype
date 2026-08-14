@@ -508,3 +508,14 @@ export interface MyNewsAgency {
   remainingToday: number;
 }
 
+/** A player-facing Codex article (`GET /knowledge`) — see api/data/knowledge/*.md. */
+export interface KnowledgeArticle {
+  id: string;
+  key: string;
+  title: string;
+  category: string;
+  sortOrder: number;
+  /** Markdown body. */
+  content: string;
+}
+

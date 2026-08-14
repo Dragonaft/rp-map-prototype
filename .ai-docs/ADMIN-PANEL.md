@@ -18,7 +18,7 @@
 
 ## Features
 
-Eleven tabs in the dashboard — eight manage one entity each via MUI DataGrid with inline row
+Twelve tabs in the dashboard — nine manage one entity each via MUI DataGrid with inline row
 editing; Notifications is a compose-and-send utility instead (broadcast rows fan out per-user,
 so there's no single browsable list to grid-edit), News Wall is read/delete-only (agencies
 and articles are player-authored in-game, not admin-created), and Settings is a plain form over
@@ -101,12 +101,25 @@ just load-edit-save, same shape as the Notifications tab's compose form.
 - `GET`/`PATCH /admin/game-settings` — **ADMIN role only**, not MODERATOR (the one exception to
   this panel's usual ADMIN\|MODERATOR gate — see [API.md](API.md#admin-admin))
 
+### Knowledge Tab
+- Fields: key (unique, must equal the source markdown filename's basename), title, category,
+  sort_order, is_visible (boolean, default true), content (markdown)
+- Create via modal (key + title + category + content required)
+- Content is edited through a separate "Edit Content" dialog (`GridActionsCellItem`, same
+  action-column pattern as the Techs tab's "Edit Effects") rather than inline in the grid — a
+  multi-KB markdown body doesn't fit a DataGrid cell
+- Backs the web client's Codex (`GET /knowledge`, gated to `is_visible = true`) — see
+  [GAME-MECHANICS.md](GAME-MECHANICS.md) and [WEB-MAP.md](WEB-MAP.md#component-map). Edits here
+  are an overlay, not the source of truth: running `npm run seed:knowledge`
+  (`api/data/knowledge/*.md`) overwrites any row by matching `key`, same convention as the
+  Classes/Goods tabs
+
 ## API Communication
 
 - Base URL: `VITE_API_BASE_URL` (default `http://localhost:3000`, Docker: `/api`)
 - `withCredentials: true`
 - 401 interceptor with token refresh queue (identical pattern to web-map)
-- Endpoints: `/admin/users`, `/admin/buildings`, `/admin/armies`, `/admin/techs`, `/admin/troop-types`, `/admin/resources`, `/admin/goods`, `/admin/classes` (GET, POST, PATCH, DELETE), `/admin/notifications/broadcast` (POST only), `/admin/news-agencies`, `/admin/news-articles` (GET, DELETE only)
+- Endpoints: `/admin/users`, `/admin/buildings`, `/admin/armies`, `/admin/techs`, `/admin/troop-types`, `/admin/resources`, `/admin/goods`, `/admin/classes`, `/admin/knowledge` (GET, POST, PATCH, DELETE), `/admin/notifications/broadcast` (POST only), `/admin/news-agencies`, `/admin/news-articles` (GET, DELETE only)
 
 ## Auth Flow
 
@@ -127,7 +140,7 @@ admin-panel/src/
 │   ├── login/        LoginPage.tsx
 │   └── dashboard/    index.tsx, UsersTab.tsx, BuildingsTab.tsx, ArmiesTab.tsx, TechsTab.tsx,
 │                     TroopTypesTab.tsx, ResourcesTab.tsx, GoodsTab.tsx, NotificationsTab.tsx,
-│                     NewsWallTab.tsx, ClassesTab.tsx, SettingsTab.tsx
+│                     NewsWallTab.tsx, ClassesTab.tsx, SettingsTab.tsx, KnowledgeTab.tsx
 ├── App.tsx           Router setup
 └── main.tsx          Entry point
 ```

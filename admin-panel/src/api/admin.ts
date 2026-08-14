@@ -50,6 +50,12 @@ export const adminApi = {
   updateClass: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/classes/${id}`, data),
   deleteClass: (id: string) => apiClient.delete(`/admin/classes/${id}`),
 
+  // Knowledge (Codex)
+  getKnowledgeArticles: () => apiClient.get('/admin/knowledge'),
+  createKnowledgeArticle: (data: Record<string, any>) => apiClient.post('/admin/knowledge', data),
+  updateKnowledgeArticle: (id: string, data: Record<string, any>) => apiClient.patch(`/admin/knowledge/${id}`, data),
+  deleteKnowledgeArticle: (id: string) => apiClient.delete(`/admin/knowledge/${id}`),
+
   // Game Settings (singleton — no :id)
   getGameSettings: () => apiClient.get('/admin/game-settings'),
   updateGameSettings: (data: Record<string, any>) => apiClient.patch('/admin/game-settings', data),

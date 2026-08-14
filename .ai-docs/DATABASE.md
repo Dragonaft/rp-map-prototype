@@ -39,6 +39,7 @@ PlayerClass (standalone table `classes`; referenced by key string in User.class 
 ActionsLog (standalone, JSON blob)
 ExecutionLock (standalone, distributed locking)
 GameSettings (standalone, singleton row id='global' — global pause/turns-enabled switches)
+KnowledgeArticle (standalone; player-facing Codex content, seeded from api/data/knowledge/*.md)
 ```
 
 ## Entities
@@ -300,6 +301,28 @@ a hard-coded enum so admins can add classes and control their visibility without
 > Editable via the admin panel's Classes tab (create/rename/toggle `is_visible`/delete); seeded
 > rows (noble/holy/guild) come from `api/data/classes.json` via `npm run seed:classes`.
 
+### KnowledgeArticle
+Table `knowledge_articles`. The player-facing "Codex" — in-app reference articles on game
+mechanics (goods, buildings, troops, ports, supply, etc.), opened from the web client's top-bar
+Codex button. See [GAME-MECHANICS.md](GAME-MECHANICS.md) (the source material the articles are
+written from) and [WEB-MAP.md](WEB-MAP.md#component-map) for `KnowledgeModal.tsx`.
+
+| Column     | Type          | Notes |
+|------------|---------------|-------|
+| id         | uuid (PK)     | |
+| key        | varchar, unique | Natural key; must equal the source markdown filename's basename (enforced by `seed-knowledge.ts`) |
+| title      | varchar       | Display title |
+| category   | varchar       | Sidebar grouping (e.g. "Basics", "Economy", "Warfare") — free string, not a DB enum |
+| sort_order | int, default 0 | Global ordering; a category's position is derived from its lowest-order member, so there's no separate category table |
+| content    | mediumtext    | Markdown body, rendered client-side the same way `NewsArticle.content` is |
+| is_visible | boolean, default true | When false, dropped from the player-facing `GET /knowledge` — same convention as `PlayerClass.is_visible` |
+
+> Content is authored as one markdown file per article under `api/data/knowledge/*.md`
+> (`---` frontmatter — `key`/`title`/`category`/`order`/optional `visible` — then the markdown
+> body) and seeded via `npm run seed:knowledge` (`api/src/scripts/seed-knowledge.ts`), which
+> upserts by `key`. Admin-panel edits (Knowledge tab) are an overlay, not the source of truth — a
+> reseed overwrites them, identical to the Classes/Goods convention above.
+
 ### UserTechProgress
 | Column     | Type          | Notes |
 |------------|---------------|-------|
@@ -467,6 +490,7 @@ Located in `api/data/`:
 - `buildings.json` — Building type definitions, including `production_good_name` (a Good **name** string, resolved to `production_good_id` at seed time — Good has no natural key like Resource does) and `requirement_good_2_name`/`resource_production_key` (the second one-time goods cost and the resource-key production override, added in the economy/class rework). 23 rows
 - `techs.json` — Tech tree definitions. 51 rows across 5 branches (economy 14, military 13, guild/holy/noble 8 each), tiered T1=50/T2=150/T3=400/T4=800
 - `troop-types.json` — Troop type stats, including `required_goods_name` (a Good **name** string, resolved to `required_goods` at seed time — same mechanic as `buildings.json`'s `production_good_name`) and the second goods/supply slots (`required_goods_2_name`, `supply_good_2_name`, added for the class elite units). 11 rows: 5 base + 3 class + 3 class-elite capstones
+- `knowledge/*.md` — one markdown file per Codex article (`---` frontmatter — `key`/`title`/`category`/`order`/optional `visible` — then the markdown body); `key` must equal the filename basename. 14 rows across 6 categories (Basics, Territory, Economy, Warfare, Progression, Diplomacy)
 
 Import scripts in `api/src/scripts/`:
 - `seed-resources.ts` — Seeds the resources table. **Must run before `import-provinces.ts`**, which looks up each province's resource key against this table and fails loudly on an unknown key
@@ -475,6 +499,7 @@ Import scripts in `api/src/scripts/`:
 - `seed-buildings.ts` — Seeds building definitions
 - `seed-techs.ts` — Seeds tech tree
 - `seed-troop-types.ts` — Seeds troop types. **Must run after `seed-goods.ts`**, which it looks up `required_goods_name` against
+- `seed-knowledge.ts` — Seeds Codex articles from `api/data/knowledge/*.md` (upsert by `key`); independent of every other seed script — no ordering dependency
 - `balance-report.ts` — Combat balance analysis
 - `reset-game-data.ts` — Reset game data
 

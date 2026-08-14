@@ -34,6 +34,7 @@ AppModule
 ├── ClassesModule       Player class definitions (`classes` table) + visibility gating for TechsModule
 ├── ModModule           ADMIN/MODERATOR "god-mode" tools (spawn NPCs/armies/buildings, edit stocks) + act-as impersonation
 ├── GameSettingsModule  Global singleton settings (`game_settings` table): pause switch + turn-execution switch
+├── KnowledgeModule     Player-facing "Codex" knowledge base (`knowledge_articles` table), markdown content seeded from api/data/knowledge/*.md
 └── AdminModule         Admin CRUD for all entities
 ```
 
@@ -83,6 +84,16 @@ AppModule
 |--------|-------|------|-------------|
 | GET    | /     | JWT  | All good definitions (name, type, price_per_one) |
 | GET    | /mine | JWT  | Caller's UserGood inventory rows (good + quantity). No spend/trade endpoints yet |
+
+### Knowledge (`/knowledge`)
+Read-only player-facing "Codex" — the in-app knowledge base for game mechanics (goods,
+buildings, troops, ports, supply, etc.), opened from the web client's top-bar Codex button. See
+[WEB-MAP.md](WEB-MAP.md#component-map) for the modal and [DATABASE.md](DATABASE.md#knowledgearticle)
+for the entity/seed pipeline.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET    | /    | JWT  | Visible articles (`is_visible = true`), ordered by `sort_order` ASC, content included |
 
 ### Techs (`/techs`)
 | Method | Path     | Auth | Description |
@@ -192,6 +203,10 @@ Read/write, singleton entity, and the pause-enforcement mechanism are covered in
 | POST   | /classes       | Admin | Create class (`{key, name, is_visible?}`) |
 | PATCH  | /classes/:id   | Admin | Update class (rename, toggle `is_visible`) |
 | DELETE | /classes/:id   | Admin | Delete class (does not touch existing `User.class`/`Tech.branch` string values) |
+| GET    | /knowledge     | Admin | List Codex articles (full list, including hidden) |
+| POST   | /knowledge     | Admin | Create article (`{key, title, category, sort_order, content, is_visible?}`) |
+| PATCH  | /knowledge/:id | Admin | Update article — a reseed (`npm run seed:knowledge`) overwrites edits by `key`, same convention as Classes/Goods |
+| DELETE | /knowledge/:id | Admin | Delete article |
 | GET    | /game-settings | Admin only | Read the singleton `game_settings` row (`is_paused`, `pause_message`, `turns_enabled`, `map_checksum`, snake_case — no `ClassSerializerInterceptor` here, unlike the public `GET /game-settings`) |
 | PATCH  | /game-settings | Admin only | Update any subset of the four fields (though `map_checksum` has no admin-panel form control — it's write-only from `import-provinces.ts`, this endpoint just doesn't reject it if sent). **ADMIN role only** — overrides the controller's default ADMIN\|MODERATOR gate via a route-level `@Roles(ADMIN)`, since pausing the whole game is treated as an ADMIN-only action, unlike every other row in this table |
 | GET    | /diplomacy-relations     | Admin | List diplomatic relations |
@@ -443,14 +458,17 @@ api/src/
 ├── notifications/  controller, service, entity (notification) — per-user durable notifications
 ├── settings/       controller, service (cached), entity (game_settings, singleton row),
 │                   interceptors/game-pause.interceptor.ts (global APP_INTERCEPTOR)
+├── knowledge/      controller, service, entity (knowledge-article) — read-only player-facing Codex
 ├── admin/          controller, service
 ├── db/             data-source.ts, data-source.prod.ts, migrations/
 ├── utils/          logger.ts, parseIncome.ts, colorDistance.ts, mod-visibility.ts (resolveModFogBypass)
 └── scripts/        seed-resources, seed-goods, import-provinces, seed-buildings, seed-techs,
-                    seed-troop-types, balance-report, reset-game-data
+                    seed-troop-types, seed-knowledge, balance-report, reset-game-data
 
 api/data/           resources.json, goods.json, provinces.json, buildings.json, techs.json, troop-types.json
                     (sibling of src/, NOT api/src/data/)
+                    knowledge/  — one markdown file per Codex article (frontmatter + body),
+                    read by seed-knowledge.ts
 ```
 
 ## npm Scripts
@@ -467,6 +485,7 @@ api/data/           resources.json, goods.json, provinces.json, buildings.json, 
 | `seed:buildings`   | Seed building definitions (resolves `production_good_name` — run after `seed:goods`) |
 | `seed:techs`       | Seed tech tree                                   |
 | `seed:troop-types` | Seed troop type definitions (resolves `required_goods_name` — run after `seed:goods`) |
+| `seed:knowledge`   | Seed Codex articles from `api/data/knowledge/*.md` (idempotent upsert by `key`, independent of any other seed) |
 | `balance:report`   | Generate combat balance analysis                 |
 | `reset:game`       | Reset game data                                  |
 

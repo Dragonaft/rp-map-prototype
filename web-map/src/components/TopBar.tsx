@@ -9,6 +9,7 @@ import { ProfileModal } from "./Modals/ProfileModal.tsx";
 import { NotificationsModal } from "./Modals/NotificationsModal.tsx";
 import { DiplomacyModal } from "./Modals/DiplomacyModal.tsx";
 import { CreateNpcModal } from "./Modals/CreateNpcModal.tsx";
+import { KnowledgeModal } from "./Modals/KnowledgeModal.tsx";
 import { CountryFlag } from "./CountryFlag.tsx";
 import { ActionType, ProvinceBuilding, TreatyStatus, UserClasses } from "../types.ts";
 import { MAP_MODE_OPTIONS } from "../utils/mapModes.ts";
@@ -41,6 +42,7 @@ export const TopBar = () => {
   const [openProfileModal, setOpenProfileModal] = useState(false);
   const [openNotificationsModal, setOpenNotificationsModal] = useState(false);
   const [openDiplomacyModal, setOpenDiplomacyModal] = useState(false);
+  const [openKnowledgeModal, setOpenKnowledgeModal] = useState(false);
 
   const pendingTreatyCount = useMemo(
     () => treaties.filter(t => t.status === TreatyStatus.PENDING && t.receiver_id === user.id && !t.view_only).length,
@@ -164,6 +166,13 @@ export const TopBar = () => {
             >
               <span className="material-symbols-outlined text-sm" data-icon="handshake">handshake</span>
               Diplomacy
+            </Button>
+            <Button
+              className="flex items-center gap-2 px-4 py-2 bg-inverse-primary border rounded hover:bg-on-primary-fixed-variant transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+              onClick={() => setOpenKnowledgeModal(true)}
+            >
+              <span className="material-symbols-outlined text-sm" data-icon="menu_book">menu_book</span>
+              Codex
             </Button>
             <Button
               id="map-mode-button"
@@ -386,6 +395,10 @@ export const TopBar = () => {
       <DiplomacyModal
         open={openDiplomacyModal}
         onClose={() => setOpenDiplomacyModal(false)}
+      />
+      <KnowledgeModal
+        open={openKnowledgeModal}
+        onClose={() => setOpenKnowledgeModal(false)}
       />
       <CreateNpcModal
         open={openCreateNpcModal}
