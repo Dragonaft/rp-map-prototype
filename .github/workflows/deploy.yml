@@ -165,6 +165,7 @@ jobs:
               docker compose exec -T api npm run seed:resources
               docker compose exec -T api npm run import:provinces
               docker compose exec -T api npm run reset:game
+              docker compose exec -T api npm run seed:resources
               docker compose exec -T api npm run seed:classes
               docker compose exec -T api npm run seed:goods
               docker compose exec -T api npm run seed:buildings
