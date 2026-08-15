@@ -26,7 +26,14 @@ const LOG_CTX = 'ResetGameData';
 // resulting `map_checksum: null` would then see a false "still valid" match and keep a stale
 // layout referencing province IDs that no longer exist). It would also reset `is_paused`/
 // `turns_enabled` to their defaults on every full reset, which is never intended.
-const KEEP_TABLES = new Set(['users', 'provinces', 'migrations', 'knowledge_articles', 'game_icons', 'game_settings']);
+// `resources` joins this set for the same reason knowledge_articles/game_icons do — but with
+// a sharper failure mode: `provinces` (kept) holds a real FK, `Province.resource_id`, into
+// `resources` (not kept). Wiping+reseeding resources on every reset gives each row a new UUID,
+// silently orphaning every province's resource_id (the FK survives because reset-game disables
+// FOREIGN_KEY_CHECKS around its DELETEs) — every province's resourceType then reads as null
+// until the next full re-import. seed:resources's upsert-by-key preserves existing row ids for
+// unchanged keys, so keeping this table stable is enough; no code elsewhere needs to change.
+const KEEP_TABLES = new Set(['users', 'provinces', 'migrations', 'knowledge_articles', 'game_icons', 'game_settings', 'resources']);
 
 async function resetGameData() {
   logger.log('Connecting to database...', LOG_CTX);
