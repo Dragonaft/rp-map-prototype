@@ -1,7 +1,21 @@
 services:
   db:
-    image: mysql:8
+    # Pinned, not floating `mysql:8` — a silent minor-version bump mid-deploy triggers MySQL's
+    # data-dictionary upgrade routine on container recreate, which is memory-hungry at exactly
+    # the moment migrations also spin up node processes; on a small host that's an OOM risk.
+    # Bump deliberately. IMPORTANT: before applying this on an existing prod volume, run
+    # `docker compose exec db mysql --version` there first — MySQL has no in-place downgrade,
+    # so this must be >= whatever is already running, or the container will refuse to start.
+    image: mysql:8.0.46
     restart: unless-stopped
+    # performance_schema alone costs ~300-400MB RSS on stock config — not worth it on a small
+    # host. The rest keeps the buffer pool/connection/cache footprint bounded rather than
+    # scaling to host RAM, appropriate for this dataset's size (~600 provinces).
+    command: >
+      --performance-schema=OFF
+      --innodb-buffer-pool-size=256M
+      --max-connections=50
+      --table-open-cache=200
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}

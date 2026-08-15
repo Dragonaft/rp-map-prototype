@@ -29,9 +29,16 @@ if (mode === 'script') {
     run('npx', ['ts-node', path.join('src', 'scripts', `${name}.ts`)]);
   }
 } else if (mode === 'typeorm') {
-  const dataSource = isProd ? 'dist/db/data-source.prod.js' : 'src/db/data-source.ts';
-  const bin = isProd ? 'typeorm' : 'typeorm-ts-node-commonjs';
-  run('npx', [bin, ...rest, '-d', dataSource]);
+  if (isProd) {
+    // Call the CLI entry directly instead of through npx — npx holds open an extra resident
+    // node process for the command's lifetime, which matters on a memory-constrained host
+    // running migrations alongside mysqld and the API itself. typeorm's package.json maps
+    // bin.typeorm -> ./cli.js.
+    run('node', [path.join('node_modules', 'typeorm', 'cli.js'), ...rest, '-d', 'dist/db/data-source.prod.js']);
+  } else {
+    // Dev needs the ts-node registration wrapper, so this path still goes through npx.
+    run('npx', ['typeorm-ts-node-commonjs', ...rest, '-d', 'src/db/data-source.ts']);
+  }
 } else {
   console.error('Usage: node scripts/run-env.js <script|typeorm> ...');
   process.exit(1);
