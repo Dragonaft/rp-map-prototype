@@ -3,10 +3,13 @@ services:
     # Pinned, not floating `mysql:8` — a silent minor-version bump mid-deploy triggers MySQL's
     # data-dictionary upgrade routine on container recreate, which is memory-hungry at exactly
     # the moment migrations also spin up node processes; on a small host that's an OOM risk.
-    # Bump deliberately. IMPORTANT: before applying this on an existing prod volume, run
-    # `docker compose exec db mysql --version` there first — MySQL has no in-place downgrade,
-    # so this must be >= whatever is already running, or the container will refuse to start.
-    image: mysql:8.0.46
+    # NOTE: `mysql:8` currently tracks the 8.4.x LTS line on Docker Hub, not 8.0.x — confirmed
+    # 2026-08-15 when pinning to 8.0.46 caused "Invalid MySQL server downgrade: Cannot downgrade
+    # from 80411 to 80046" on prod's existing data dir (MySQL refuses any downgrade, even across
+    # otherwise-compatible major versions). 8.4.11 matches what was already running. Bump
+    # deliberately from here — before ever bumping again, run `docker compose exec db mysql
+    # --version` first and pin to that version or newer; never pin backwards.
+    image: mysql:8.4.11
     restart: unless-stopped
     # performance_schema alone costs ~300-400MB RSS on stock config — not worth it on a small
     # host. The rest keeps the buffer pool/connection/cache footprint bounded rather than
