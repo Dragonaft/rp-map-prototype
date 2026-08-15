@@ -418,7 +418,6 @@ export function importPngAsMap(options: ImportPngOptions) {
       polygon,
       type: isWater ? 'water' : 'land',
       landscape: isWater ? 'plains' : randomFrom(landscapes),
-      local_troops: 0,
       resource_type: isWater ? randomFrom(resourcesSea) : pickWeighted(Math.random, resourceWeights),
       user_id: null,
       region_id: regionId,

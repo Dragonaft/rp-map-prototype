@@ -1,27 +1,43 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, In, IsNull, Not, Repository } from 'typeorm';
 import { ActionsService } from './actions.service';
 import { ActionExecutionStateService } from './action-execution-state.service';
 import { ActionExecutorService, ExecutionContext } from './action-executor.service';
 import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
+import { ProductionActionService } from './production-action.service';
+import { SupplyActionService } from './supply-action.service';
+import { BankruptcyService } from './bankruptcy.service';
 import { UserStateLoaderService } from './user-state-loader.service';
+import { DiplomacyService } from '../diplomacy/diplomacy.service';
+import { OccupationService } from '../diplomacy/occupation.service';
+import { TreatyService } from '../diplomacy/treaty.service';
+import { TechEffectsService } from '../techs/tech-effects.service';
+import { OCCUPATION_CORE_THRESHOLD } from '../diplomacy/types/diplomacy.types';
 import { ActionsLog, ExecutedAction } from './entities/actions-log.entity';
+import { NotificationsService } from '../notifications/notifications.service';
+import { GameSettingsService } from '../settings/game-settings.service';
+import { NotificationSeverity, NotificationType } from '../notifications/entities/notification.entity';
 import { ExecutionLock } from './entities/execution-lock.entity';
 import { ActionQueue, ActionStatus } from './entities/action-queue.entity';
 import { Army } from '../armies/entities/army.entity';
 import { ArmyUnit } from '../armies/entities/army-unit.entity';
 import { Province } from '../provinces/entities/province.entity';
+import { User } from '../users/entities/user.entity';
 import {
   ARMY_MIN_SIZE,
+  BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER,
   CASUALTY_FLOOR,
   applyCasualties,
   armyAttackPower,
   armyDefensePower,
+  armyGroupCategoryMix,
   armyTotalTroops,
   computeBuildModifier,
+  deleteArmy,
+  isBankruptcyDebuffed,
 } from './combat-calculator';
 import * as os from 'os';
 import { v4 as uuidv4 } from 'uuid';
@@ -42,8 +58,17 @@ export class ActionSchedulerService {
     private readonly actionExecutor: ActionExecutorService,
     private readonly incomeAction: IncomeActionService,
     private readonly upkeepAction: UpkeepActionService,
+    private readonly productionAction: ProductionActionService,
+    private readonly supplyAction: SupplyActionService,
+    private readonly bankruptcyService: BankruptcyService,
     private readonly userStateLoader: UserStateLoaderService,
     private readonly actionExecutionState: ActionExecutionStateService,
+    private readonly diplomacyService: DiplomacyService,
+    private readonly occupationService: OccupationService,
+    private readonly treatyService: TreatyService,
+    private readonly techEffects: TechEffectsService,
+    private readonly notificationsService: NotificationsService,
+    private readonly gameSettingsService: GameSettingsService,
     private readonly dataSource: DataSource,
   ) {
     // Create unique instance ID (hostname + process ID)
@@ -93,6 +118,11 @@ export class ActionSchedulerService {
   }
 
   private async executeScheduledActions(timetable: string): Promise<void> {
+    if (!(await this.gameSettingsService.turnsEnabled())) {
+      this.logger.log(`Turn execution disabled via game settings — skipping ${timetable} tick.`);
+      return;
+    }
+
     const lockKey = `action-execution-${timetable}`;
 
     // Try to acquire lock
@@ -115,7 +145,10 @@ export class ActionSchedulerService {
       await this.dataSource.transaction(async (manager) => {
         const state = await this.userStateLoader.load(manager);
         await this.incomeAction.execute(state, manager);
+        await this.productionAction.execute(state, manager);
         await this.upkeepAction.execute(state, manager);
+        await this.supplyAction.execute(state, manager);
+        await this.treatyService.processRecurringTrades(manager);
       });
     } catch (error) {
       this.logger.error('Income/upkeep phase failed; continuing with queued actions', error);
@@ -175,18 +208,17 @@ export class ActionSchedulerService {
               actionType: action.actionType,
               actionData: action.actionData,
               status: ActionStatus.FAILED,
+              failureReason: result.error,
               order: action.order,
               executedAt: new Date(),
             });
+            await this.notifyActionFailed(action.userId, action.actionType, result.error);
           }
         } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
           this.logger.error(`Error executing action ${action.id}:`, error);
 
-          await this.actionsService.updateActionStatus(
-            action.id,
-            ActionStatus.FAILED,
-            error instanceof Error ? error.message : 'Unknown error',
-          );
+          await this.actionsService.updateActionStatus(action.id, ActionStatus.FAILED, message);
           failedActions++;
 
           executedActions.push({
@@ -195,9 +227,11 @@ export class ActionSchedulerService {
             actionType: action.actionType,
             actionData: action.actionData,
             status: ActionStatus.FAILED,
+            failureReason: message,
             order: action.order,
             executedAt: new Date(),
           });
+          await this.notifyActionFailed(action.userId, action.actionType, message);
         }
       }
 
@@ -234,6 +268,20 @@ export class ActionSchedulerService {
       await this.disbandWeakArmies();
       await this.resolveArmyConflicts();
       await this.syncProvinceOwnershipWithArmies();
+
+      // Diplomacy tick: ownership is now final for the turn, so occupation
+      // counters, peace-truce decay, and stale-proposal expiry all run here.
+      await this.tickOccupations();
+      await this.dataSource.transaction((manager) => this.diplomacyService.tickPeaceDecay(manager));
+      await this.dataSource.transaction((manager) => this.treatyService.tickPendingExpiry(manager));
+
+      // Water residency tick: only armies that survived this turn's combat should have
+      // their time-at-sea evaluated.
+      await this.tickArmyWaterResidency();
+
+      // Bankruptcy tick: runs last so it sees this turn's final money (income,
+      // upkeep, recurring trade, and every queued action's cost have all applied by now).
+      await this.dataSource.transaction((manager) => this.bankruptcyService.tick(manager));
 
     } catch (error) {
       this.logger.error(`Error during scheduled action execution for ${timetable}:`, error);
@@ -308,8 +356,7 @@ export class ActionSchedulerService {
         let disbanded = 0;
         for (const army of armies) {
           if (armyTotalTroops(army) < ARMY_MIN_SIZE) {
-            await manager.delete(ArmyUnit, { army_id: army.id });
-            await manager.delete(Army, army.id);
+            await deleteArmy(manager, army.id);
             disbanded++;
             this.logger.warn(
               `Army ${army.id} (user ${army.user_id}) disbanded – only ${armyTotalTroops(army)} troops`,
@@ -346,6 +393,12 @@ export class ActionSchedulerService {
           byProvince.set(army.province_id, list);
         }
 
+        // Bankruptcy-debuffed users fight at half power on whichever side they're on.
+        const involvedUserIds = [...new Set(armies.map((a) => a.user_id))];
+        const usersById = new Map(
+          (await manager.find(User, { where: { id: In(involvedUserIds) } })).map((u) => [u.id, u]),
+        );
+
         for (const [provinceId, armiesInProvince] of byProvince) {
           // Collect unique user ids
           const userIds = new Set(armiesInProvince.map((a) => a.user_id));
@@ -355,56 +408,79 @@ export class ActionSchedulerService {
             where: { id: provinceId },
             relations: ['provinceBuildings', 'provinceBuildings.building'],
           });
-          if (!province || province.type === 'water') continue;
+          if (!province) continue;
+          const isWater = province.type?.toLowerCase() === 'water';
 
           this.logger.warn(
             `Province ${provinceId}: ${userIds.size} users' armies detected – resolving combat`,
           );
 
-          // Determine defender: user who owns the province
+          // Determine defender: user who owns the province. This only picks
+          // who *defends* this pass — it never changes province.user_id;
+          // legal ownership only ever changes via OccupationService.
           let defenderUserId = province.user_id;
 
           // If no army belongs to the province owner, the first user (sorted for
-          // determinism) takes provisional ownership and defends.
+          // determinism) takes provisional defense.
           if (!defenderUserId || !armiesInProvince.some((a) => a.user_id === defenderUserId)) {
             defenderUserId = [...userIds].sort()[0];
-            province.user_id = defenderUserId;
-            await manager.save(Province, province);
             this.logger.warn(
-              `Province ${provinceId}: no owner army present, assigned to user ${defenderUserId}`,
+              `Province ${provinceId}: no owner army present, user ${defenderUserId} defends provisionally`,
             );
           }
 
-          // Split into defender armies and attacker armies
+          // Split into defender armies and attacker armies — only armies
+          // hostile to the defender attack; allies/troops-pass grantees
+          // co-locate peacefully and are ignored here.
           let defenderArmies = armiesInProvince.filter((a) => a.user_id === defenderUserId);
           const attackerGroups = new Map<string, Army[]>();
           for (const army of armiesInProvince) {
             if (army.user_id === defenderUserId) continue;
+            if (!(await this.diplomacyService.isHostile(manager, army.user_id, defenderUserId))) continue;
             const group = attackerGroups.get(army.user_id) ?? [];
             group.push(army);
             attackerGroups.set(army.user_id, group);
           }
+          if (attackerGroups.size === 0) continue; // everyone present is at peace/allied — nothing to resolve
 
           // Deterministic, fair engagement order: strongest attacker strikes
           // first, ties broken by user id. Without this the order is whatever
           // the DB happened to return, so contested-province outcomes were
           // effectively random.
+          const powerMultiplier = (userId: string): number =>
+            isBankruptcyDebuffed(usersById.get(userId)) ? BANKRUPTCY_COMBAT_PENALTY_MULTIPLIER : 1;
+
           const orderedAttackers = [...attackerGroups.entries()].sort((a, b) => {
-            const powerA = a[1].reduce((sum, x) => sum + armyAttackPower(x), 0);
-            const powerB = b[1].reduce((sum, x) => sum + armyAttackPower(x), 0);
+            const powerA = a[1].reduce((sum, x) => sum + armyAttackPower(x, isWater), 0) * powerMultiplier(a[0]);
+            const powerB = b[1].reduce((sum, x) => sum + armyAttackPower(x, isWater), 0) * powerMultiplier(b[0]);
             if (powerB !== powerA) return powerB - powerA;
             return a[0].localeCompare(b[0]);
           });
 
-          // Process each attacker group sequentially
+          // Process each attacker group sequentially, applying the same army_attack/
+          // army_defense tech effects and counter-matrix composition scaling as the
+          // single-move combat path in ArmyMoveHandler — this used to be a documented
+          // asymmetry (this batch path skipped tech effects entirely); fixed here so the
+          // same battle resolves identically regardless of which code path handles it.
           for (const [attackerUserId, attackerArmies] of orderedAttackers) {
-            const attackerPower = attackerArmies.reduce(
-              (sum, a) => sum + armyAttackPower(a), 0,
-            );
+            const attacker = usersById.get(attackerUserId);
+            const defender = usersById.get(defenderUserId);
+            const defenderMix = armyGroupCategoryMix(defenderArmies);
+            const attackerMix = armyGroupCategoryMix(attackerArmies);
 
-            const defenderBasePower = defenderArmies.reduce(
-              (sum, a) => sum + armyDefensePower(a), 0,
+            const attackerRawPower = attackerArmies.reduce(
+              (sum, a) => sum + armyAttackPower(a, isWater, defenderMix), 0,
             );
+            const attackerPower = this.techEffects.apply(
+              'army_attack', attackerRawPower, {}, attacker?.completed_research ?? [],
+            ) * powerMultiplier(attackerUserId);
+
+            const defenderRawPower = defenderArmies.reduce(
+              (sum, a) => sum + armyDefensePower(a, isWater, attackerMix), 0,
+            );
+            const defenderBasePower = this.techEffects.apply(
+              'army_defense', defenderRawPower, {}, defender?.completed_research ?? [],
+            ) * powerMultiplier(defenderUserId);
             const buildingModifier = computeBuildModifier(province.buildings);
             const defenderPower = defenderBasePower * buildingModifier;
 
@@ -416,18 +492,17 @@ export class ActionSchedulerService {
               );
               for (const a of attackerArmies) applyCasualties(a, attackerCasualtyRate);
 
-              // Destroy all defender armies
+              // Destroy all defender armies (this "loser always wipes" rule predates the
+              // water feature — it already applied to land attacker-wins outcomes).
               for (const da of defenderArmies) {
-                await manager.delete(ArmyUnit, { army_id: da.id });
-                await manager.delete(Army, da.id);
+                await deleteArmy(manager, da.id);
               }
 
               // Save surviving attacker armies, disband if too weak
               const survivingAttackers: Army[] = [];
               for (const a of attackerArmies) {
                 if (armyTotalTroops(a) < ARMY_MIN_SIZE) {
-                  await manager.delete(ArmyUnit, { army_id: a.id });
-                  await manager.delete(Army, a.id);
+                  await deleteArmy(manager, a.id);
                 } else {
                   await manager.save(ArmyUnit, a.units);
                   await manager.save(Army, a);
@@ -435,17 +510,43 @@ export class ActionSchedulerService {
                 }
               }
 
-              // Transfer province ownership
-              province.user_id = attackerUserId;
-              await manager.save(Province, province);
+              // Water has no ownership/occupation to claim — control-result only applies on land.
+              if (!isWater) {
+                await this.occupationService.applyControlResult(manager, province, attackerUserId);
+              }
               defenderArmies = survivingAttackers;
 
               this.logger.log(
                 `Province ${provinceId}: user ${attackerUserId} defeated defender ${defenderUserId}`,
               );
               defenderUserId = attackerUserId;
+            } else if (isWater) {
+              // Defender wins, on water: loser (attacker) is always fully wiped — no
+              // partial-casualty survival at sea. Winner (defender) still takes normal
+              // partial casualties below.
+              for (const a of attackerArmies) {
+                await deleteArmy(manager, a.id);
+              }
+
+              const baseDefenderRateCoeff = 0.7;
+              const baseDefenderRate =
+                (attackerPower / (attackerPower + defenderPower)) * baseDefenderRateCoeff;
+              const defenderCasualtyRate = Math.max(CASUALTY_FLOOR, baseDefenderRate);
+
+              const survivingDefenders: Army[] = [];
+              for (const da of defenderArmies) {
+                applyCasualties(da, defenderCasualtyRate);
+                if (armyTotalTroops(da) < ARMY_MIN_SIZE) {
+                  await deleteArmy(manager, da.id);
+                } else {
+                  await manager.save(ArmyUnit, da.units);
+                  await manager.save(Army, da);
+                  survivingDefenders.push(da);
+                }
+              }
+              defenderArmies = survivingDefenders;
             } else {
-              // Defender wins
+              // Defender wins, on land
               const maxAttackerLoseRate = 0.8;
               const baseAttackerRateCoeff = 1.4;
               const attackerRate =
@@ -457,8 +558,7 @@ export class ActionSchedulerService {
               for (const a of attackerArmies) {
                 applyCasualties(a, attackerCasualtyRate);
                 if (armyTotalTroops(a) < ARMY_MIN_SIZE) {
-                  await manager.delete(ArmyUnit, { army_id: a.id });
-                  await manager.delete(Army, a.id);
+                  await deleteArmy(manager, a.id);
                 } else {
                   await manager.save(ArmyUnit, a.units);
                   await manager.save(Army, a);
@@ -475,8 +575,7 @@ export class ActionSchedulerService {
               for (const da of defenderArmies) {
                 applyCasualties(da, defenderCasualtyRate);
                 if (armyTotalTroops(da) < ARMY_MIN_SIZE) {
-                  await manager.delete(ArmyUnit, { army_id: da.id });
-                  await manager.delete(Army, da.id);
+                  await deleteArmy(manager, da.id);
                 } else {
                   await manager.save(ArmyUnit, da.units);
                   await manager.save(Army, da);
@@ -498,8 +597,10 @@ export class ActionSchedulerService {
   }
 
   /**
-   * After all actions are processed, verify that every non-water province
-   * with an army on it is owned by that army's user.
+   * Safety net after all actions/conflicts are processed: any non-water
+   * province with a *hostile* army on it (relative to the province's current
+   * owner/occupier) should be under that army's control. Armies present
+   * peacefully (own territory, ally, or troops-pass) never trigger a change.
    */
   private async syncProvinceOwnershipWithArmies(): Promise<void> {
     try {
@@ -509,10 +610,10 @@ export class ActionSchedulerService {
         if (armies.length === 0) return;
 
         const provinceIds = [...new Set(armies.map((a) => a.province_id))];
-        const provinces = await manager
-          .createQueryBuilder(Province, 'p')
-          .where('p.id IN (:...ids)', { ids: provinceIds })
-          .getMany();
+        const provinces = await manager.find(Province, {
+          where: { id: In(provinceIds) },
+          relations: ['provinceBuildings', 'provinceBuildings.building'],
+        });
 
         const provinceMap = new Map(provinces.map((p) => [p.id, p]));
         let updated = 0;
@@ -521,14 +622,18 @@ export class ActionSchedulerService {
           const province = provinceMap.get(army.province_id);
           if (!province || province.type === 'water') continue;
 
-          if (province.user_id !== army.user_id) {
-            province.user_id = army.user_id;
-            await manager.save(Province, province);
-            updated++;
-            this.logger.warn(
-              `Province ${province.id} ownership corrected to user ${army.user_id} (army ${army.id})`,
-            );
+          const controllerId = province.occupier_id ?? province.user_id;
+          if (controllerId === army.user_id) continue;
+
+          if (controllerId && !(await this.diplomacyService.isHostile(manager, army.user_id, controllerId))) {
+            continue; // peaceful co-location (ally / troops-pass) — not a control change
           }
+
+          await this.occupationService.applyControlResult(manager, province, army.user_id);
+          updated++;
+          this.logger.warn(
+            `Province ${province.id} control corrected to user ${army.user_id} (army ${army.id})`,
+          );
         }
 
         if (updated > 0) {
@@ -537,6 +642,94 @@ export class ActionSchedulerService {
       });
     } catch (error) {
       this.logger.error('Error during province ownership sync:', error);
+    }
+  }
+
+  /** Every occupied province ages by one turn; occupations reaching OCCUPATION_CORE_THRESHOLD auto-core to the occupier. */
+  private async tickOccupations(): Promise<void> {
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        const occupied = await manager.find(Province, {
+          where: { occupier_id: Not(IsNull()) },
+          relations: ['provinceBuildings', 'provinceBuildings.building'],
+        });
+
+        for (const province of occupied) {
+          province.occupation_turns += 1;
+          if (province.occupation_turns >= OCCUPATION_CORE_THRESHOLD) {
+            await this.occupationService.coreProvince(manager, province, province.occupier_id);
+            this.logger.log(`Province ${province.id} auto-cored to occupier ${province.occupier_id}`);
+          } else {
+            await manager.save(Province, province);
+          }
+        }
+      });
+    } catch (error) {
+      this.logger.error('Error during occupation tick:', error);
+    }
+  }
+
+  /**
+   * Every army on a water province ages by one turn; armies off water have their counter
+   * reset. An army that exceeds its owner's tech-adjusted water allowance (base
+   * DEFAULT_WATER_TURNS + any `water_turns_bonus` tech effects) is lost at sea.
+   */
+  private async tickArmyWaterResidency(): Promise<void> {
+    try {
+      await this.dataSource.transaction(async (manager) => {
+        const armies = await manager.find(Army, { relations: ['province', 'user'] });
+
+        for (const army of armies) {
+          const onWater = army.province?.type?.toLowerCase() === 'water';
+
+          if (!onWater) {
+            if (army.water_turns !== 0) {
+              army.water_turns = 0;
+              await manager.save(Army, army);
+            }
+            continue;
+          }
+
+          army.water_turns += 1;
+          const allowed = this.techEffects.waterTurnsAllowed(army.user?.completed_research ?? []);
+
+          if (army.water_turns > allowed) {
+            await deleteArmy(manager, army.id);
+            this.logger.log(`Army ${army.id} lost at sea after ${army.water_turns} turns on water`);
+          } else {
+            await manager.save(Army, army);
+          }
+        }
+      });
+    } catch (error) {
+      this.logger.error('Error during water residency tick:', error);
+    }
+  }
+
+  private static readonly ACTION_TYPE_LABELS: Record<string, string> = {
+    BUILD: 'Build', UPGRADE: 'Upgrade', REMOVE: 'Remove', RESEARCH: 'Research', COLONIZE: 'Colonize',
+    ARMY_CREATE: 'Army Creation', ARMY_MOVE: 'Army Move', ARMY_RECRUIT: 'Army Recruit',
+    ARMY_MERGE: 'Army Merge', ARMY_TRANSFER: 'Army Transfer', ARMY_DISBAND: 'Army Disband',
+    ARMY_EDIT: 'Army Edit',
+  };
+
+  /**
+   * Surfaces a queued action's failure to the player — the ActionQueue row itself is deleted by
+   * cleanupExecutedActions() later this same turn, so this Notification is the only durable trace
+   * of *why* it failed that a non-admin player can ever see (see NotificationsModule).
+   */
+  private async notifyActionFailed(userId: string, actionType: string, reason?: string): Promise<void> {
+    try {
+      const label = ActionSchedulerService.ACTION_TYPE_LABELS[actionType] ?? actionType;
+      await this.notificationsService.createForUser(
+        userId,
+        NotificationType.ACTION_FAILED,
+        `${label} Failed`,
+        reason?.trim() || 'No reason was given.',
+        NotificationSeverity.ERROR,
+      );
+    } catch (error) {
+      this.logger.error(`Failed to create action-failed notification for user ${userId}:`, error);
     }
   }
 

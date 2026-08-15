@@ -5,6 +5,8 @@ interface User {
   id: string;
   userId: string;
   login: string;
+  /** ADMIN/MODERATOR/PLAYER — drives the mod layer's TopBar switch and NPC-impersonation gating. */
+  role: string | null;
 }
 
 interface AuthContextType {

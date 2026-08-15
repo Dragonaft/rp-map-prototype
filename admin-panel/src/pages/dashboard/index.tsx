@@ -6,6 +6,14 @@ import { BuildingsTab } from './BuildingsTab';
 import { ArmiesTab } from './ArmiesTab';
 import { TechsTab } from './TechsTab';
 import { TroopTypesTab } from './TroopTypesTab';
+import { ResourcesTab } from './ResourcesTab';
+import { GoodsTab } from './GoodsTab';
+import { NotificationsTab } from './NotificationsTab';
+import { NewsWallTab } from './NewsWallTab';
+import { ClassesTab } from './ClassesTab';
+import { SettingsTab } from './SettingsTab';
+import { KnowledgeTab } from './KnowledgeTab';
+import { IconsTab } from './IconsTab';
 
 export const DashboardPage = () => {
   const [tab, setTab] = useState(0);
@@ -34,6 +42,14 @@ export const DashboardPage = () => {
           <Tab label="Armies" />
           <Tab label="Techs" />
           <Tab label="Troop Types" />
+          <Tab label="Resources" />
+          <Tab label="Goods" />
+          <Tab label="Notifications" />
+          <Tab label="News Wall" />
+          <Tab label="Classes" />
+          <Tab label="Settings" />
+          <Tab label="Knowledge" />
+          <Tab label="Icons" />
         </Tabs>
       </Box>
 
@@ -43,6 +59,14 @@ export const DashboardPage = () => {
         {tab === 2 && <ArmiesTab />}
         {tab === 3 && <TechsTab />}
         {tab === 4 && <TroopTypesTab />}
+        {tab === 5 && <ResourcesTab />}
+        {tab === 6 && <GoodsTab />}
+        {tab === 7 && <NotificationsTab />}
+        {tab === 8 && <NewsWallTab />}
+        {tab === 9 && <ClassesTab />}
+        {tab === 10 && <SettingsTab />}
+        {tab === 11 && <KnowledgeTab />}
+        {tab === 12 && <IconsTab />}
       </Box>
     </Box>
   );

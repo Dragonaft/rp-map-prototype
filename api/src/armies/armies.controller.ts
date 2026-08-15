@@ -1,6 +1,7 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Request, UseGuards } from '@nestjs/common';
 import { ArmiesService } from './armies.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { resolveModFogBypass } from '../utils/mod-visibility';
 
 @Controller('armies')
 @UseGuards(JwtAuthGuard)
@@ -14,7 +15,7 @@ export class ArmiesController {
 
   @Get('all')
   getAllArmies(@Request() req) {
-    return this.armiesService.getAllArmies(req.user.id);
+    return this.armiesService.getAllArmies(req.user.id, resolveModFogBypass(req));
   }
 
   @Get('troop-types')

@@ -11,6 +11,7 @@ const ALLOW_WHEN_PROCESSING = new Set([
   '/auth/register',
   '/auth/refresh',
   '/auth/logout',
+  '/game-settings',
 ]);
 
 function normalizePath(url: string): string {

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { Modal, Box, Button, Tabs, Tab, Alert } from '@mui/material';
+import { Modal, Box, Button, Tabs, Tab, Alert, LinearProgress } from '@mui/material';
 import { useAppDispatch, useAppSelector } from "../../store/hooks.ts";
 import type { RootState } from "../../store/store.ts";
 import { TechTree } from '../TechTree.tsx';
-import { Tech, ActionType } from '../../types.ts';
-import { actionsApi } from '../../api/actions.ts';
-import { addAction, removeActionById } from '../../store/slices/actionsSlice.ts';
+import { Tech } from '../../types.ts';
+import { techsApi } from '../../api/techs.ts';
+import { setActiveResearch } from '../../store/slices/userSlice.ts';
 
 interface Props {
   open: boolean;
@@ -36,13 +36,7 @@ export const TechsModal: React.FC<Props> = ({ open, onClose }) => {
   const dispatch = useAppDispatch();
   const techs = useAppSelector((state: RootState) => state.techs.techs);
   const completedResearch = useAppSelector((state: RootState) => state.user.completedResearch);
-  const userActions = useAppSelector((state: RootState) => state.actions.actions);
-
-  const pendingResearchByKey = Object.fromEntries(
-    userActions
-      .filter(a => a.actionType === ActionType.RESEARCH)
-      .map(a => [a.actionData?.tech_key, a.id])
-  );
+  const activeResearch = useAppSelector((state: RootState) => state.user.activeResearch);
 
   const branches = [...new Set(techs.map(t => t.branch))];
   const safeTabValue = Math.min(tabValue, Math.max(0, branches.length - 1));
@@ -59,7 +53,12 @@ export const TechsModal: React.FC<Props> = ({ open, onClose }) => {
     : false;
 
   const isResearched = selectedTech ? completedResearch.includes(selectedTech.key) : false;
-  const pendingActionId = selectedTech ? (pendingResearchByKey[selectedTech.key] ?? null) : null;
+  const isActiveResearch = selectedTech ? selectedTech.key === activeResearch : false;
+  // Re-read progress from the live store rather than the click-time snapshot, so it stays
+  // correct if a turn tick (SSE reload) advances it while the modal is still open.
+  const liveProgress = selectedTech
+    ? (techs.find(t => t.key === selectedTech.key)?.progress ?? selectedTech.progress)
+    : 0;
 
   const handleResearch = async () => {
     if (!selectedTech) return;
@@ -67,31 +66,11 @@ export const TechsModal: React.FC<Props> = ({ open, onClose }) => {
     setError(null);
 
     try {
-      const response = await actionsApi.createAction({
-        type: ActionType.RESEARCH,
-        actionData: { tech_key: selectedTech.key },
-      });
-
-      dispatch(addAction(response));
+      const response = await techsApi.selectResearch(selectedTech.key);
+      dispatch(setActiveResearch(response.activeResearch));
       setSelectedTech(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to queue research');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCancelResearch = async () => {
-    if (!pendingActionId) return;
-    setLoading(true);
-    setError(null);
-
-    try {
-      await actionsApi.removeAction(pendingActionId);
-      dispatch(removeActionById(pendingActionId));
-      setSelectedTech(null);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to cancel research');
+      setError(err.response?.data?.message || 'Failed to set active research');
     } finally {
       setLoading(false);
     }
@@ -118,7 +97,7 @@ export const TechsModal: React.FC<Props> = ({ open, onClose }) => {
             <TechTree
               techs={branchTechs}
               completedResearch={completedResearch}
-              pendingResearchKeys={Object.keys(pendingResearchByKey)}
+              activeResearchKey={activeResearch}
               onTechClick={handleTechClick}
             />
           </Box>
@@ -136,27 +115,31 @@ export const TechsModal: React.FC<Props> = ({ open, onClose }) => {
               <span style={{ fontWeight: 'bold', fontSize: 14 }}>{selectedTech.name}</span>
               <span style={{ fontSize: 12, color: '#444' }}>{selectedTech.description}</span>
               <span style={{ fontSize: 12 }}>Cost: <b>{selectedTech.cost}</b> research points</span>
+              {!isResearched && liveProgress > 0 && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  <LinearProgress
+                    variant="determinate"
+                    value={Math.min(100, (liveProgress / selectedTech.cost) * 100)}
+                  />
+                  <span style={{ fontSize: 11, color: '#444' }}>
+                    Progress: {liveProgress}/{selectedTech.cost}
+                  </span>
+                </Box>
+              )}
               {error && <Alert severity="error" sx={{ fontSize: 11, p: '2px 8px' }}>{error}</Alert>}
-              {pendingActionId ? (
-                <Button
-                  variant="contained"
-                  color="warning"
-                  size="small"
-                  onClick={handleCancelResearch}
-                  disabled={loading}
-                  sx={{ mt: 'auto' }}
-                >
-                  {loading ? 'Processing...' : 'CANCEL'}
-                </Button>
+              {isResearched ? (
+                <span style={{ fontSize: 12, color: 'green', marginTop: 'auto' }}>Researched</span>
+              ) : isActiveResearch ? (
+                <span style={{ fontSize: 12, color: '#3b82f6', marginTop: 'auto' }}>Active research — accruing each turn</span>
               ) : (
                 <Button
                   variant="contained"
                   size="small"
                   onClick={handleResearch}
-                  disabled={loading || !prerequisitesMet || isResearched}
+                  disabled={loading || !prerequisitesMet}
                   sx={{ mt: 'auto' }}
                 >
-                  {loading ? 'Processing...' : 'RESEARCH'}
+                  {loading ? 'Processing...' : 'SET ACTIVE'}
                 </Button>
               )}
             </Box>

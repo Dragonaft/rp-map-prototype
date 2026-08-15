@@ -1,8 +1,9 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Body, Param, UseGuards, HttpCode, HttpStatus,
+  Body, Param, Request, UseGuards, UseInterceptors, UploadedFile, HttpCode, HttpStatus,
 } from '@nestjs/common';
-import { AdminService } from './admin.service';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { AdminService, ICON_MAX_BYTES } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -10,7 +11,7 @@ import { UserRoles } from '../users/types/users.types';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(UserRoles.ADMIN)
+@Roles(UserRoles.ADMIN, UserRoles.MODERATOR)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
@@ -22,19 +23,27 @@ export class AdminController {
   }
 
   @Post('users')
-  createUser(@Body() body: Record<string, any>) {
-    return this.adminService.createUser(body);
+  createUser(@Request() req, @Body() body: Record<string, any>) {
+    return this.adminService.createUser(body, req.user.role);
   }
 
   @Patch('users/:id')
-  updateUser(@Param('id') id: string, @Body() body: Record<string, any>) {
-    return this.adminService.updateUser(id, body);
+  updateUser(@Request() req, @Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateUser(id, body, req.user.role);
   }
 
   @Delete('users/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  deleteUser(@Param('id') id: string) {
-    return this.adminService.deleteUser(id);
+  deleteUser(@Request() req, @Param('id') id: string) {
+    return this.adminService.deleteUser(id, req.user.role);
+  }
+
+  // Moderation takedown for a player-uploaded flag — ordinary ADMIN|MODERATOR gate (class
+  // default), unlike game-settings below which is deliberately narrowed to ADMIN only.
+  @Delete('users/:id/flag')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteUserFlag(@Param('id') id: string) {
+    return this.adminService.deleteUserFlag(id);
   }
 
   // --- Buildings ---
@@ -127,5 +136,208 @@ export class AdminController {
   @HttpCode(HttpStatus.NO_CONTENT)
   deleteTroopType(@Param('id') id: string) {
     return this.adminService.deleteTroopType(id);
+  }
+
+  // --- Resources ---
+
+  @Get('resources')
+  getResources() {
+    return this.adminService.findAllResources();
+  }
+
+  @Post('resources')
+  createResource(@Body() body: Record<string, any>) {
+    return this.adminService.createResource(body);
+  }
+
+  @Patch('resources/:id')
+  updateResource(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateResource(id, body);
+  }
+
+  @Delete('resources/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteResource(@Param('id') id: string) {
+    return this.adminService.deleteResource(id);
+  }
+
+  // --- Goods ---
+
+  @Get('goods')
+  getGoods() {
+    return this.adminService.findAllGoods();
+  }
+
+  @Post('goods')
+  createGood(@Body() body: Record<string, any>) {
+    return this.adminService.createGood(body);
+  }
+
+  @Patch('goods/:id')
+  updateGood(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateGood(id, body);
+  }
+
+  @Delete('goods/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteGood(@Param('id') id: string) {
+    return this.adminService.deleteGood(id);
+  }
+
+  // --- Classes ---
+
+  @Get('classes')
+  getClasses() {
+    return this.adminService.findAllClasses();
+  }
+
+  @Post('classes')
+  createClass(@Body() body: Record<string, any>) {
+    return this.adminService.createClass(body);
+  }
+
+  @Patch('classes/:id')
+  updateClass(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateClass(id, body);
+  }
+
+  @Delete('classes/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteClass(@Param('id') id: string) {
+    return this.adminService.deleteClass(id);
+  }
+
+  // --- Knowledge (Codex) ---
+
+  @Get('knowledge')
+  getKnowledgeArticles() {
+    return this.adminService.findAllKnowledgeArticles();
+  }
+
+  @Post('knowledge')
+  createKnowledgeArticle(@Body() body: Record<string, any>) {
+    return this.adminService.createKnowledgeArticle(body);
+  }
+
+  @Patch('knowledge/:id')
+  updateKnowledgeArticle(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateKnowledgeArticle(id, body);
+  }
+
+  @Delete('knowledge/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteKnowledgeArticle(@Param('id') id: string) {
+    return this.adminService.deleteKnowledgeArticle(id);
+  }
+
+  // --- Icons ---
+  // The multer size limit is a memory-safety backstop (rejects before the whole buffer is read
+  // into RAM), same convention as UsersController.uploadFlag — AdminService.uploadIcon re-checks
+  // size and validates the actual image format via magic bytes regardless of what multer/the
+  // client claim.
+
+  @Post('icons/:kind/:key')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: ICON_MAX_BYTES } }))
+  uploadIcon(@Param('kind') kind: string, @Param('key') key: string, @UploadedFile() file: Express.Multer.File) {
+    return this.adminService.uploadIcon(kind, key, file?.buffer);
+  }
+
+  @Delete('icons/:kind/:key')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteIcon(@Param('kind') kind: string, @Param('key') key: string) {
+    return this.adminService.deleteIcon(kind, key);
+  }
+
+  // --- Game Settings ---
+  // Singleton (no :id) — ADMIN only, overriding the class-level ADMIN|MODERATOR gate:
+  // pausing the whole game is an ADMIN action, not a MODERATOR one.
+
+  @Get('game-settings')
+  @Roles(UserRoles.ADMIN)
+  getGameSettings() {
+    return this.adminService.getGameSettings();
+  }
+
+  @Patch('game-settings')
+  @Roles(UserRoles.ADMIN)
+  updateGameSettings(@Body() body: Record<string, any>) {
+    return this.adminService.updateGameSettings(body);
+  }
+
+  // --- Diplomatic Relations ---
+
+  @Get('diplomacy-relations')
+  getDiplomaticRelations() {
+    return this.adminService.findAllDiplomaticRelations();
+  }
+
+  @Post('diplomacy-relations')
+  createDiplomaticRelation(@Body() body: Record<string, any>) {
+    return this.adminService.createDiplomaticRelation(body);
+  }
+
+  @Patch('diplomacy-relations/:id')
+  updateDiplomaticRelation(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateDiplomaticRelation(id, body);
+  }
+
+  @Delete('diplomacy-relations/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteDiplomaticRelation(@Param('id') id: string) {
+    return this.adminService.deleteDiplomaticRelation(id);
+  }
+
+  // --- Wars ---
+
+  @Get('wars')
+  getWars() {
+    return this.adminService.findAllWars();
+  }
+
+  @Post('wars')
+  createWar(@Body() body: Record<string, any>) {
+    return this.adminService.createWar(body);
+  }
+
+  @Patch('wars/:id')
+  updateWar(@Param('id') id: string, @Body() body: Record<string, any>) {
+    return this.adminService.updateWar(id, body);
+  }
+
+  @Delete('wars/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteWar(@Param('id') id: string) {
+    return this.adminService.deleteWar(id);
+  }
+
+  // --- Notifications ---
+
+  @Post('notifications/broadcast')
+  broadcastNotification(@Body() body: { title: string; message: string; severity?: string }) {
+    return this.adminService.broadcastNotification(body.title, body.message, body.severity as any);
+  }
+
+  // --- News Wall ---
+
+  @Get('news-agencies')
+  getNewsAgencies() {
+    return this.adminService.findAllNewsAgencies();
+  }
+
+  @Delete('news-agencies/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteNewsAgency(@Param('id') id: string) {
+    return this.adminService.deleteNewsAgency(id);
+  }
+
+  @Get('news-articles')
+  getNewsArticles() {
+    return this.adminService.findAllNewsArticles();
+  }
+
+  @Delete('news-articles/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  deleteNewsArticle(@Param('id') id: string) {
+    return this.adminService.deleteNewsArticle(id);
   }
 }

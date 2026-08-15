@@ -3,6 +3,7 @@ import * as path from 'path';
 import { AppDataSource as AppDataSourceDev } from '../db/data-source';
 import { AppDataSource as AppDataSourceProd } from '../db/data-source.prod';
 import { Tech } from '../techs/entities/tech.entity';
+import { TechEffect, validateEffects } from '../techs/effect-types';
 import { colors, logger } from '../utils/logger';
 
 const LOG_CTX = 'SeedTechs';
@@ -22,6 +23,7 @@ interface TechSeedRow {
   isClassRoot: boolean;
   cost: number;
   prerequisites: string[];
+  effects?: TechEffect[];
 }
 
 function validateRow(obj: unknown, index: number): obj is TechSeedRow {
@@ -40,6 +42,13 @@ function validateRow(obj: unknown, index: number): obj is TechSeedRow {
   }
   if (typeof row.branch !== 'string' || !row.branch.length) {
     logger.error(`Row ${index}: "branch" must be a non-empty string`, LOG_CTX);
+    return false;
+  }
+  try {
+    validateEffects(row.effects);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    logger.error(`Row ${index} (${row.key}): invalid "effects" — ${msg}`, LOG_CTX);
     return false;
   }
   return true;
@@ -100,6 +109,7 @@ async function seedTechs() {
       isClassRoot: row.isClassRoot ?? false,
       cost: row.cost ?? 0,
       prerequisites: row.prerequisites ?? [],
+      effects: validateEffects(row.effects),
     };
 
     const existing = await repo.findOne({ where: { key: row.key } });

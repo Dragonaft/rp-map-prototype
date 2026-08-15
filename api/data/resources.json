@@ -1,0 +1,38 @@
+[
+  {
+    "key": "stone",
+    "name": "Stone",
+    "type": "consumable",
+    "plain_income": 75
+  },
+  {
+    "key": "iron",
+    "name": "Iron",
+    "type": "consumable",
+    "plain_income": 125
+  },
+  {
+    "key": "gold",
+    "name": "Gold",
+    "type": "plain",
+    "plain_income": 300
+  },
+  {
+    "key": "wood",
+    "name": "Wood",
+    "type": "consumable",
+    "plain_income": 0
+  },
+  {
+    "key": "grain",
+    "name": "Grain",
+    "type": "plain",
+    "plain_income": 0
+  },
+  {
+    "key": "fish",
+    "name": "Fish",
+    "type": "plain",
+    "plain_income": 0
+  }
+]

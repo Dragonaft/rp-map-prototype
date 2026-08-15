@@ -1,13 +1,18 @@
-import React, { useMemo } from 'react';
-import { ActionType, ProvinceBuilding, Province } from '../types';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActionType, GameIconKind, ProvinceBuilding, Province } from '../types';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { setSelectedTroops } from '../store/slices/provincesSlice';
 import type { BBox } from '../store/slices/provincesSlice';
-import { BUILDING_ICONS, LANDSCAPE_ICONS, RESOURCE_ICONS } from '../constants/buildingIcons';
+import { useGameIcon, PLACEHOLDER_ICON_URL } from '../hooks/useGameIcon.ts';
 import type { RootState } from "../store/store.ts";
 import {
+  BUILDING_PENDING_COLOR,
+  BUILDING_UPGRADE_AVAILABLE_COLOR,
   DEFAULT_MAP_LAND_COLOR,
   DEFAULT_MAP_WATER_COLOR,
+  FASTBUILD_BLACK,
+  FASTBUILD_GREEN,
+  FASTBUILD_RED,
   getCategoryModeColor,
   getMapModeTooltip,
   heatColor,
@@ -30,6 +35,30 @@ interface Props {
 }
 
 const MAP_VISIBLE_BUILDINGS = new Set(['CAPITAL', 'CAPITOL', 'FORT', 'FORESTRY', 'MINE']);
+
+/** SVG-native equivalent of GameIcon.tsx — <img> can't be used inside <svg>, so this renders a
+ *  building/landscape/resource icon as a native <image> element instead, with the same
+ *  useGameIcon resolution + onError-to-placeholder fallback. x/y are the icon's top-left corner
+ *  (unlike the <text> elements this replaces, which were center/start-anchored). */
+const SvgIcon: React.FC<{ kind: GameIconKind; iconKey: string; x: number; y: number; size: number }> = ({
+  kind, iconKey, x, y, size,
+}) => {
+  const src = useGameIcon(kind, iconKey);
+  const [errored, setErrored] = useState(false);
+
+  useEffect(() => {
+    setErrored(false);
+  }, [src]);
+
+  return (
+    <image
+      href={errored ? PLACEHOLDER_ICON_URL : src}
+      x={x} y={y} width={size} height={size}
+      pointerEvents="none"
+      onError={() => setErrored(true)}
+    />
+  );
+};
 
 const ProvinceShapeComponent: React.FC<Props> = ({
   province,
@@ -67,6 +96,15 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     return otherUsers.find(u => u.id === province.userId)?.color ?? null;
   }, [province.userId, currentUserId, currentUserColor, otherUsers]);
 
+  // Occupied provinces keep the legal owner's color as background (above) and
+  // get a diagonal-stripe overlay in the occupier's color (below).
+  const occupierColor = useMemo(() => {
+    if (!province.occupierId) return null;
+    if (province.occupierId === currentUserId) return currentUserColor;
+    return otherUsers.find(u => u.id === province.occupierId)?.color ?? null;
+  }, [province.occupierId, currentUserId, currentUserColor, otherUsers]);
+  const occupiedStripesPatternId = `occupied-stripes-${province.id}`;
+
   // Color of the player whose army is stationed here (falls back to province owner).
   const enemyArmyOwnerColor = useMemo(() => {
     if (enemyArmyOwnerId) {
@@ -95,11 +133,22 @@ const ProvinceShapeComponent: React.FC<Props> = ({
       }
       case 'buildings': {
         if (isWater) return DEFAULT_MAP_WATER_COLOR;
+        if (!isCurrentUserProvince) return DEFAULT_MAP_LAND_COLOR;
         const slots = mapModeRenderData.buildingSlotsByProvinceId[province.id];
         if (!slots) return DEFAULT_MAP_LAND_COLOR;
+        if (slots.pendingBuilds > 0) return BUILDING_PENDING_COLOR;
+        if (slots.availableUpgrades > 0) return BUILDING_UPGRADE_AVAILABLE_COLOR;
         return slots.free > 0
           ? positiveScaleColor(slots.free, Math.max(1, slots.cap))
           : heatColor(-1, 1);
+      }
+      case 'fastbuild': {
+        if (isWater || !isCurrentUserProvince) return FASTBUILD_BLACK;
+        const cell = mapModeRenderData.fastBuildByProvinceId[province.id];
+        if (!cell) return FASTBUILD_RED;
+        if (cell.status === 'green') return FASTBUILD_GREEN;
+        if (cell.status === 'yellow') return BUILDING_PENDING_COLOR;
+        return FASTBUILD_RED;
       }
       case 'normal':
       default:
@@ -137,7 +186,7 @@ const ProvinceShapeComponent: React.FC<Props> = ({
     onRightClick(province);
   }, [onRightClick, province]);
 
-  const displayTroopCount = armyTroopCount != null ? armyTroopCount : (province.localTroops ?? 0);
+  const displayTroopCount = armyTroopCount ?? 0;
 
   const handleTroopClick = React.useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -150,27 +199,22 @@ const ProvinceShapeComponent: React.FC<Props> = ({
   }, [dispatch, province.id, displayTroopCount, isTroopSelected, onArmyCountClick]);
 
   const renderBuildingIcon = (building: ProvinceBuilding, index: number) => {
-    const icon = BUILDING_ICONS[building.type] ?? '🏗️';
     const offsetX = (index % 2) * 15 - 7.5;
     const offsetY = Math.floor(index / 2) * 15 - 7.5;
+    const size = 18;
     return (
-      <text
+      <SvgIcon
         key={building.instanceId}
-        x={cx + offsetX} y={cy + offsetY}
-        fontSize="16" textAnchor="middle" dominantBaseline="middle"
-        pointerEvents="none" style={{ userSelect: 'none' }}
-      >
-        {icon}
-      </text>
+        kind="building" iconKey={building.type}
+        x={cx + offsetX - size / 2} y={cy + offsetY - size / 2}
+        size={size}
+      />
     );
   };
 
   // Show the badge when the province is owned and has troops, OR when there are
   // army troops present regardless of ownership (e.g. naval armies on water tiles).
   const hasLocalTroops = displayTroopCount > 0 && (isCurrentUserProvince || armyTroopCount != null);
-
-  const landscapeIcon = LANDSCAPE_ICONS[province.landscape];
-  const resourceIcon = RESOURCE_ICONS[province.resourceType];
 
   return (
     <g>
@@ -186,26 +230,37 @@ const ProvinceShapeComponent: React.FC<Props> = ({
         style={{ cursor: 'pointer', transition: 'fill 0.2s, stroke 0.2s, stroke-width 0.2s' }}
       />
 
+      {/* Occupied overlay: legal owner's color stays as the background (above);
+          diagonal stripes in the occupier's color are painted on top. */}
+      {!isWater && occupierColor && (
+        <>
+          <defs>
+            <pattern
+              id={occupiedStripesPatternId}
+              patternUnits="userSpaceOnUse"
+              width="8" height="8"
+              patternTransform="rotate(45)"
+            >
+              <rect width="8" height="8" fill="transparent" />
+              <line x1="0" y1="0" x2="0" y2="8" stroke={occupierColor} strokeWidth="4" />
+            </pattern>
+          </defs>
+          <path
+            d={province.polygon}
+            fill={`url(#${occupiedStripesPatternId})`}
+            pointerEvents="none"
+          />
+        </>
+      )}
+
       {/* Landscape icon — top-left corner */}
-      {!isWater && landscapeIcon && (
-        <text
-          x={bbox.x + 6} y={bbox.y + 10}
-          fontSize="10" textAnchor="start" dominantBaseline="middle"
-          pointerEvents="none" style={{ userSelect: 'none' }}
-        >
-          {landscapeIcon}
-        </text>
+      {!isWater && province.landscape && (
+        <SvgIcon kind="landscape" iconKey={province.landscape} x={bbox.x + 6} y={bbox.y + 4} size={12} />
       )}
 
       {/* Resource icon — next to landscape icon */}
-      {!isWater && resourceIcon && (
-        <text
-          x={bbox.x + 20} y={bbox.y + 10}
-          fontSize="10" textAnchor="start" dominantBaseline="middle"
-          pointerEvents="none" style={{ userSelect: 'none' }}
-        >
-          {resourceIcon}
-        </text>
+      {!isWater && province.resourceType && (
+        <SvgIcon kind="resource" iconKey={province.resourceType} x={bbox.x + 20} y={bbox.y + 4} size={12} />
       )}
 
       {/* Building icons (map-visible only) */}
@@ -243,8 +298,12 @@ const ProvinceShapeComponent: React.FC<Props> = ({
         );
       })()}
 
-      {/* Own troops count */}
-      {isCurrentUserProvince && hasLocalTroops && (
+      {/* Own troops count — hasLocalTroops already covers both "I own this province" (garrison)
+          and "I have an army physically here" (armyTroopCount != null, see its definition
+          above), so no additional isCurrentUserProvince gate here — otherwise the army-present
+          branch is dead code and the badge never shows on a province I occupy/invade but don't
+          legally own, or on water (never owned) where my own navy is stationed. */}
+      {hasLocalTroops && (
         <g onClick={handleTroopClick} style={{ cursor: 'pointer' }}>
           <rect x={cx - 20} y={troopY - 10} width="40" height="20"
             fill="white"

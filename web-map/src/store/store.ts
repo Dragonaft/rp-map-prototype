@@ -6,6 +6,13 @@ import actionsReducer from "./slices/actionsSlice.ts";
 import buildingsReducer from "./slices/buildingsSlice.ts";
 import techsReducer from "./slices/techsSlice.ts";
 import armiesReducer from "./slices/armiesSlice.ts";
+import resourcesReducer from "./slices/resourcesSlice.ts";
+import goodsReducer from "./slices/goodsSlice.ts";
+import diplomacyReducer from "./slices/diplomacySlice.ts";
+import notificationsReducer from "./slices/notificationsSlice.ts";
+import newsReducer from "./slices/newsSlice.ts";
+import modReducer from "./slices/modSlice.ts";
+import iconsReducer from "./slices/iconsSlice.ts";
 
 export const store = configureStore({
   reducer: {
@@ -16,6 +23,13 @@ export const store = configureStore({
     buildings: buildingsReducer,
     techs: techsReducer,
     armies: armiesReducer,
+    resources: resourcesReducer,
+    goods: goodsReducer,
+    diplomacy: diplomacyReducer,
+    notifications: notificationsReducer,
+    news: newsReducer,
+    mod: modReducer,
+    icons: iconsReducer,
   },
   devTools: process.env.NODE_ENV !== 'production',
 });

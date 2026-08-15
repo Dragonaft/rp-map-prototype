@@ -11,13 +11,12 @@ import {
   ActionExecutorService,
   BuildActionHandler,
   UpgradeActionHandler,
-  TransferTroopsActionHandler,
-  ResearchActionHandler,
   RemoveActionHandler,
   ArmyCreateHandler,
   ArmyRecruitHandler,
   ArmyMoveHandler,
   ArmyMergeHandler,
+  ArmyTransferHandler,
   ArmyDisbandHandler,
   ArmyEditHandler,
   ColonizeActionHandler,
@@ -32,17 +31,31 @@ import { ArmyUnit } from '../armies/entities/army-unit.entity';
 import { TroopType } from '../armies/entities/troop-type.entity';
 import { UpkeepActionService } from './upkeep-action.service';
 import { IncomeActionService } from './income-action.service';
+import { ProductionActionService } from './production-action.service';
+import { SupplyActionService } from './supply-action.service';
+import { BankruptcyService } from './bankruptcy.service';
 import { UserStateLoaderService } from './user-state-loader.service';
+import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { TechsModule } from '../techs/techs.module';
+import { ResourcesModule } from '../resources/resources.module';
+import { GoodsModule } from '../goods/goods.module';
+import { DiplomacyModule } from '../diplomacy/diplomacy.module';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { GameSettingsModule } from '../settings/game-settings.module';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
     TypeOrmModule.forFeature([
       ActionQueue, ActionsLog, ExecutionLock, Province, User,
-      Army, ArmyUnit, TroopType,
+      Army, ArmyUnit, TroopType, ProvinceBuilding,
     ]),
     TechsModule,
+    ResourcesModule,
+    GoodsModule,
+    DiplomacyModule,
+    NotificationsModule,
+    GameSettingsModule,
   ],
   controllers: [ActionsController, ActionExecutionStatusController],
   providers: [
@@ -52,17 +65,19 @@ import { TechsModule } from '../techs/techs.module';
     ActionSchedulerService,
     IncomeActionService,
     UpkeepActionService,
+    ProductionActionService,
+    SupplyActionService,
+    BankruptcyService,
     UserStateLoaderService,
     ActionExecutorService,
     BuildActionHandler,
     UpgradeActionHandler,
-    TransferTroopsActionHandler,
-    ResearchActionHandler,
     RemoveActionHandler,
     ArmyCreateHandler,
     ArmyRecruitHandler,
     ArmyMoveHandler,
     ArmyMergeHandler,
+    ArmyTransferHandler,
     ArmyDisbandHandler,
     ArmyEditHandler,
     ColonizeActionHandler,

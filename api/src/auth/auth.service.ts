@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -6,6 +6,8 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
+import { UserRoles } from '../users/types/users.types';
+import { GameSettingsService } from '../settings/game-settings.service';
 
 @Injectable()
 export class AuthService {
@@ -15,7 +17,27 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private configService: ConfigService,
+    private gameSettingsService: GameSettingsService,
   ) {}
+
+  /**
+   * Rejects a non-ADMIN/MODERATOR login/refresh while the game is paused. Sibling to the
+   * `is_npc` check in login() — placed after credential/identity checks so a paused game
+   * never leaks which logins exist. Belt-and-braces alongside GamePauseInterceptor: without
+   * this, a tab left open would keep silently renewing its access token via /auth/refresh.
+   */
+  private async assertLoginAllowed(user: User): Promise<void> {
+    if (user.role === UserRoles.ADMIN || user.role === UserRoles.MODERATOR) return;
+
+    const settings = await this.gameSettingsService.get();
+    if (settings.is_paused) {
+      throw new ForbiddenException({
+        error: 'Forbidden',
+        message: settings.pause_message || 'The game is currently paused.',
+        code: 'GAME_PAUSED',
+      });
+    }
+  }
 
   async register(login: string, password: string, country_name: string, color: string) {
     const existingUser = await this.usersRepository.findOne({ where: { login } });
@@ -55,6 +77,12 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (user.is_npc) {
+      throw new UnauthorizedException('This is an NPC country and cannot be logged into');
+    }
+
+    await this.assertLoginAllowed(user);
+
     const tokens = await this.generateTokens(user);
     return {
       user: {
@@ -70,6 +98,8 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
+
+    await this.assertLoginAllowed(user);
 
     return this.generateTokens(user);
   }

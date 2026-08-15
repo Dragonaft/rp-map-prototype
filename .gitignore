@@ -9,6 +9,8 @@ api/dist
 api/.env
 api/logs/
 
+map-generator/dist
+
 /node_modules/
 
 .env

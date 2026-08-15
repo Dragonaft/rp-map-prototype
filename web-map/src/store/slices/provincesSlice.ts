@@ -7,6 +7,12 @@ interface SelectedTroops {
   troopCount: number;
 }
 
+/** The building currently selected for fast-build mode; null when the mode is inactive. */
+export interface FastBuildSelection {
+  action: 'build' | 'upgrade';
+  buildingId: string;
+}
+
 export interface BBox {
   x: number;
   y: number;
@@ -20,6 +26,7 @@ interface ProvincesState {
   selectedTroops: SelectedTroops | null;
   mapMode: MapMode;
   mapModeFilterValue: string | null;
+  fastBuild: FastBuildSelection | null;
   provinceCentersById: Record<string, { x: number; y: number }>;
   provinceBBoxById: Record<string, BBox>;
   mapWidth: number;
@@ -51,6 +58,7 @@ const initialState: ProvincesState = {
   selectedTroops: null,
   mapMode: 'normal',
   mapModeFilterValue: null,
+  fastBuild: null,
   provinceCentersById: {},
   provinceBBoxById: {},
   mapWidth: 0,
@@ -70,9 +78,17 @@ const provincesSlice = createSlice({
     setMapMode: (state, action: PayloadAction<MapMode>) => {
       state.mapMode = action.payload;
       state.mapModeFilterValue = null;
+      // Any explicit mode switch (e.g. via the TopBar) exits fast-build mode too.
+      state.fastBuild = null;
     },
     setMapModeFilterValue: (state, action: PayloadAction<string | null>) => {
       state.mapModeFilterValue = action.payload;
+    },
+    /** Selecting a building enters fast-build mode; passing null exits it back to normal. */
+    setFastBuild: (state, action: PayloadAction<FastBuildSelection | null>) => {
+      state.fastBuild = action.payload;
+      state.mapMode = action.payload ? 'fastbuild' : 'normal';
+      state.mapModeFilterValue = null;
     },
     setProvinces: (state, action: PayloadAction<any[]>) => {
       state.provinces = action.payload;
@@ -105,6 +121,7 @@ const provincesSlice = createSlice({
       state.provinces = [];
       state.mapMode = 'normal';
       state.mapModeFilterValue = null;
+      state.fastBuild = null;
       state.provinceCentersById = {};
       state.provinceBBoxById = {};
       state.mapWidth = 0;
@@ -118,6 +135,7 @@ export const {
   setSelectedTroops,
   setMapMode,
   setMapModeFilterValue,
+  setFastBuild,
   setProvinces,
   updateProvinceById,
   resetProvincesState,

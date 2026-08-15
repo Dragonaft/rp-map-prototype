@@ -8,11 +8,18 @@ import { User } from "../users/entities/user.entity";
 import { Building } from '../buildings/entities/building.entity';
 import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { AuthTokenType } from "../auth/types/auth.types";
-import { ActionsService } from '../actions/actions.service';
 import { UsersService } from '../users/users.service';
-import { computeBuildingCap } from '../techs/research-effects';
+import { TechEffectsService } from '../techs/tech-effects.service';
 import { BuildingTypes } from "../buildings/types/building.types";
 import { Army } from '../armies/entities/army.entity';
+import { GoodsService } from '../goods/goods.service';
+import { UserGoodsService } from '../goods/user-goods.service';
+
+/** Goods granted to a new player at province setup (name -> quantity). Not routed through the action queue — CAPITAL must exist immediately. */
+const STARTING_GOODS: Record<string, number> = {
+  Lumber: 200,
+  Food: 500,
+};
 
 @Injectable()
 export class ProvincesService {
@@ -25,12 +32,19 @@ export class ProvincesService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Army)
     private readonly armyRepository: Repository<Army>,
-    private readonly actionsService: ActionsService,
     private readonly usersService: UsersService,
+    private readonly goodsService: GoodsService,
+    private readonly userGoodsService: UserGoodsService,
+    private readonly techEffects: TechEffectsService,
   ) {}
 
-  async getAll(userId: string) {
-    const [provinces, enemyArmies, reservedByFromProvince] = await Promise.all([
+  /**
+   * @param bypassFog Moderator god-view (see api/src/utils/mod-visibility.ts) — reveals
+   *   every non-owned province's buildings regardless of `Building.visible`. Caller is
+   *   responsible for having already validated the real actor's role.
+   */
+  async getAll(userId: string, bypassFog = false) {
+    const [provinces, enemyArmies] = await Promise.all([
       this.provinceRepository.find({
         relations: ['provinceBuildings', 'provinceBuildings.building'],
       }),
@@ -39,7 +53,6 @@ export class ProvincesService {
         .select(['a.province_id'])
         .where('a.user_id != :userId', { userId })
         .getMany(),
-      this.actionsService.getReservedTroopMovesByFromProvince(userId),
     ]);
 
     const visibleProvinceIds = new Set<string>();
@@ -61,15 +74,10 @@ export class ProvincesService {
     return provinces.map(province => {
       if (province.user_id !== userId) {
         province.enemyHere = provincesWithEnemyArmies.has(province.id) || false;
-        province.local_troops = null;
-        province.provinceBuildings = (province.provinceBuildings ?? [])
-          .filter((pb) => pb.building?.visible);
+        province.provinceBuildings = bypassFog
+          ? province.provinceBuildings
+          : (province.provinceBuildings ?? []).filter((pb) => pb.building?.visible);
         return province;
-      }
-
-      const reserved = reservedByFromProvince.get(province.id) ?? 0;
-      if (reserved > 0 && province.local_troops != null) {
-        province.local_troops = Math.max(0, province.local_troops - reserved);
       }
 
       return province;
@@ -80,7 +88,9 @@ export class ProvincesService {
   async getLayout() {
     const provinces = await this.provinceRepository
       .createQueryBuilder('p')
-      .select(['p.id', 'p.polygon', 'p.type', 'p.landscape', 'p.resource_type', 'p.region_id', 'p.neighbor_ids'])
+      .select(['p.id', 'p.polygon', 'p.type', 'p.landscape', 'p.region_id', 'p.neighbor_ids'])
+      .leftJoin('p.resource', 'resource')
+      .addSelect(['resource.key'])
       .getMany();
 
     return provinces.map(p => ({
@@ -88,23 +98,27 @@ export class ProvincesService {
       polygon: p.polygon,
       type: p.type,
       landscape: p.landscape,
-      resourceType: p.resource_type,
+      resourceType: p.resource?.key ?? null,
       regionId: p.region_id,
       neighbors: p.neighbor_ids,
     }));
   }
 
-  /** Dynamic province state: ownership, troops, buildings — changes only at turn end. */
-  async getState(userId: string) {
-    const [provinces, user, reserved, enemyArmies] = await Promise.all([
+  /**
+   * Dynamic province state: ownership, buildings — changes only at turn end.
+   * @param bypassFog Moderator god-view (see api/src/utils/mod-visibility.ts) — reveals
+   *   every non-owned province's buildings regardless of `Building.visible`. Caller is
+   *   responsible for having already validated the real actor's role.
+   */
+  async getState(userId: string, bypassFog = false) {
+    const [provinces, user, enemyArmies] = await Promise.all([
       this.provinceRepository
         .createQueryBuilder('p')
-        .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.resource_type', 'p.neighbor_ids'])
+        .select(['p.id', 'p.user_id', 'p.landscape', 'p.neighbor_ids', 'p.occupier_id', 'p.occupation_turns'])
         .leftJoinAndSelect('p.provinceBuildings', 'pb')
         .leftJoinAndSelect('pb.building', 'building')
         .getMany(),
       this.userRepository.findOne({ where: { id: userId } }),
-      this.actionsService.getReservedTroopMovesByFromProvince(userId),
       this.armyRepository
         .createQueryBuilder('a')
         .select(['a.province_id'])
@@ -135,18 +149,18 @@ export class ProvincesService {
       return {
         id: p.id,
         userId: p.user_id ?? null,
-        localTroops: isOwner
-          ? Math.max(0, (p.local_troops ?? 0) - (reserved.get(p.id) ?? 0))
-          : null,
         enemyHere: !isOwner && provincesWithEnemyArmies.has(p.id),
         // Each entry carries its ProvinceBuilding instance id so the client can
         // uniquely key and target a specific building (multiple of the same type
         // can exist in one province). The template fields are flattened in.
-        // Non-owners only see buildings marked as visible.
+        // Non-owners only see buildings marked as visible — unless a moderator has
+        // no-fog-of-war on (bypassFog), which reveals all of them regardless.
         buildings: (p.provinceBuildings ?? [])
-          .filter((pb) => pb.building && (isOwner || pb.building.visible))
+          .filter((pb) => pb.building && (isOwner || bypassFog || pb.building.visible))
           .map((pb) => ({ ...instanceToPlain(pb.building), instanceId: pb.id })),
-        buildingCap: computeBuildingCap(p.landscape, completedResearch),
+        buildingCap: this.techEffects.computeBuildingCap(p.landscape, p.resource?.key ?? null, completedResearch),
+        occupierId: p.occupier_id ?? null,
+        occupationTurns: p.occupation_turns ?? 0,
       };
     });
   }
@@ -202,25 +216,36 @@ export class ProvincesService {
     if (!building) {
       throw new Error('CAPITAL building template not found — run the building seed before setup');
     }
-    const pb = new ProvinceBuilding();
-    pb.province_id = province.id;
-    pb.building_id = building.id;
-    province.provinceBuildings.push(pb);
 
-    province.user_id = user.id;
+    // CAPITAL must exist immediately — this is a direct write, not queued as a
+    // BUILD action (setup can't wait for the next turn tick to resolve).
+    await this.provinceRepository.manager.transaction(async (manager) => {
+      const pb = new ProvinceBuilding();
+      pb.province_id = province.id;
+      pb.building_id = building.id;
+      province.provinceBuildings.push(pb);
 
-    foundUser.is_new = false;
-    foundUser.troops = 3000;
-    foundUser.money = 5000;
-    foundUser.research_points = 10;
+      province.user_id = user.id;
 
-    await this.userRepository.save(foundUser);
-    await this.provinceRepository.save(province);
+      foundUser.is_new = false;
+      foundUser.troops = 3000;
+      foundUser.money = 5000;
+
+      await manager.save(User, foundUser);
+      await manager.save(Province, province);
+
+      for (const [goodName, quantity] of Object.entries(STARTING_GOODS)) {
+        const good = await this.goodsService.findByName(goodName);
+        if (good) {
+          await this.userGoodsService.adjustQuantity(manager, user.id, good.id, quantity);
+        }
+      }
+    });
 
     const enrichedUser = await this.usersService.findOne(user.id, user.id);
     const newProvince = await this.provinceRepository
       .createQueryBuilder('p')
-      .select(['p.id', 'p.user_id', 'p.local_troops', 'p.landscape', 'p.resource_type'])
+      .select(['p.id', 'p.user_id', 'p.landscape'])
       .leftJoinAndSelect('p.provinceBuildings', 'pb')
       .leftJoinAndSelect('pb.building', 'building')
       .where('p.id = :id', { id: province.id })

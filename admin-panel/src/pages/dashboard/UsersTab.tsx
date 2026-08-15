@@ -4,33 +4,43 @@ import {
   type GridColDef, type GridRowModesModel, type GridRowId, type GridRowModel,
 } from '@mui/x-data-grid';
 import {
-  Box, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Select, MenuItem, FormControl, InputLabel, Alert, Snackbar,
+  Box, Button, Checkbox, Dialog, DialogTitle, DialogContent, DialogActions,
+  FormControlLabel, TextField, Select, MenuItem, FormControl, InputLabel, Alert, Snackbar,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import FlagOffIcon from '@mui/icons-material/OutlinedFlag';
 import { adminApi } from '../../api/admin';
+import { apiBaseUrl } from '../../api/config';
+import { useAuth } from '../../context/AuthContext';
 
-const CLASS_OPTIONS = ['', 'guild', 'holy', 'noble'];
 const ROLE_OPTIONS = ['', 'ADMIN', 'MODERATOR', 'PLAYER'];
+const PROTECTED_ROLES = ['ADMIN', 'MODERATOR'];
 
 const EMPTY_NEW_USER = {
   login: '', password: '', country_name: '', color: '',
-  money: 0, troops: 0, role: 'PLAYER', class: '',
+  money: 0, troops: 0, role: 'PLAYER', class: '', is_npc: false,
 };
 
 export const UsersTab = () => {
+  const { isAdmin } = useAuth();
   const [rows, setRows] = useState<any[]>([]);
   const [rowModesModel, setRowModesModel] = useState<GridRowModesModel>({});
   const [addOpen, setAddOpen] = useState(false);
   const [newUser, setNewUser] = useState({ ...EMPTY_NEW_USER });
   const [snackbar, setSnackbar] = useState<{ msg: string; severity: 'success' | 'error' } | null>(null);
+  // Sourced from the Classes tab's table (key = the back-compat string stored on user.class,
+  // name = display label) rather than a hard-coded list, so admin-created classes show up here too.
+  const [classOptions, setClassOptions] = useState<{ value: string; label: string }[]>([{ value: '', label: '(none)' }]);
 
   useEffect(() => {
     adminApi.getUsers().then((res) => setRows(res.data));
+    adminApi.getClasses().then((res) =>
+      setClassOptions([{ value: '', label: '(none)' }, ...res.data.map((c: any) => ({ value: c.key, label: c.name }))]),
+    );
   }, []);
 
   const handleSaveClick = (id: GridRowId) => () =>
@@ -50,6 +60,17 @@ export const UsersTab = () => {
       setSnackbar({ msg: 'User deleted', severity: 'success' });
     } catch {
       setSnackbar({ msg: 'Failed to delete user', severity: 'error' });
+    }
+  };
+
+  const handleClearFlag = async (id: string) => {
+    if (!window.confirm("Remove this player's flag?")) return;
+    try {
+      await adminApi.deleteUserFlag(id);
+      setRows((prev) => prev.map((r) => (r.id === id ? { ...r, flag_hash: null } : r)));
+      setSnackbar({ msg: 'Flag removed', severity: 'success' });
+    } catch {
+      setSnackbar({ msg: 'Failed to remove flag', severity: 'error' });
     }
   };
 
@@ -80,8 +101,23 @@ export const UsersTab = () => {
     { field: 'id', headerName: 'ID', width: 100, editable: false },
     { field: 'login', headerName: 'Login', width: 120, editable: true },
     { field: 'is_new', headerName: 'New', type: 'boolean', width: 70, editable: true },
+    {
+      // Only an ADMIN may flip is_npc on an existing user — a MODERATOR still creates NPCs
+      // via the Add User dialog's checkbox below (server always accepts is_npc on create),
+      // but can't retroactively change it (server also strips is_npc from a non-admin's PATCH).
+      field: 'is_npc', headerName: 'NPC', type: 'boolean', width: 60, editable: isAdmin,
+    },
     { field: 'country_name', headerName: 'Country', width: 120, editable: true },
     { field: 'color', headerName: 'Color', width: 90, editable: true },
+    {
+      // Read-only — upload is player-side only (web-map's profile modal). flag_hash (not
+      // flag_data, which is select:false and never sent to this list) doubles as both the
+      // presence check and the cache-busting query param, same as web-map's flagUrl.
+      field: 'flag_hash', headerName: 'Flag', width: 70, editable: false, sortable: false, filterable: false,
+      renderCell: ({ row }) => row.flag_hash
+        ? <img src={`${apiBaseUrl}/users/${row.id}/flag?v=${row.flag_hash}`} alt="" style={{ width: 28, height: 18, objectFit: 'cover', border: '1px solid #666' }} />
+        : <span style={{ opacity: 0.4 }}>—</span>,
+    },
     { field: 'money', headerName: 'Money', type: 'number', width: 90, editable: true },
     { field: 'piety', headerName: 'Piety', type: 'number', width: 80, editable: true },
     { field: 'troops', headerName: 'Troops', type: 'number', width: 80, editable: true },
@@ -103,13 +139,15 @@ export const UsersTab = () => {
       width: 90,
       editable: true,
       type: 'singleSelect',
-      valueOptions: CLASS_OPTIONS,
+      valueOptions: classOptions,
     },
     {
+      // Only an ADMIN may reassign roles; a MODERATOR sees the value but can't edit it
+      // (the server also strips `role` from a non-admin's PATCH, so this is UX, not the real guard).
       field: 'role',
       headerName: 'Role',
       width: 100,
-      editable: true,
+      editable: isAdmin,
       type: 'singleSelect',
       valueOptions: ROLE_OPTIONS,
     },
@@ -118,17 +156,24 @@ export const UsersTab = () => {
       type: 'actions',
       headerName: '',
       width: 100,
-      getActions: ({ id }) => {
+      getActions: ({ id, row }) => {
         const isEditing = rowModesModel[id]?.mode === GridRowModes.Edit;
-        return isEditing
-          ? [
-              <GridActionsCellItem icon={<SaveIcon />} label="Save" onClick={handleSaveClick(id)} />,
-              <GridActionsCellItem icon={<CancelIcon />} label="Cancel" onClick={handleCancelClick(id)} color="inherit" />,
-            ]
-          : [
-              <GridActionsCellItem icon={<EditIcon />} label="Edit" onClick={handleEditClick(id)} />,
-              <GridActionsCellItem icon={<DeleteIcon />} label="Delete" onClick={() => handleDelete(id as string)} />,
-            ];
+        if (isEditing) {
+          return [
+            <GridActionsCellItem icon={<SaveIcon />} label="Save" onClick={handleSaveClick(id)} />,
+            <GridActionsCellItem icon={<CancelIcon />} label="Cancel" onClick={handleCancelClick(id)} color="inherit" />,
+          ];
+        }
+        // A MODERATOR can't delete an ADMIN or MODERATOR account — mirrors the server-side check.
+        const canDelete = isAdmin || !PROTECTED_ROLES.includes(row.role);
+        const actions = [<GridActionsCellItem icon={<EditIcon />} label="Edit" onClick={handleEditClick(id)} />];
+        if (row.flag_hash) {
+          actions.push(<GridActionsCellItem icon={<FlagOffIcon />} label="Clear flag" onClick={() => handleClearFlag(id as string)} />);
+        }
+        if (canDelete) {
+          actions.push(<GridActionsCellItem icon={<DeleteIcon />} label="Delete" onClick={() => handleDelete(id as string)} />);
+        }
+        return actions;
       },
     },
   ];
@@ -163,18 +208,24 @@ export const UsersTab = () => {
           <TextField label="Color (hex)" value={newUser.color} onChange={(e) => setNewUser((p) => ({ ...p, color: e.target.value }))} />
           <TextField label="Money" type="number" value={newUser.money} onChange={(e) => setNewUser((p) => ({ ...p, money: Number(e.target.value) }))} />
           <TextField label="Troops" type="number" value={newUser.troops} onChange={(e) => setNewUser((p) => ({ ...p, troops: Number(e.target.value) }))} />
-          <FormControl>
-            <InputLabel>Role</InputLabel>
-            <Select label="Role" value={newUser.role} onChange={(e) => setNewUser((p) => ({ ...p, role: e.target.value }))}>
-              {ROLE_OPTIONS.filter(Boolean).map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
-            </Select>
-          </FormControl>
+          {isAdmin && (
+            <FormControl>
+              <InputLabel>Role</InputLabel>
+              <Select label="Role" value={newUser.role} onChange={(e) => setNewUser((p) => ({ ...p, role: e.target.value }))}>
+                {ROLE_OPTIONS.filter(Boolean).map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+              </Select>
+            </FormControl>
+          )}
           <FormControl>
             <InputLabel>Class</InputLabel>
             <Select label="Class" value={newUser.class} onChange={(e) => setNewUser((p) => ({ ...p, class: e.target.value }))}>
-              {CLASS_OPTIONS.map((o) => <MenuItem key={o} value={o}>{o || '(none)'}</MenuItem>)}
+              {classOptions.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
             </Select>
           </FormControl>
+          <FormControlLabel
+            control={<Checkbox checked={newUser.is_npc} onChange={(e) => setNewUser((p) => ({ ...p, is_npc: e.target.checked }))} />}
+            label="NPC country (cannot log in)"
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>

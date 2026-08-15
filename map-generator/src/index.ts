@@ -25,6 +25,15 @@ async function main() {
     console.log('  generate --rows 10 --cols 15 --width 4800 --height 3600 --out ./out');
     console.log('           [--seed 42] [--continent-scale 0.1] [--land-threshold 0.48]');
     console.log('           [--rivers 3] [--max-river-length 25] [--wrap-x true]');
+    console.log('           [--continents 3] [--gaps "4,4,8"] [--gap 4] [--coast-noise 1.0]');
+    console.log('           [--lakes 3] [--polar-rows 1]');
+    console.log('           With --continents > 1, land/water is decided by a Voronoi-margin');
+    console.log('           mask instead of --land-threshold: each continent gets a seed, and the');
+    console.log('           water channel between every pair is exactly the requested gap width in');
+    console.log('           tiles — matched widest-gap-to-furthest-pair. Size gaps against army water');
+    console.log('           survival: DEFAULT_WATER_TURNS is 6 (10 with military.seafaring); a gap');
+    console.log('           over 10 is uncrossable by anyone. --gaps needs C(continents,2) values');
+    console.log('           (comma-separated); --gap is the fallback used for every pair otherwise.');
     console.log('');
     console.log('  generate-region --land ./ne_50m_land.geojson --seas ./ne_110m_geography_marine_polys.geojson');
     console.log('           --rows 30 --cols 50 --width 4800 --height 3200 --out ./out');
@@ -56,7 +65,33 @@ async function main() {
     const maxRiverLength = args['max-river-length'] ? Number(args['max-river-length']) : undefined;
     const wrapX = args['wrap-x'] === 'true';
 
-    generateGridMap({ rows, cols, width, height, outputDir, seed, continentScale, landThreshold, riverCount, maxRiverLength, wrapX });
+    const continents = args['continents'] ? Number(args['continents']) : undefined;
+    const gap = args['gap'] ? Number(args['gap']) : undefined;
+    const coastNoise = args['coast-noise'] ? Number(args['coast-noise']) : undefined;
+    const lakes = args['lakes'] ? Number(args['lakes']) : undefined;
+    const polarRows = args['polar-rows'] ? Number(args['polar-rows']) : undefined;
+
+    let gaps: number[] | undefined;
+    if (args['gaps']) {
+      gaps = args['gaps'].split(',').map(Number);
+      if (gaps.some(isNaN)) {
+        console.error('--gaps must be comma-separated numbers, e.g. "4,4,8"');
+        process.exit(1);
+      }
+      const expected = continents ? (continents * (continents - 1)) / 2 : gaps.length;
+      if (continents && gaps.length !== expected) {
+        console.error(
+          `--gaps has ${gaps.length} value(s) but --continents ${continents} needs ` +
+          `C(${continents},2) = ${expected} (one per continent pair).`,
+        );
+        process.exit(1);
+      }
+    }
+
+    generateGridMap({
+      rows, cols, width, height, outputDir, seed, continentScale, landThreshold,
+      riverCount, maxRiverLength, wrapX, continents, gaps, gap, coastNoise, lakes, polarRows,
+    });
   } else if (command === 'generate-region') {
     const land = args.land;
     const seas = args.seas;

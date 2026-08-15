@@ -8,7 +8,7 @@ import { UserRoles } from '../users/types/users.types';
 import { Building } from '../buildings/entities/building.entity';
 import { ProvinceBuilding } from '../buildings/entities/province-building.entity';
 import { BuildingTypes } from '../buildings/types/building.types';
-import { computeBuildingCap } from '../techs/research-effects';
+import { DEFAULT_BUILDING_CAP, LANDSCAPE_BUILDING_CAPS } from '../techs/tech-effects.service';
 import { colors, logger } from '../utils/logger';
 
 const env = process.env.NODE_ENV ?? 'development';
@@ -30,6 +30,7 @@ const MINE_RESOURCE_TYPES = new Set(['iron', 'gold', 'stone']);
 const REQUIRED_BUILDING_TYPES = [
   BuildingTypes.BAZAAR,
   BuildingTypes.BARRACKS,
+  BuildingTypes.GARDEN,
   BuildingTypes.MINE,
 ] as const;
 
@@ -88,7 +89,7 @@ function isLandProvince(province: Province): boolean {
 }
 
 function canBuildMine(province: Province): boolean {
-  return MINE_RESOURCE_TYPES.has(province.resource_type?.toLowerCase());
+  return MINE_RESOURCE_TYPES.has(province.resource?.key?.toLowerCase());
 }
 
 function growCluster(
@@ -192,14 +193,16 @@ function findNeighboringClusters(
 }
 
 function randomBuildingsForProvince(province: Province, rng: () => number): BuildingTypes[] {
-  const cap = computeBuildingCap(province.landscape, []);
+  // No completed research for freshly-seeded test countries, so no tech `building_cap`
+  // effect can apply yet — the landscape base cap is the whole answer here.
+  const cap = LANDSCAPE_BUILDING_CAPS[province.landscape?.toLowerCase()] ?? DEFAULT_BUILDING_CAP;
   const selected: BuildingTypes[] = [];
 
   if (cap > 0 && canBuildMine(province)) {
     selected.push(BuildingTypes.MINE);
   }
 
-  const fillTypes = [BuildingTypes.BAZAAR, BuildingTypes.BARRACKS];
+  const fillTypes = [BuildingTypes.BAZAAR, BuildingTypes.BARRACKS, BuildingTypes.GARDEN];
   while (selected.length < cap) {
     selected.push(fillTypes[Math.floor(rng() * fillTypes.length)]);
   }
@@ -258,7 +261,7 @@ async function clearPreviousTestState(manager: EntityManager, userIds: string[])
     [userIds],
   );
   await manager.query(
-    'UPDATE `provinces` SET `user_id` = NULL, `local_troops` = 0 WHERE `user_id` IN (?)',
+    'UPDATE `provinces` SET `user_id` = NULL WHERE `user_id` IN (?)',
     [userIds],
   );
 }
@@ -303,10 +306,11 @@ async function seedTestCountries() {
           id: true,
           type: true,
           landscape: true,
-          resource_type: true,
           neighbor_ids: true,
           user_id: true,
+          resource: { key: true },
         },
+        relations: { resource: true },
       });
 
       let clusterPair = findNeighboringClusters(
@@ -343,7 +347,7 @@ async function seedTestCountries() {
         await manager.update(
           Province,
           { id: In(Array.from(assignment.ids)) },
-          { user_id: assignment.user.id, local_troops: 0 },
+          { user_id: assignment.user.id },
         );
 
         for (const provinceId of assignment.ids) {

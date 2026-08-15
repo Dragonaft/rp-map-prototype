@@ -5,7 +5,7 @@ import {
 } from '@mui/x-data-grid';
 import {
   Box, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, Alert, Snackbar,
+  TextField, Select, MenuItem, FormControl, InputLabel, Alert, Snackbar,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -18,12 +18,17 @@ const CATEGORIES = ['INFANTRY', 'RANGED', 'CAVALRY', 'SPECIAL', 'PEASANT'];
 
 const EMPTY_NEW_TROOP_TYPE = {
   key: '', name: '', description: '', category: 'INFANTRY',
-  cost_per_100: 0, attack: 1, defense: 1, upkeep_per_100: 100,
+  cost_per_100: 0, attack: 1, defense: 1, water_combat_modifier: 1, upkeep_per_100: 100,
   tech_requirement: '', building_requirement: '',
+  required_goods: '', goods_amount: 0,
+  required_goods_2: '', goods_amount_2: 0,
+  supply_good_id: '', supply_per_100: 0,
+  supply_good_2_id: '', supply_per_100_2: 0,
 };
 
 export const TroopTypesTab = () => {
   const [rows, setRows] = useState<any[]>([]);
+  const [goods, setGoods] = useState<{ id: string; name: string }[]>([]);
   const [rowModesModel, setRowModesModel] = useState<GridRowModesModel>({});
   const [addOpen, setAddOpen] = useState(false);
   const [newTroopType, setNewTroopType] = useState({ ...EMPTY_NEW_TROOP_TYPE });
@@ -31,7 +36,10 @@ export const TroopTypesTab = () => {
 
   useEffect(() => {
     adminApi.getTroopTypes().then((res) => setRows(res.data));
+    adminApi.getGoods().then((res) => setGoods(res.data));
   }, []);
+
+  const GOOD_OPTIONS = [{ value: '', label: '(none)' }, ...goods.map((g) => ({ value: g.id, label: g.name }))];
 
   const handleSaveClick = (id: GridRowId) => () =>
     setRowModesModel({ ...rowModesModel, [id]: { mode: GridRowModes.View } });
@@ -65,7 +73,18 @@ export const TroopTypesTab = () => {
 
   const handleAddTroopType = async () => {
     try {
-      const res = await adminApi.createTroopType(newTroopType);
+      const payload = {
+        ...newTroopType,
+        required_goods: newTroopType.required_goods || null,
+        goods_amount: newTroopType.goods_amount || null,
+        required_goods_2: newTroopType.required_goods_2 || null,
+        goods_amount_2: newTroopType.goods_amount_2 || null,
+        supply_good_id: newTroopType.supply_good_id || null,
+        supply_per_100: newTroopType.supply_per_100 || null,
+        supply_good_2_id: newTroopType.supply_good_2_id || null,
+        supply_per_100_2: newTroopType.supply_per_100_2 || null,
+      };
+      const res = await adminApi.createTroopType(payload);
       setRows((prev) => [...prev, res.data]);
       setAddOpen(false);
       setNewTroopType({ ...EMPTY_NEW_TROOP_TYPE });
@@ -85,9 +104,18 @@ export const TroopTypesTab = () => {
     { field: 'cost_per_100', headerName: 'Cost/100', type: 'number', width: 90, editable: true },
     { field: 'attack', headerName: 'Attack', type: 'number', width: 80, editable: true },
     { field: 'defense', headerName: 'Defense', type: 'number', width: 80, editable: true },
+    { field: 'water_combat_modifier', headerName: 'Water Combat ×', type: 'number', width: 130, editable: true },
     { field: 'upkeep_per_100', headerName: 'Upkeep/100', type: 'number', width: 100, editable: true },
     { field: 'tech_requirement', headerName: 'Tech Req.', width: 160, editable: true },
     { field: 'building_requirement', headerName: 'Building Req.', width: 140, editable: true },
+    { field: 'required_goods', headerName: 'Req. Goods', width: 150, editable: true, type: 'singleSelect', valueOptions: GOOD_OPTIONS },
+    { field: 'goods_amount', headerName: 'Goods Amount/100', type: 'number', width: 140, editable: true },
+    { field: 'required_goods_2', headerName: 'Req. Goods 2', width: 150, editable: true, type: 'singleSelect', valueOptions: GOOD_OPTIONS },
+    { field: 'goods_amount_2', headerName: 'Goods Amount 2/100', type: 'number', width: 150, editable: true },
+    { field: 'supply_good_id', headerName: 'Supply Good', width: 150, editable: true, type: 'singleSelect', valueOptions: GOOD_OPTIONS },
+    { field: 'supply_per_100', headerName: 'Supply/100/turn', type: 'number', width: 140, editable: true },
+    { field: 'supply_good_2_id', headerName: 'Supply Good 2', width: 150, editable: true, type: 'singleSelect', valueOptions: GOOD_OPTIONS },
+    { field: 'supply_per_100_2', headerName: 'Supply 2/100/turn', type: 'number', width: 150, editable: true },
     {
       field: 'actions',
       type: 'actions',
@@ -141,9 +169,38 @@ export const TroopTypesTab = () => {
           <TextField label="Cost / 100" type="number" value={newTroopType.cost_per_100} onChange={(e) => setNewTroopType((p) => ({ ...p, cost_per_100: Number(e.target.value) }))} />
           <TextField label="Attack" type="number" value={newTroopType.attack} onChange={(e) => setNewTroopType((p) => ({ ...p, attack: Number(e.target.value) }))} />
           <TextField label="Defense" type="number" value={newTroopType.defense} onChange={(e) => setNewTroopType((p) => ({ ...p, defense: Number(e.target.value) }))} />
+          <TextField label="Water Combat Modifier" type="number" value={newTroopType.water_combat_modifier} onChange={(e) => setNewTroopType((p) => ({ ...p, water_combat_modifier: Number(e.target.value) }))} helperText="Power multiplier while fighting on water (1 = no penalty, e.g. 0.2 = -80%)" />
           <TextField label="Upkeep / 100" type="number" value={newTroopType.upkeep_per_100} onChange={(e) => setNewTroopType((p) => ({ ...p, upkeep_per_100: Number(e.target.value) }))} />
           <TextField label="Tech Requirement" value={newTroopType.tech_requirement} onChange={(e) => setNewTroopType((p) => ({ ...p, tech_requirement: e.target.value }))} helperText="Tech key, e.g. military.archery" />
           <TextField label="Building Requirement" value={newTroopType.building_requirement} onChange={(e) => setNewTroopType((p) => ({ ...p, building_requirement: e.target.value }))} helperText="Building type, e.g. BARRACKS" />
+          <FormControl>
+            <InputLabel>Req. Goods</InputLabel>
+            <Select label="Req. Goods" value={newTroopType.required_goods} onChange={(e) => setNewTroopType((p) => ({ ...p, required_goods: e.target.value }))}>
+              {GOOD_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField label="Goods Amount / 100" type="number" value={newTroopType.goods_amount} onChange={(e) => setNewTroopType((p) => ({ ...p, goods_amount: Number(e.target.value) }))} helperText="Units of Req. Goods consumed per 100 troops recruited" />
+          <FormControl>
+            <InputLabel>Req. Goods 2</InputLabel>
+            <Select label="Req. Goods 2" value={newTroopType.required_goods_2} onChange={(e) => setNewTroopType((p) => ({ ...p, required_goods_2: e.target.value }))}>
+              {GOOD_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField label="Goods Amount 2 / 100" type="number" value={newTroopType.goods_amount_2} onChange={(e) => setNewTroopType((p) => ({ ...p, goods_amount_2: Number(e.target.value) }))} helperText="A second, independent one-time recruit cost — e.g. the class elite units' own prestige good" />
+          <FormControl>
+            <InputLabel>Supply Good</InputLabel>
+            <Select label="Supply Good" value={newTroopType.supply_good_id} onChange={(e) => setNewTroopType((p) => ({ ...p, supply_good_id: e.target.value }))}>
+              {GOOD_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField label="Supply / 100 / turn" type="number" value={newTroopType.supply_per_100} onChange={(e) => setNewTroopType((p) => ({ ...p, supply_per_100: Number(e.target.value) }))} helperText="Units of Supply Good consumed per 100 troops each turn, scaled by distance from a supply building" />
+          <FormControl>
+            <InputLabel>Supply Good 2</InputLabel>
+            <Select label="Supply Good 2" value={newTroopType.supply_good_2_id} onChange={(e) => setNewTroopType((p) => ({ ...p, supply_good_2_id: e.target.value }))}>
+              {GOOD_OPTIONS.map((o) => <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>)}
+            </Select>
+          </FormControl>
+          <TextField label="Supply 2 / 100 / turn" type="number" value={newTroopType.supply_per_100_2} onChange={(e) => setNewTroopType((p) => ({ ...p, supply_per_100_2: Number(e.target.value) }))} helperText="A second, independent per-turn supply good — e.g. the class elite units' permanent trade-partner dependency" />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>

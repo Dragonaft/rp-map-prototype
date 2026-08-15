@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { Province, ProvinceType, Landscape } from './types';
-import { gridNeighborRegions } from './gridNeighbors';
+import { gridNeighborCells, gridNeighborRegions, toroidalDistance } from './gridNeighbors';
 
 interface GenerateGridOptions {
   rows: number;
@@ -15,6 +15,12 @@ interface GenerateGridOptions {
   riverCount?: number;     // number of rivers to attempt
   maxRiverLength?: number; // max tiles per river
   wrapX?: boolean;         // east-west wrapping (cylinder/globe maps)
+  continents?: number;     // number of landmasses; >1 switches to the Voronoi-margin generator below
+  gaps?: number[];         // water-channel width per continent pair, matched widest-gap-to-furthest-pair
+  gap?: number;            // fallback channel width applied to every pair when `gaps` is omitted
+  coastNoise?: number;     // noise amplitude added to the Voronoi margin — wiggles coastlines without changing mean width
+  lakes?: number;          // inland lakes to carve (2-3 water cells each)
+  polarRows?: number;      // rows forced to water at the top/bottom edges (poles); default 1 when continents > 1
 }
 
 // Land resource spawn weights — gold and stone are deliberately much rarer.
@@ -95,6 +101,224 @@ function getLandscape(elev: number, rng: () => number): Landscape {
   return 'forest';
 }
 
+// ─── Multi-continent land mask (Voronoi margin) ──────────────────────────────
+//
+// Each continent gets a seed cell. For every grid cell, find the two nearest
+// seeds (d1 = nearest, d2 = second-nearest). The margin m = d2 - d1 is zero
+// exactly on the boundary between two continents' territories and grows the
+// deeper a cell sits inside its own continent. Declaring a cell water when
+// m < gap carves a channel of ~`gap` tiles centred on that boundary — the
+// gap is a direct, per-pair gameplay dial (crossing width vs. water-turns),
+// not an emergent side effect of noise/threshold tuning like the single-blob
+// mode below.
+
+function placeContinentSeeds(
+  count: number, rows: number, cols: number, wrapX: boolean, polarRows: number, rng: () => number,
+): { r: number; c: number }[] {
+  // Mitchell's best-candidate: for each seed, sample several candidates and
+  // keep the one furthest (toroidal distance) from every seed placed so far.
+  // Deterministic from the seeded rng, wrap-aware, so continents spread out
+  // well on the cylinder instead of clumping.
+  const CANDIDATES_PER_SEED = 20;
+  const seeds: { r: number; c: number }[] = [];
+  const usableRows = Math.max(rows - 2 * polarRows, 1);
+
+  for (let i = 0; i < count; i++) {
+    let best: { r: number; c: number } | null = null;
+    let bestScore = -Infinity;
+    for (let k = 0; k < CANDIDATES_PER_SEED; k++) {
+      const cand = { r: polarRows + Math.floor(rng() * usableRows), c: Math.floor(rng() * cols) };
+      const score = seeds.length === 0
+        ? 0
+        : Math.min(...seeds.map(s => toroidalDistance(cand.r, cand.c, s.r, s.c, cols, wrapX)));
+      if (score > bestScore) { bestScore = score; best = cand; }
+    }
+    seeds.push(best!);
+  }
+  return seeds;
+}
+
+function buildContinentMask(opts: {
+  rows: number; cols: number; wrapX: boolean; rng: () => number; seed: number;
+  continents: number; gaps?: number[]; gap: number; coastNoise: number; polarRows: number;
+}): { typeMap: ProvinceType[][]; seeds: { r: number; c: number }[] } {
+  const { rows, cols, wrapX, rng, seed, continents, gaps, gap, coastNoise, polarRows } = opts;
+
+  const seeds = placeContinentSeeds(continents, rows, cols, wrapX, polarRows, rng);
+
+  // Gap assignment: sort continent pairs by seed distance descending, sort
+  // requested gaps descending, zip them — the widest ocean always lands
+  // between the two furthest-apart continents.
+  const pairs: { i: number; j: number; dist: number }[] = [];
+  for (let i = 0; i < continents; i++)
+    for (let j = i + 1; j < continents; j++)
+      pairs.push({ i, j, dist: toroidalDistance(seeds[i].r, seeds[i].c, seeds[j].r, seeds[j].c, cols, wrapX) });
+  pairs.sort((a, b) => b.dist - a.dist);
+
+  const requestedGaps = (gaps && gaps.length > 0 ? [...gaps] : pairs.map(() => gap)).sort((a, b) => b - a);
+  if (gaps && gaps.length !== pairs.length) {
+    console.warn(
+      `--gaps has ${gaps.length} value(s) but ${continents} continents form ${pairs.length} pair(s) ` +
+      `(C(${continents},2)); values will be reused/truncated to fit.`,
+    );
+  }
+
+  const gapMatrix: number[][] = Array.from({ length: continents }, () => Array(continents).fill(gap));
+  pairs.forEach((pair, idx) => {
+    const g = requestedGaps[idx % requestedGaps.length];
+    gapMatrix[pair.i][pair.j] = g;
+    gapMatrix[pair.j][pair.i] = g;
+    console.log(`  seed[${pair.i}]-seed[${pair.j}]: ${pair.dist.toFixed(1)} tiles apart, target gap ${g}`);
+  });
+
+  const typeMap: ProvinceType[][] = Array.from({ length: rows }, () => Array<ProvinceType>(cols).fill('land'));
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (r < polarRows || r >= rows - polarRows) { typeMap[r][c] = 'water'; continue; }
+
+      const dists = seeds.map(s => toroidalDistance(r, c, s.r, s.c, cols, wrapX));
+      let i1 = 0;
+      for (let i = 1; i < dists.length; i++) if (dists[i] < dists[i1]) i1 = i;
+      if (continents === 1) continue; // no boundary, stays land
+
+      const noiseVal = (fbm(c * 0.3, r * 0.3, seed + 9999) - 0.5) * 2 * coastNoise; // ~[-coastNoise, coastNoise]
+
+      // Check against EVERY other seed's exclusion zone, not just the nearest
+      // one — with 3+ continents, near a three-way junction the nearest-other
+      // seed can carry a *smaller* required gap than the seed on the far side
+      // of the intended channel, letting land sneak across using the weaker
+      // constraint and silently shrinking the wide ocean down toward the
+      // narrow one. Margin moves at rate 2 per unit distance off a bisector
+      // (d1 and dj shift oppositely), so a corridor of total width `gap`
+      // needs threshold `gap` itself, not `gap / 2`.
+      let isWater = false;
+      for (let j = 0; j < dists.length; j++) {
+        if (j === i1) continue;
+        const margin = dists[j] - dists[i1];
+        if (margin + noiseVal < gapMatrix[i1][j]) { isWater = true; break; }
+      }
+      typeMap[r][c] = isWater ? 'water' : 'land';
+    }
+  }
+
+  return { typeMap, seeds };
+}
+
+// ─── Connectivity helpers (landmass reporting + lake-safety check) ──────────
+
+// Flood-fills land into connected components (wrap-aware), largest first.
+function labelLandComponents(
+  typeMap: ProvinceType[][], rows: number, cols: number, wrapX: boolean,
+): { r: number; c: number }[][] {
+  const seen: boolean[][] = Array.from({ length: rows }, () => Array(cols).fill(false));
+  const components: { r: number; c: number }[][] = [];
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      if (typeMap[r][c] !== 'land' || seen[r][c]) continue;
+      const cells: { r: number; c: number }[] = [];
+      const queue: { r: number; c: number }[] = [{ r, c }];
+      seen[r][c] = true;
+      let qi = 0;
+      while (qi < queue.length) {
+        const cur = queue[qi++];
+        cells.push(cur);
+        for (const n of gridNeighborCells(cur.r, cur.c, rows, cols, wrapX)) {
+          if (typeMap[n.r][n.c] === 'land' && !seen[n.r][n.c]) {
+            seen[n.r][n.c] = true;
+            queue.push(n);
+          }
+        }
+      }
+      components.push(cells);
+    }
+  }
+  return components.sort((a, b) => b.length - a.length);
+}
+
+// Multi-source BFS from every cell of landmass `a`, through water only, to
+// the nearest cell of landmass `b`. Graph distance minus 1 is the number of
+// water tiles an army must cross directly between the two — this is the
+// number that matters against DEFAULT_WATER_TURNS. Cells belonging to a
+// third landmass are walls here (not shortcuts): stepping onto free land
+// resets an army's water-turn counter, so routing through a stepping-stone
+// continent is a materially easier crossing than this pair's direct gap and
+// must not be reported as if it were this pair's width.
+function measuredGap(
+  a: { r: number; c: number }[], b: { r: number; c: number }[], typeMap: ProvinceType[][],
+  rows: number, cols: number, wrapX: boolean,
+): number {
+  const aSet = new Set(a.map(({ r, c }) => `${r}-${c}`));
+  const bSet = new Set(b.map(({ r, c }) => `${r}-${c}`));
+  const passable = (r: number, c: number) =>
+    typeMap[r][c] === 'water' || aSet.has(`${r}-${c}`) || bSet.has(`${r}-${c}`);
+
+  const dist: number[][] = Array.from({ length: rows }, () => Array(cols).fill(-1));
+  const queue: { r: number; c: number }[] = [];
+  for (const { r, c } of a) { dist[r][c] = 0; queue.push({ r, c }); }
+
+  let qi = 0;
+  while (qi < queue.length) {
+    const cur = queue[qi++];
+    if (bSet.has(`${cur.r}-${cur.c}`)) return Math.max(dist[cur.r][cur.c] - 1, 0);
+    for (const n of gridNeighborCells(cur.r, cur.c, rows, cols, wrapX)) {
+      if (dist[n.r][n.c] === -1 && passable(n.r, n.c)) {
+        dist[n.r][n.c] = dist[cur.r][cur.c] + 1;
+        queue.push(n);
+      }
+    }
+  }
+  return Infinity; // no direct sea route between the two (blocked by a third landmass)
+}
+
+// Carves `count` small inland lakes (2-3 water cells each). Candidates that
+// touch existing water are rejected (keeps lakes genuinely inland rather than
+// notching an existing coastline), and any carve that would split its
+// landmass in two is reverted.
+function carveLakes(
+  typeMap: ProvinceType[][], rows: number, cols: number, wrapX: boolean, count: number, rng: () => number,
+): number {
+  let carved = 0;
+  const maxAttempts = count * 25;
+
+  for (let attempt = 0; attempt < maxAttempts && carved < count; attempt++) {
+    const r = Math.floor(rng() * rows);
+    const c = Math.floor(rng() * cols);
+    if (typeMap[r][c] !== 'land') continue;
+
+    const blobSize = 2 + Math.floor(rng() * 2); // 2-3 cells
+    const blob: { r: number; c: number }[] = [{ r, c }];
+    const seen = new Set([`${r}-${c}`]);
+    const frontier = [...gridNeighborCells(r, c, rows, cols, wrapX)];
+    while (blob.length < blobSize && frontier.length) {
+      const idx = Math.floor(rng() * frontier.length);
+      const cand = frontier.splice(idx, 1)[0];
+      const key = `${cand.r}-${cand.c}`;
+      if (seen.has(key) || typeMap[cand.r][cand.c] !== 'land') continue;
+      seen.add(key);
+      blob.push(cand);
+      frontier.push(...gridNeighborCells(cand.r, cand.c, rows, cols, wrapX));
+    }
+    if (blob.length < 2) continue;
+
+    const touchesWater = blob.some(cell =>
+      gridNeighborCells(cell.r, cell.c, rows, cols, wrapX).some(
+        n => !seen.has(`${n.r}-${n.c}`) && typeMap[n.r][n.c] === 'water',
+      ));
+    if (touchesWater) continue;
+
+    const before = labelLandComponents(typeMap, rows, cols, wrapX).length;
+    for (const cell of blob) typeMap[cell.r][cell.c] = 'water';
+    const after = labelLandComponents(typeMap, rows, cols, wrapX).length;
+    if (after > before) {
+      for (const cell of blob) typeMap[cell.r][cell.c] = 'land'; // would have split the landmass — revert
+      continue;
+    }
+    carved++;
+  }
+  return carved;
+}
+
 // ─── Main ────────────────────────────────────────────────────────────────────
 
 export function generateGridMap(options: GenerateGridOptions) {
@@ -106,6 +330,12 @@ export function generateGridMap(options: GenerateGridOptions) {
     riverCount      = 3,
     maxRiverLength  = 25,
     wrapX           = false,
+    continents      = 1,
+    gaps,
+    gap             = 4,
+    coastNoise      = 1.0,
+    lakes           = 0,
+    polarRows       = continents > 1 ? 1 : 0,
   } = options;
 
   const rng = makeRng(seed);
@@ -114,14 +344,20 @@ export function generateGridMap(options: GenerateGridOptions) {
   const cellWidth  = width  / cols;
   const cellHeight = height / rows;
 
-  console.log(`Generating map with seed ${seed} (${rows}x${cols})...`);
+  console.log(`Generating map with seed ${seed} (${rows}x${cols})${continents > 1 ? `, ${continents} continents` : ''}...`);
 
-  // ── Step 1: Elevation map (noise + island falloff) ──────────────────────
+  // ── Step 1: Elevation map ────────────────────────────────────────────────
+  // Single-continent mode keeps the legacy radial island bias (land forms one
+  // central blob). Multi-continent mode decides land/water via the Voronoi
+  // mask below instead, so elevation here only shapes landscape and rivers —
+  // no bias needed since the mask already carves the coastlines.
   const elevation: number[][] = Array.from({ length: rows }, (_, r) =>
     Array.from({ length: cols }, (_, c) => {
       const nx = c * continentScale;
       const ny = r * continentScale;
       const noiseVal = fbm(nx, ny, seed); // ~0.3–0.7
+
+      if (continents > 1) return noiseVal;
 
       // Additive island bias: +0.3 at center, −0.3 at corners
       // so edges naturally become water without suppressing center values
@@ -134,14 +370,19 @@ export function generateGridMap(options: GenerateGridOptions) {
     })
   );
 
-  // ── Step 2: Initial type from elevation ──────────────────────────────────
-  const typeMap: ProvinceType[][] = elevation.map(row =>
-    row.map(elev => (elev >= landThreshold ? 'land' : 'water'))
-  );
+  // ── Step 2: Initial type from elevation, or multi-continent Voronoi mask ──
+  let typeMap: ProvinceType[][];
+  if (continents > 1) {
+    ({ typeMap } = buildContinentMask({ rows, cols, wrapX, rng, seed, continents, gaps, gap, coastNoise, polarRows }));
+  } else {
+    typeMap = elevation.map(row => row.map(elev => (elev >= landThreshold ? 'land' : 'water')));
+  }
 
-  // ── Step 3: Rivers ───────────────────────────────────────────────────────
+  // ── Step 3: Lakes ─────────────────────────────────────────────────────────
+  const lakesCarved = lakes > 0 ? carveLakes(typeMap, rows, cols, wrapX, lakes, rng) : 0;
+
+  // ── Step 4: Rivers ───────────────────────────────────────────────────────
   type Cell = { r: number; c: number };
-  const dirs: [number, number][] = [[-1, 0], [1, 0], [0, -1], [0, 1]];
 
   // Sort land cells by elevation descending → mountain peaks first
   const landCells = [] as (Cell & { elev: number })[];
@@ -163,11 +404,9 @@ export function generateGridMap(options: GenerateGridOptions) {
     let reachedWater = false;
 
     for (let step = 0; step < maxRiverLength; step++) {
-      // Walk to adjacent cell with lowest elevation
+      // Walk to adjacent cell with lowest elevation (wrap-aware)
       let bestElev = Infinity, bestR = -1, bestC = -1;
-      for (const [dr, dc] of dirs) {
-        const nr = cr + dr, nc = cc + dc;
-        if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue;
+      for (const { r: nr, c: nc } of gridNeighborCells(cr, cc, rows, cols, wrapX)) {
         if (elevation[nr][nc] < bestElev) {
           bestElev = elevation[nr][nc];
           bestR = nr; bestC = nc;
@@ -193,7 +432,7 @@ export function generateGridMap(options: GenerateGridOptions) {
     }
   }
 
-  // ── Step 4: Build province objects ──────────────────────────────────────
+  // ── Step 5: Build province objects ────────────────────────────────────────
   const provinces: Province[] = [];
 
   for (let r = 0; r < rows; r++) {
@@ -207,7 +446,6 @@ export function generateGridMap(options: GenerateGridOptions) {
         polygon: `M${x1} ${y1} H${x2} V${y2} H${x1} Z`,
         type,
         landscape: isWater ? 'plains' : getLandscape(elevation[r][c], rng),
-        local_troops: 0,
         resource_type: isWater ? randomFrom(resourcesSea) : pickWeighted(rng, resourceWeights),
         user_id: null,
         region_id: `prov-${r}-${c}`,
@@ -216,7 +454,7 @@ export function generateGridMap(options: GenerateGridOptions) {
     }
   }
 
-  // ── Step 5: 4-directional neighbors ─────────────────────────────────────
+  // ── Step 6: 4-directional neighbors ───────────────────────────────────────
   console.log(`Calculating neighbors${wrapX ? ' (east-west wrap)' : ''}...`);
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
@@ -233,5 +471,37 @@ export function generateGridMap(options: GenerateGridOptions) {
   const landCount  = provinces.filter(p => p.type === 'land').length;
   const waterCount = provinces.filter(p => p.type === 'water').length;
   console.log(`Done: ${provinces.length} provinces — ${landCount} land, ${waterCount} water, ${riversPlaced}/${riverCount} rivers placed`);
+
+  if (continents > 1) {
+    // Final landmass census (post-lake, post-river) — the numbers a player
+    // will actually experience, not just what the seed placement intended.
+    const finalTypeMap: ProvinceType[][] = Array.from({ length: rows }, (_, r) =>
+      Array.from({ length: cols }, (_, c) => provinces[r * cols + c].type));
+    const components = labelLandComponents(finalTypeMap, rows, cols, wrapX);
+    const landmasses = components.slice(0, continents);
+    const extraIslands = components.length - landmasses.length;
+
+    console.log(`Landmasses: ${landmasses.map(l => l.length).join(', ')} provinces` +
+      (extraIslands > 0 ? ` (+${extraIslands} small island${extraIslands === 1 ? '' : 's'})` : ''));
+
+    for (let i = 0; i < landmasses.length; i++) {
+      for (let j = i + 1; j < landmasses.length; j++) {
+        const g = measuredGap(landmasses[i], landmasses[j], finalTypeMap, rows, cols, wrapX);
+        if (!isFinite(g)) {
+          console.log(`  gap[${i}-${j}]: no direct sea route (blocked by a third landmass)`);
+          continue;
+        }
+        console.log(`  gap[${i}-${j}]: ${g} water tile(s)`);
+        if (g > 10) {
+          console.warn(`  WARNING: gap[${i}-${j}] is ${g} tiles — uncrossable even with Seafaring (max allowance is 10).`);
+        }
+      }
+    }
+  }
+
+  if (lakes > 0) {
+    console.log(`Lakes: ${lakesCarved}/${lakes} carved`);
+  }
+
   console.log(`Saved: ${outPath}`);
 }

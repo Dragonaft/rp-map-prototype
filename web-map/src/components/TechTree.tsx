@@ -109,13 +109,12 @@ const computePositions = (techs: Tech[]): Map<string, { row: number; col: number
 interface Props {
   techs: Tech[];
   completedResearch: string[];
-  pendingResearchKeys: string[];
+  activeResearchKey: string | null;
   onTechClick: (tech: Tech) => void;
 }
 
-export const TechTree: React.FC<Props> = ({ techs, completedResearch, pendingResearchKeys, onTechClick }) => {
+export const TechTree: React.FC<Props> = ({ techs, completedResearch, activeResearchKey, onTechClick }) => {
   const completedSet = new Set(completedResearch);
-  const pendingSet = new Set(pendingResearchKeys);
   if (!techs.length) return null;
 
   const positions = computePositions(techs);
@@ -170,8 +169,8 @@ export const TechTree: React.FC<Props> = ({ techs, completedResearch, pendingRes
         {techs.map(tech => {
           const pos = positions.get(tech.key)!;
           const researched = completedSet.has(tech.key);
-          const pending = pendingSet.has(tech.key);
-          const borderColor = researched ? 'green' : pending ? '#f59e0b' : 'black';
+          const active = tech.key === activeResearchKey;
+          const borderColor = researched ? 'green' : active ? '#3b82f6' : 'black';
           return (
             <div
               key={tech.key}
@@ -208,6 +207,11 @@ export const TechTree: React.FC<Props> = ({ techs, completedResearch, pendingRes
               <span style={{ fontSize: 9, textAlign: 'center', lineHeight: 1.2, color: '#111' }}>
                 {tech.name}
               </span>
+              {!researched && tech.progress > 0 && (
+                <span style={{ fontSize: 8, color: active ? '#3b82f6' : '#666' }}>
+                  {tech.progress}/{tech.cost}
+                </span>
+              )}
             </div>
           );
         })}

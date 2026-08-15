@@ -1,5 +1,5 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { Province, UserResources } from "../../types.ts";
+import { Province } from "../../types.ts";
 
 interface UserState {
   id: string;
@@ -14,11 +14,19 @@ interface UserState {
   projectedPiety: number | null;
   projectedResearch: number;
   projectedTroops: number;
+  /** Net Food/turn: production (CAPITAL/FARM/GARDEN) minus every army's distance-scaled supply cost. */
+  projectedFood: number;
   isNew: boolean;
   provinces: Province[];
   completedResearch: string[];
   researchPoints: number;
-  resources: UserResources;
+  activeResearch: string | null;
+  role?: string | null;
+  isNpc?: boolean;
+  /** `/users/{id}/flag?v={hash}` (relative to the API base), or null when no flag is set. */
+  flagUrl: string | null;
+  /** Freeform markdown RP background text. */
+  lore: string | null;
 }
 
 const initialState: UserState = {
@@ -34,11 +42,16 @@ const initialState: UserState = {
   projectedPiety: null,
   projectedResearch: 0,
   projectedTroops: 0,
+  projectedFood: 0,
   isNew: false,
   provinces: [],
   completedResearch: [],
   researchPoints: 0,
-  resources: { stone: 0, iron: 0, gold: 0, wood: 0 },
+  activeResearch: null,
+  role: null,
+  isNpc: false,
+  flagUrl: null,
+  lore: null,
 };
 
 const userSlice = createSlice({
@@ -58,11 +71,16 @@ const userSlice = createSlice({
       state.projectedPiety = action.payload.projectedPiety;
       state.projectedResearch = action.payload.projectedResearch;
       state.projectedTroops = action.payload.projectedTroops;
+      state.projectedFood = action.payload.projectedFood ?? 0;
       state.isNew = action.payload.isNew;
       state.provinces = action.payload.provinces;
       state.completedResearch = action.payload.completedResearch ?? [];
       state.researchPoints = action.payload.researchPoints;
-      state.resources = action.payload.resources ?? { stone: 0, iron: 0, gold: 0, wood: 0 };
+      state.activeResearch = action.payload.activeResearch ?? null;
+      state.role = action.payload.role ?? null;
+      state.isNpc = action.payload.isNpc ?? false;
+      state.flagUrl = action.payload.flagUrl ?? null;
+      state.lore = action.payload.lore ?? null;
     },
     updateUserTroops: (state, action: PayloadAction<number>) => {
       state.troops = action.payload;
@@ -70,9 +88,18 @@ const userSlice = createSlice({
     updateUserMoney: (state, action: PayloadAction<number>) => {
       state.money = action.payload;
     },
-    updateUserProfile: (state, action: PayloadAction<{ countryName: string; color: string }>) => {
+    updateUserProfile: (state, action: PayloadAction<{ countryName: string; color: string; lore?: string }>) => {
       state.countryName = action.payload.countryName;
       state.color = action.payload.color;
+      if (action.payload.lore !== undefined) {
+        state.lore = action.payload.lore;
+      }
+    },
+    updateUserFlag: (state, action: PayloadAction<string | null>) => {
+      state.flagUrl = action.payload;
+    },
+    setActiveResearch: (state, action: PayloadAction<string>) => {
+      state.activeResearch = action.payload;
     },
     resetUserState: (state) => {
       state.id = '';
@@ -87,9 +114,14 @@ const userSlice = createSlice({
       state.provinces = [];
       state.completedResearch = [];
       state.researchPoints = 0;
+      state.activeResearch = null;
+      state.role = null;
+      state.isNpc = false;
+      state.flagUrl = null;
+      state.lore = null;
     },
   },
 });
 
-export const { setUser, updateUserTroops, updateUserMoney, updateUserProfile, resetUserState } = userSlice.actions;
+export const { setUser, updateUserTroops, updateUserMoney, updateUserProfile, updateUserFlag, setActiveResearch, resetUserState } = userSlice.actions;
 export default userSlice.reducer;

@@ -11,6 +11,10 @@ import { ActionsModule } from './actions/actions.module';
 import { TechsModule } from './techs/techs.module';
 import { ArmiesModule } from './armies/armies.module';
 import { AdminModule } from './admin/admin.module';
+import { ResourcesModule } from './resources/resources.module';
+import { GoodsModule } from './goods/goods.module';
+import { DiplomacyModule } from './diplomacy/diplomacy.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { Province } from './provinces/entities/province.entity';
 import { User } from './users/entities/user.entity';
 import { Building } from './buildings/entities/building.entity';
@@ -19,9 +23,31 @@ import { ActionQueue } from './actions/entities/action-queue.entity';
 import { ActionsLog } from './actions/entities/actions-log.entity';
 import { ExecutionLock } from './actions/entities/execution-lock.entity';
 import { Tech } from './techs/entities/tech.entity';
+import { UserTechProgress } from './techs/entities/user-tech-progress.entity';
 import { Army } from './armies/entities/army.entity';
 import { ArmyUnit } from './armies/entities/army-unit.entity';
 import { TroopType } from './armies/entities/troop-type.entity';
+import { Resource } from './resources/entities/resource.entity';
+import { Good } from './goods/entities/good.entity';
+import { UserGood } from './goods/entities/user-good.entity';
+import { UserResource } from './resources/entities/user-resource.entity';
+import { DiplomaticRelation } from './diplomacy/entities/diplomatic-relation.entity';
+import { War } from './diplomacy/entities/war.entity';
+import { WarParticipant } from './diplomacy/entities/war-participant.entity';
+import { Treaty } from './diplomacy/entities/treaty.entity';
+import { Notification } from './notifications/entities/notification.entity';
+import { NewsModule } from './news/news.module';
+import { ModModule } from './mod/mod.module';
+import { NewsAgency } from './news/entities/news-agency.entity';
+import { NewsArticle } from './news/entities/news-article.entity';
+import { ClassesModule } from './classes/classes.module';
+import { PlayerClass } from './classes/entities/player-class.entity';
+import { GameSettingsModule } from './settings/game-settings.module';
+import { GameSettings } from './settings/entities/game-settings.entity';
+import { KnowledgeModule } from './knowledge/knowledge.module';
+import { KnowledgeArticle } from './knowledge/entities/knowledge-article.entity';
+import { IconsModule } from './icons/icons.module';
+import { GameIcon } from './icons/entities/game-icon.entity';
 
 @Module({
   imports: [
@@ -37,7 +63,15 @@ import { TroopType } from './armies/entities/troop-type.entity';
       database: process.env.DB_NAME,
       entities: [
         Province, User, Building, ProvinceBuilding, ActionQueue, ActionsLog, ExecutionLock, Tech,
-        Army, ArmyUnit, TroopType,
+        UserTechProgress,
+        Army, ArmyUnit, TroopType, Resource, Good, UserGood, UserResource,
+        DiplomaticRelation, War, WarParticipant, Treaty,
+        Notification,
+        NewsAgency, NewsArticle,
+        PlayerClass,
+        GameSettings,
+        KnowledgeArticle,
+        GameIcon,
       ],
       synchronize: false,
     }),
@@ -49,6 +83,16 @@ import { TroopType } from './armies/entities/troop-type.entity';
     TechsModule,
     ArmiesModule,
     AdminModule,
+    ResourcesModule,
+    GoodsModule,
+    DiplomacyModule,
+    NotificationsModule,
+    NewsModule,
+    ModModule,
+    ClassesModule,
+    GameSettingsModule,
+    KnowledgeModule,
+    IconsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

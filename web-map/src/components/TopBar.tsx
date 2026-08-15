@@ -1,40 +1,68 @@
-import { AppBar, Button, Menu, MenuItem, Toolbar, Tooltip } from "@mui/material";
+import { AppBar, Badge, Button, Menu, MenuItem, Switch, Toolbar, Tooltip } from "@mui/material";
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { useMutation } from "../hooks/useApi.ts";
 import { authApi } from "../api/auth.ts";
-import { useMemo, useState } from "react";
+import { useAuth } from "../context/AuthContext.tsx";
+import { useEffect, useMemo, useState } from "react";
 import { TechsModal } from "./Modals/TechsModal.tsx";
 import { ProfileModal } from "./Modals/ProfileModal.tsx";
-import { ActionType, ProvinceBuilding, UserClasses } from "../types.ts";
+import { NotificationsModal } from "./Modals/NotificationsModal.tsx";
+import { DiplomacyModal } from "./Modals/DiplomacyModal.tsx";
+import { CreateNpcModal } from "./Modals/CreateNpcModal.tsx";
+import { KnowledgeModal } from "./Modals/KnowledgeModal.tsx";
+import { CountryFlag } from "./CountryFlag.tsx";
+import { ActionType, ProvinceBuilding, TreatyStatus, UserClasses } from "../types.ts";
 import { MAP_MODE_OPTIONS } from "../utils/mapModes.ts";
 import { setMapMode } from "../store/slices/provincesSlice.ts";
+import { GameIcon } from "./GameIcon.tsx";
+import { modApi } from "../api/mod.ts";
+import { setActingAsUserId, setModSwitch, setNpcs } from "../store/slices/modSlice.ts";
 
 export const TopBar = () => {
   const dispatch = useAppDispatch();
+  const { user: authUser } = useAuth();
   const user = useAppSelector(state => state.user);
+  const modSwitchOn = useAppSelector(state => state.mod.switchOn);
+  const actingAsUserId = useAppSelector(state => state.mod.actingAsUserId);
+  const npcs = useAppSelector(state => state.mod.npcs);
+  const isMod = authUser?.role === 'ADMIN' || authUser?.role === 'MODERATOR';
+  const [countryMenuAnchorEl, setCountryMenuAnchorEl] = useState<HTMLElement | null>(null);
+  const [openCreateNpcModal, setOpenCreateNpcModal] = useState(false);
+  const techs = useAppSelector(state => state.techs.techs);
   const actions = useAppSelector(state => state.actions.actions);
   const buildings = useAppSelector(state => state.buildings.buildings);
   const provinces = useAppSelector(state => state.provinces.provinces);
+  const myResources = useAppSelector(state => state.resources.mine);
+  const myGoods = useAppSelector(state => state.goods.mine);
+  const treaties = useAppSelector(state => state.diplomacy.treaties);
+  const notifications = useAppSelector(state => state.notifications.mine);
   const mapMode = useAppSelector(state => state.provinces.mapMode);
   const { mutate } = useMutation(authApi.logout);
   const [openTechModal, setOpenTechModal] = useState(false);
   const [openProfileModal, setOpenProfileModal] = useState(false);
+  const [openNotificationsModal, setOpenNotificationsModal] = useState(false);
+  const [openDiplomacyModal, setOpenDiplomacyModal] = useState(false);
+  const [openKnowledgeModal, setOpenKnowledgeModal] = useState(false);
+
+  const pendingTreatyCount = useMemo(
+    () => treaties.filter(t => t.status === TreatyStatus.PENDING && t.receiver_id === user.id && !t.view_only).length,
+    [treaties, user.id],
+  );
+  const unreadNotificationCount = useMemo(
+    () => notifications.filter(n => !n.is_read).length,
+    [notifications],
+  );
+  const activeResearchTech = useMemo(
+    () => techs.find(t => t.key === user.activeResearch) ?? null,
+    [techs, user.activeResearch],
+  );
   const [mapModeAnchorEl, setMapModeAnchorEl] = useState<HTMLElement | null>(null);
   const activeMapModeLabel = MAP_MODE_OPTIONS.find(option => option.value === mapMode)?.label ?? 'Normal';
 
-  // Resources committed by built buildings + pending build actions.
-  // Built buildings come from the provinces slice — the /users endpoint does NOT
-  // serialize the Province.buildings getter, so user.provinces[].buildings is empty.
-  const usedResourcesByType = useMemo(() => {
+  // The resource ledger (myResources) already nets out built buildings — this is
+  // only a forward-looking preview of BUILD actions still queued for next turn.
+  const pendingResourceUsage = useMemo(() => {
     const used: Record<string, number> = {};
-    for (const province of provinces) {
-      if (province.userId !== user.id) continue;
-      for (const b of province.buildings ?? []) {
-        if (b.requirementResource && b.requirementResourceAmount) {
-          used[b.requirementResource] = (used[b.requirementResource] ?? 0) + b.requirementResourceAmount;
-        }
-      }
-    }
     const buildingById = new Map(buildings.map(b => [String(b.id), b]));
     for (const action of actions) {
       if (action.actionType !== ActionType.BUILD) continue;
@@ -45,7 +73,7 @@ export const TopBar = () => {
       }
     }
     return used;
-  }, [provinces, user.id, buildings, actions]);
+  }, [actions, buildings]);
 
   // Sum gold cost of all queued actions that have a known upfront cost.
   // BUILD: building.cost, UPGRADE: building.cost + 100, COLONIZE: 500.
@@ -77,11 +105,39 @@ export const TopBar = () => {
   const handleLogout = async () => {
     try {
       await mutate();
+      // mod.actingAsUserId/switchOn persist in localStorage across reloads (see modSlice.ts)
+      // so they survive this reload's remount otherwise — clear them here, not just on the
+      // in-memory Redux state, so a different account logging in on this browser never
+      // inherits a stale "acting as an NPC" header (X-Act-As-User, api/config.ts).
+      dispatch(setActingAsUserId(null));
+      dispatch(setModSwitch(false));
       window.location.reload();
     } catch (error) {
       console.error('Logout failed:', error);
     }
   }
+
+  // The mod toolbar (country switcher, Create NPC, instant tools) only shows while the
+  // switch is ON — but once a country is picked, playing "as" it persists across the
+  // switch toggling off (see modSlice.ts / GamePage's effectiveUserId).
+  useEffect(() => {
+    if (!isMod || !modSwitchOn) return;
+    modApi.listNpcs().then((data) => dispatch(setNpcs(data))).catch(() => {});
+  }, [isMod, modSwitchOn, dispatch]);
+
+  const handleToggleModSwitch = (checked: boolean) => {
+    dispatch(setModSwitch(checked));
+  };
+
+  const handleSwitchCountry = (targetUserId: string | null) => {
+    setCountryMenuAnchorEl(null);
+    if (targetUserId === actingAsUserId) return;
+    dispatch(setActingAsUserId(targetUserId));
+    // Every fetch on GamePage mounts once ([] dep array) — a reload is the simplest way to
+    // guarantee the whole page re-loads state for the newly-selected country, same pattern
+    // already used for turn-tick reloads (useActionExecutionReload) and logout above.
+    window.location.reload();
+  };
 
   return (
     <AppBar position="static">
@@ -89,11 +145,34 @@ export const TopBar = () => {
         className="fixed top-0 flex w-full z-50 items-center bg-[#0e0e0e]/80 backdrop-blur-xl bg-gradient-to-b from-[#1a1a1a] to-transparent shadow-[0_4px_20px_rgba(0,0,0,0.5)] border-b border-outline-variant/10">
         <div className="flex w-full items-center justify-between">
           <div className="flex items-center gap-3">
+            <Tooltip title="Edit country profile">
+              <button
+                type="button"
+                className="bg-transparent border-none p-0 cursor-pointer"
+                onClick={() => setOpenProfileModal(true)}
+              >
+                <CountryFlag flagUrl={user.flagUrl} color={user.color} countryName={user.countryName} size="md" />
+              </button>
+            </Tooltip>
             <Button
               className="flex items-center gap-2 px-4 py-2 bg-inverse-primary border rounded hover:bg-on-primary-fixed-variant transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
               onClick={() => setOpenTechModal(true)}
             >
               Research
+            </Button>
+            <Button
+              className="flex items-center gap-2 px-4 py-2 bg-inverse-primary border rounded hover:bg-on-primary-fixed-variant transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+              onClick={() => setOpenDiplomacyModal(true)}
+            >
+              <span className="material-symbols-outlined text-sm" data-icon="handshake">handshake</span>
+              Diplomacy
+            </Button>
+            <Button
+              className="flex items-center gap-2 px-4 py-2 bg-inverse-primary border rounded hover:bg-on-primary-fixed-variant transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+              onClick={() => setOpenKnowledgeModal(true)}
+            >
+              <span className="material-symbols-outlined text-sm" data-icon="menu_book">menu_book</span>
+              Codex
             </Button>
             <Button
               id="map-mode-button"
@@ -126,21 +205,66 @@ export const TopBar = () => {
                 </MenuItem>
               ))}
             </Menu>
+            {isMod && (
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-surface-container border border-outline-variant/20 rounded">
+                <span className="font-headline font-bold text-white text-[10px] uppercase tracking-widest">Mod</span>
+                <Switch
+                  size="small"
+                  checked={modSwitchOn}
+                  onChange={(e) => handleToggleModSwitch(e.target.checked)}
+                />
+              </div>
+            )}
+            {isMod && modSwitchOn && (
+              <>
+                <Button
+                  id="mod-country-button"
+                  className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+                  onClick={(event) => setCountryMenuAnchorEl(event.currentTarget)}
+                  aria-controls={countryMenuAnchorEl ? 'mod-country-menu' : undefined}
+                  aria-haspopup="menu"
+                  aria-expanded={countryMenuAnchorEl ? 'true' : undefined}
+                >
+                  <span className="material-symbols-outlined text-sm" data-icon="theater_comedy">theater_comedy</span>
+                  Playing: {actingAsUserId ? (npcs.find(n => n.id === actingAsUserId)?.country_name ?? '…') : `${authUser?.login} (me)`}
+                </Button>
+                <Menu
+                  id="mod-country-menu"
+                  anchorEl={countryMenuAnchorEl}
+                  open={Boolean(countryMenuAnchorEl)}
+                  onClose={() => setCountryMenuAnchorEl(null)}
+                  MenuListProps={{ 'aria-labelledby': 'mod-country-button' }}
+                >
+                  <MenuItem selected={!actingAsUserId} onClick={() => handleSwitchCountry(null)}>
+                    My Country ({authUser?.login})
+                  </MenuItem>
+                  {npcs.map((npc) => (
+                    <MenuItem key={npc.id} selected={npc.id === actingAsUserId} onClick={() => handleSwitchCountry(npc.id)}>
+                      {npc.country_name} (NPC)
+                    </MenuItem>
+                  ))}
+                  <MenuItem onClick={() => { setCountryMenuAnchorEl(null); setOpenCreateNpcModal(true); }}>
+                    + Create NPC Country
+                  </MenuItem>
+                </Menu>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-6">
             <Tooltip
               title={
                 <div className="flex flex-col gap-2 p-1" style={{ fontSize: '14px', lineHeight: '1.6' }}>
-                  {(['stone', 'iron', 'gold', 'wood'] as const).map((res) => {
-                    const icons: Record<string, string> = { stone: '🪨', iron: '⚙', gold: '🪙', wood: '🪵' };
-                    const total = user.resources?.[res] ?? 0;
-                    const used = usedResourcesByType[res] ?? 0;
-                    const free = total - used;
+                  {myResources.length === 0 && <div>No resources yet</div>}
+                  {myResources.map((holding) => {
+                    const key = holding.resource.key;
+                    const pending = pendingResourceUsage[key] ?? 0;
+                    const free = holding.quantity - pending;
                     return (
-                      <div key={res}>
-                        {icons[res]} {res.charAt(0).toUpperCase() + res.slice(1)}: {total}
-                        {used > 0 && (
-                          <span style={{ color: free <= 0 ? '#ffb3b3' : '#ffd580' }}> ({used} used, {Math.max(0, free)} free)</span>
+                      <div key={holding.id} className="flex items-center gap-1">
+                        <GameIcon kind="resource" iconKey={key} className="w-4 h-4" />
+                        <span>{holding.resource.name}: {holding.quantity}</span>
+                        {pending > 0 && (
+                          <span style={{ color: free <= 0 ? '#ffb3b3' : '#ffd580' }}> ({pending} queued, {Math.max(0, free)} free)</span>
                         )}
                       </div>
                     );
@@ -155,6 +279,32 @@ export const TopBar = () => {
                 className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-xs uppercase tracking-widest cursor-pointer"
               >
                 Resources
+              </Button>
+            </Tooltip>
+            <Tooltip
+              title={
+                <div className="flex flex-col gap-2 p-1" style={{ fontSize: '14px', lineHeight: '1.6' }}>
+                  {myGoods.length === 0 && <div>No goods yet</div>}
+                  {myGoods.map((holding) => (
+                    <div key={holding.id}>
+                      {holding.good.type === 'military' ? '⚔️' : '📦'} {holding.good.name}: {holding.quantity}
+                      {holding.good.name === 'Food' && (
+                        <span className={user.projectedFood >= 0 ? 'text-green-400' : 'text-red-400'}>
+                          {' '}({user.projectedFood >= 0 ? '+' : ''}{user.projectedFood}/turn)
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              }
+              arrow
+              placement="bottom"
+              componentsProps={{ tooltip: { sx: { fontSize: '14px', p: 1.5 } } }}
+            >
+              <Button
+                className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-xs uppercase tracking-widest cursor-pointer"
+              >
+                Goods
               </Button>
             </Tooltip>
             <div
@@ -173,6 +323,16 @@ export const TopBar = () => {
                 <span className="material-symbols-outlined text-tertiary text-sm" data-icon="science">science</span>
                 <span className="font-headline font-bold text-tertiary text-xs uppercase tracking-wider">Research: {user.researchPoints}</span>
                 <span className={`${user.projectedResearch > 0 ? "text-green-500" : "text-red-500"} font-headline font-bold text-xs uppercase tracking-wider`}>({user.projectedResearch > 0 ? + user.projectedResearch : user.projectedResearch})</span>
+                {activeResearchTech && (
+                  <Tooltip title={`${activeResearchTech.name}: ${activeResearchTech.progress}/${activeResearchTech.cost}`}>
+                    <div className="w-16 h-1.5 bg-outline-variant/30 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-tertiary rounded-full"
+                        style={{ width: `${Math.min(100, (activeResearchTech.progress / activeResearchTech.cost) * 100)}%` }}
+                      />
+                    </div>
+                  </Tooltip>
+                )}
               </div>
               <div className="w-px h-4 bg-outline-variant/30"></div>
               <div className="flex items-center gap-2">
@@ -197,6 +357,14 @@ export const TopBar = () => {
             </div>
             <Button
               className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
+              onClick={() => setOpenNotificationsModal(true)}
+            >
+              <Badge badgeContent={pendingTreatyCount + unreadNotificationCount} color="error">
+                <span className="material-symbols-outlined text-sm" data-icon="notifications">notifications</span>
+              </Badge>
+            </Button>
+            <Button
+              className="flex items-center gap-2 px-4 py-2 bg-surface-container border border-outline-variant/20 rounded hover:bg-surface-container-high transition-all active:scale-95 text-white font-headline font-bold text-[10px] uppercase tracking-widest cursor-pointer"
               onClick={() => setOpenProfileModal(true)}
             >
               <span className="material-symbols-outlined text-sm" data-icon="manage_accounts">manage_accounts</span>
@@ -219,6 +387,25 @@ export const TopBar = () => {
       <ProfileModal
         open={openProfileModal}
         onClose={() => setOpenProfileModal(false)}
+      />
+      <NotificationsModal
+        open={openNotificationsModal}
+        onClose={() => setOpenNotificationsModal(false)}
+      />
+      <DiplomacyModal
+        open={openDiplomacyModal}
+        onClose={() => setOpenDiplomacyModal(false)}
+      />
+      <KnowledgeModal
+        open={openKnowledgeModal}
+        onClose={() => setOpenKnowledgeModal(false)}
+      />
+      <CreateNpcModal
+        open={openCreateNpcModal}
+        onClose={() => setOpenCreateNpcModal(false)}
+        onCreated={(npc) => {
+          dispatch(setNpcs([...npcs, npc]));
+        }}
       />
     </AppBar>
   )

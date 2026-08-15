@@ -32,13 +32,20 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 
 | Slice        | Key Fields                                                        |
 |--------------|-------------------------------------------------------------------|
-| `user`       | id, login, countryName, color, money, troops, piety, class, researchPoints, completedResearch, resources ({stone,iron,gold,wood}), isNew, provinces, projectedIncome/Troops/Research/Piety |
-| `provinces`  | provinces[], selectedProvinceId, selectedTroops, provinceCentersById, provinceBBoxById, mapWidth/Height |
+| `user`       | id, login, countryName, color, money, troops, piety, class, researchPoints (per-turn rate, not a stockpile), completedResearch, activeResearch (tech key or null), isNew, provinces, projectedIncome/Troops/Research/Piety/Food (`projectedFood` — net Food/turn, production minus every army's distance-scaled supply cost) |
+| `provinces`  | provinces[], selectedProvinceId, selectedTroops, mapMode, mapModeFilterValue, fastBuild, provinceCentersById, provinceBBoxById, mapWidth/Height |
 | `armies`     | armies[], troopTypes[]                                            |
 | `buildings`  | buildings[]                                                       |
 | `techs`      | techs[]                                                           |
-| `actions`    | actions[] (pending BUILD, ARMY_MOVE, RESEARCH, COLONIZE, etc.)   |
+| `actions`    | actions[] (pending BUILD, ARMY_MOVE, COLONIZE, etc. — RESEARCH is no longer queued, see `techsApi.selectResearch`) |
 | `otherUsers` | otherUsers[] (id, countryName, color)                            |
+| `resources`  | resources[] (catalog, `/resources`), mine[] (`UserResourceHolding[]`, `/resources/mine`) |
+| `goods`      | mine[] (`UserGoodHolding[]`, `/goods/mine`)                       |
+| `diplomacy`  | relations[] (`DiplomaticRelation[]`, `/diplomacy/relations`), wars[] (`/diplomacy/wars`), treaties[] (`/diplomacy/treaties`) |
+| `notifications` | mine[] (`AppNotification[]`, `/notifications`) — split client-side by `type` into the Notifications Center's News (`admin`) and System Logs (`action_failed`/`system`) tabs |
+| `mod`        | switchOn, actingAsUserId, npcs[] — ADMIN/MODERATOR-only "act as NPC" state; `switchOn`/`actingAsUserId` are backed by `localStorage`, not just in-memory, so they survive a reload. See [Mod / NPC Impersonation State](#mod--npc-impersonation-state) |
+
+> Player resource/good holdings are no longer embedded in the `user` slice — they're fetched separately as ledger rows (`resource`/`good` + `quantity`) and displayed in `TopBar.tsx`, mirroring each other.
 
 ## Context API
 
@@ -51,8 +58,10 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 - Base URL: `VITE_API_BASE_URL` (default `http://localhost:3000`)
 - `withCredentials: true` (httpOnly cookies)
 - 401 interceptor: queues failed requests, calls `/auth/refresh`, retries all
+- 403 `GAME_PAUSED` interceptor: forces a logout + redirect to `/login` — see
+  [Game Pause Handling](#game-pause-handling)
 
-**API modules:** auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts
+**API modules:** auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts, resources.ts, goods.ts, diplomacy.ts, notifications.ts, gameSettings.ts, knowledge.ts
 
 **SSE:** `/actions/execution-stream` — listened in `useActionExecutionReload` hook for auto-reload when turn completes.
 
@@ -75,6 +84,10 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 - Emoji icons rendered as `<text>`: landscape, resource, buildings
 - Troop count badge (white rect), enemy indicator (red rect)
 - Pending deploy label (green "+")
+- **Occupied provinces**: base fill stays the legal owner's color; a second `<path>` with the same
+  polygon is overlaid using an inline per-province `<pattern>` (`occupied-stripes-{id}`, diagonal lines
+  via `patternTransform="rotate(45)"`) filled in the **occupier's** color. Computed from
+  `province.occupierId` the same way `provinceOwnerColor` is computed from `province.userId`
 
 ### Road Rendering
 - Dashed lines center-to-center between road-equipped provinces
@@ -94,28 +107,230 @@ Redux Provider → SnackbarProvider → AuthProvider → RouterProvider
 
 ```
 GamePage
-├── TopBar              Resources display, tech tree button, profile, logout
+├── TopBar              Resources display, tech tree button, notifications bell, diplomacy, Codex, profile, logout
 ├── MapView             SVG map canvas (pan/zoom/wrap)
-│   └── ProvinceShape   Individual province rendering
-├── SelectedProvinceHover  Right panel (build, deploy, setup, colonize)
-├── ArmyBlock           Army detail panel (recruit, edit, disband)
+│   └── ProvinceShape   Individual province rendering (incl. occupied-province stripes)
+├── SelectedProvinceHover  Right panel (build, deploy, setup, colonize, occupation state, player treaties)
+├── FastBuildPanel       Left panel: pick a building once, map-click any province to queue BUILD/UPGRADE there (see Fast Build Mode)
+├── ArmyBlock           Army detail panel (recruit, edit, disband, merge/transfer indicator + cancel)
 ├── CreateArmyModal     New army creation
 ├── TroopMovementModal  Army move target selection
+├── ManageArmiesModal   Merge/Transfer mode toggle between 2+ of the player's own co-located armies (see Manage Armies Modal)
 └── Modals/
     ├── BuildMenuModal         Select building to construct
     ├── BuildingActionsModal   Upgrade/demolish
     ├── CancelActionModal      Confirm action cancellation
     ├── DeleteBuildingModal    Demolish confirmation
     ├── ProfileModal           Edit country name/color
-    └── TechsModal             Tech tree research UI (renders TechTree)
+    ├── TechsModal             Tech tree research UI (renders TechTree)
+    ├── NotificationsModal     Bell dropdown: Treaties (pending + log) / News (admin broadcasts) / System Logs (auto action-failure notifications) tabs
+    ├── DiplomacyModal         Player list + relation state + propose/declare-war/send-money hub
+    ├── TreatyNegotiationModal Vic3-style article builder (alliance/trade/troops_pass/article)
+    ├── PeaceNegotiationModal  EU4-style peace proposal (province checklist + tribute, contiguity-checked)
+    ├── PlayerTreatiesModal    Read-only view of another player's public accepted treaties
+    ├── KnowledgeModal         The "Codex" — player-facing knowledge base (category sidebar + markdown reading pane), fetched from `GET /knowledge`
+    ├── CreateNpcModal         ADMIN/MODERATOR-only: creates an NPC country (`POST /mod/npc`)
+    └── ModStocksModal         ADMIN/MODERATOR-only: directly edits an NPC's money/troops/piety/goods/resources
 ```
 
 (`ProtectedRoute` wraps the game page for auth; `TechTree.tsx` is the tech-tree
 graph rendered inside `TechsModal`.)
 
+## Research Modal — Branch Tabs
+
+`TechsModal.tsx` builds its tabs purely from the distinct `branch` values present in whatever
+`GET /techs` returned — `[...new Set(techs.map(t => t.branch))]` — then renders `TechTree` with
+just that branch's techs. **There is no client-side class-visibility logic**: `user.class` is
+never read here. This means the backend's tech-visibility rules (see
+[GAME-MECHANICS.md](GAME-MECHANICS.md#class-system) — classless users see every visible class,
+a classed user sees only their own, a hidden `PlayerClass` is dropped for everyone) are the only
+gate. A class's tab and tree appear or disappear automatically based on whether `GET /techs`
+included any tech with that branch — no frontend change is needed when classes are added, hidden,
+or reassigned server-side.
+
+## Fast Build Mode
+
+Lets a player with many provinces queue the same BUILD/UPGRADE across all of them without
+selecting each province individually. Entered only via the left-side `FastBuildPanel`
+(🔨 button → Build/Upgrade → pick a building), never from the TopBar's "Map:" mode menu.
+
+- **State:** `provincesSlice`'s `fastBuild: { action: 'build' | 'upgrade'; buildingId } | null`.
+  `setFastBuild(selection)` sets it and switches `mapMode` to the programmatic-only
+  `'fastbuild'` value (in the `MapMode` union but deliberately excluded from
+  `MAP_MODE_OPTIONS`, so it never appears in the TopBar picker); `setFastBuild(null)`, or any
+  other `setMapMode(...)` call (e.g. picking a different mode in the TopBar), exits it back
+  to `'normal'`.
+- **Eligibility, shared with the build menu:** `utils/mapModes.ts`'s `evaluateBuildRequirements`
+  (money, `allowedProvinceResources`, `requirementTech`, `requirementResource`/`requirementGood`
+  cost net of everything already pending, `uniquePerProvince`, `requiresNeighborWater`) is the
+  single source of truth for BUILD eligibility, used by both `Modals/BuildMenuModal.tsx` and
+  fast-build mode — they can't drift out of sync. `canUpgradeProvinceBuilding` (exported,
+  originally private to `getProvinceBuildingSlots`) is the equivalent for UPGRADE.
+- **Per-province coloring:** `getFastBuildCell(province, targetBuilding, action, hasWaterNeighbor, options)`
+  in `mapModes.ts` returns `{ status: 'green'|'red'|'yellow', canQueue, upgradeInstanceId?,
+  cancelActionId? }` for every owned land province, computed once per render in
+  `MapView.tsx`'s `mapModeRenderData` memo and stored on `MapModeRenderData.fastBuildByProvinceId`.
+  `ProvinceShape.tsx`'s fill-color switch adds a `case 'fastbuild'`: unowned/water → black
+  (`FASTBUILD_BLACK`), else green/yellow (reuses `BUILDING_PENDING_COLOR`)/red per the cell.
+  Upgrade mode resolves the picked building as the upgrade **target** (e.g. Castle) and looks
+  for a built source instance (e.g. Fort) whose `upgradeTo` matches it.
+- **Click to queue, right-click to cancel:** `MapView.tsx`'s `toggleSelect`/`handleProvinceRightClick`
+  branch on `mapMode === 'fastbuild'` before their normal selection/army-move logic. A
+  left-click on a green/yellow province calls `handleFastBuildClick` → `POST /actions`
+  (BUILD or UPGRADE, same payload shape as the normal build menu) → `dispatch(addAction(...))`.
+  A right-click on a **yellow** province (already queuing at least one of the selected
+  building/upgrade here) calls `handleFastBuildCancel` → `DELETE /actions/pending/:id` on the
+  action `FastBuildCell.cancelActionId` resolved for that province. Green/red provinces
+  right-click as a no-op.
+
+## Manage Armies Modal
+
+Lets a player merge or rebalance troops between two of their own armies already co-located in a
+province — **any** province the player has 2+ of their own armies in, not just ones they own
+(occupied territory, a raided enemy province, water, anywhere). Opened via a **"Manage Armies"**
+button on `SelectedProvinceHover.tsx`, rendered once as a sibling of the four owner/occupier/
+viewer/setup view blocks (not nested inside the owner-only branch), gated purely on
+`armiesInProvince.filter(a => a.user_id === user.id).length >= 2`.
+
+- **`ManageArmiesModal.tsx`** — MUI `Dialog` with `disablePortal` + `!`-prefixed Tailwind glass
+  classes (the [Tailwind gotcha](#tailwind-gotchas-specific-to-this-project) pattern, matching
+  `Modals/DiplomacyModal.tsx` rather than the older unstyled `CreateArmyModal.tsx`/
+  `BuildMenuModal.tsx`). Two army `<select>`s (Army A / Army B, must differ) plus a Merge/Transfer
+  mode toggle:
+  - **Merge** — calls `armiesApi.mergeArmies({ source_army_id, target_army_id })` (`ARMY_MERGE`);
+    a swap button flips which of A/B is the one being dissolved.
+  - **Transfer** — one `<input type="range">` per troop type present in either army, its value
+    splitting that type's combined total between A and B; submit is disabled until both armies'
+    running totals are ≥100 and at least one type actually changed. Diffs the start/end split per
+    type into `transfers: [{ troop_type_key, from_army_id, to_army_id, count }]` and calls
+    `armiesApi.transferTroops({ army_a_id, army_b_id, transfers })` (`ARMY_TRANSFER`).
+  - Armies already locked by a pending move/merge/transfer (see below) are excluded from both
+    selects; if any of the player's armies in the province are locked, they're listed inline with
+    a **Cancel** button (`actionsApi.removeAction` + `removeActionById`) so the player doesn't have
+    to leave the modal to unblock them.
+
+### Army Locks (`utils/armyLocks.ts`)
+
+Shared utility mirroring the backend's mutual per-turn lock
+(`ActionsService.assertNotDuplicate` — see [API.md](API.md#action-types-enum)): an army may have
+at most one of `ARMY_MOVE`/`ARMY_MERGE`/`ARMY_TRANSFER` pending at a time.
+`getArmyLocks(actions): Map<armyId, { actionId, kind }>` scans the `actions` slice for exactly
+those three action types and maps every army id they reference to the action holding its lock;
+`getLockedArmyIds` is a thin `Set`-only wrapper over the same map. Consumed by:
+- **`MapView.tsx`** — gates `handleProvinceRightClick` so a locked selected army can't open
+  `TroopMovementModal` (shows a snackbar via `showError` instead); this is the first client-side
+  move-lock check (previously move-blocking was backend-only).
+- **`SelectedProvinceHover.tsx`** — the owner army-list row shows the specific lock kind (⏳ Move
+  / Merge / Transfer) via `ARMY_LOCK_LABELS`, tooltip pointing the player at the owning army's
+  detail panel to cancel it.
+- **`ArmyBlock.tsx`** — a banner (same slot/style as the existing Disband banner) naming the
+  other army involved and a **Cancel** button, for any pending `ARMY_MERGE`/`ARMY_TRANSFER`
+  touching the selected army. (`ARMY_MOVE` isn't duplicated here — it already has its own on-map
+  arrow overlay with click-to-cancel.)
+- **`ManageArmiesModal.tsx`** — as described above.
+
+### Supply Display (`utils/supply.ts`)
+
+Client-side mirror of the backend's food-cost formula (`api/src/actions/supply-utils.ts` — see
+[GAME-MECHANICS.md](GAME-MECHANICS.md#supply-food)), duplicated rather than shared across the two
+npm packages — the same convention `ArmyBlock.tsx`'s pre-existing `calcArmyUpkeep` already follows
+for money/piety upkeep, which mirrors `upkeep-action.service.ts` purely for display.
+`supplyMultiplierForDistance(distance)` and `calcArmyFoodUpkeep(army)` read the army's *stored*
+`supply_distance` (written server-side each turn) rather than recomputing the BFS client-side.
+Consumed by:
+- **`ArmyBlock.tsx`** — `calcArmyUpkeep` now also returns `food`, shown in the header next to the
+  existing `⚔ Ng/turn`/`✝ Np/turn`; a color-coded (green/red) "🚚 Supply: N tiles ×M" banner sits
+  below the header for any army with a nonzero food cost; the per-troop-type tooltip gets a
+  `Food/100` row alongside the existing `Upkeep/100`/`Goods/100` rows.
+- **`SelectedProvinceHover.tsx`** — the owner army-list row (same slot as the `ARMY_LOCK_LABELS`
+  indicator above) shows a "🚚 Unsupplied" marker when the army is out of range and actually
+  paying food, with a tooltip explaining the attrition consequence.
+- **`TopBar.tsx`** — the Goods tooltip's Food row appends `user.projectedFood` as a green/positive
+  or red/negative `(±N/turn)` delta, matching the resource-bar convention in
+  [DESIGN.md](DESIGN.md#3-core-vocabulary--use-these-exact-terms-never-synonyms).
+
+## Mod / NPC Impersonation State
+
+`modSlice.ts` (Redux) backs the TopBar's country-switcher for ADMIN/MODERATOR accounts "acting
+as" an NPC. Two of its three fields are mirrored into `localStorage` (`mod.switchOn`,
+`mod.actingAsUserId`) so the choice survives the page reloads this app does constantly (every
+turn tick via SSE, and after most mutations) — see `modSlice.ts`'s own comment on why. The axios
+request interceptor (`api/config.ts`) reads `store.getState().mod.actingAsUserId` on every
+request and attaches it as the `X-Act-As-User` header (except to `/auth/*`), which
+`ActAsInterceptor` on the backend uses to swap `req.user` to that NPC — see
+[API.md](API.md#auth--mod-impersonation).
+
+The same interceptor also attaches `X-Mod-Full-Visibility: true` whenever `mod.switchOn` is on
+**and** `state.user.role` is ADMIN/MODERATOR — this is the client half of the no-fog-of-war
+toggle: it makes `GET /armies/all` and `GET /provinces/state` return every player's buildings
+and mobile armies unfiltered, no other frontend change needed since the existing rendering
+(enemy-army badges, building icons) already draws whatever the backend sends with no
+ownership filtering of its own. The role check here is only a client-side nicety — the server
+independently re-validates the *real* authenticated role (`req.realUser ?? req.user`, so an
+active act-as impersonation doesn't defeat it) before honoring the header; see
+[API.md](API.md#auth--mod-impersonation) and
+[GAME-MECHANICS.md](GAME-MECHANICS.md#visibility-fog-of-war).
+
+**Gotcha:** because `actingAsUserId` lives in `localStorage`, not the auth session, it outlives
+a logout by default. Both places a session ends must explicitly dispatch
+`setActingAsUserId(null)`/`setModSwitch(false)` before finishing: `TopBar.tsx`'s `handleLogout`,
+and `config.ts`'s response interceptor on refresh-token failure (auto-logout → redirect to
+`/login`). Skipping this means the next account to log in on the same browser — even a brand
+new PLAYER registration — inherits the stale header and gets a 403 (`ActAsInterceptor` rejects
+any non-ADMIN/MODERATOR actor) on every request.
+
+## Game Pause Handling
+
+Client-side counterpart to the backend's `GamePauseInterceptor`/`AuthService` pause checks — see
+[GAME-MECHANICS.md](GAME-MECHANICS.md#global-game-settings) and
+[API.md](API.md#auth--game-pause).
+
+- **`api/gameSettings.ts`** — `gameSettingsApi.getPublic()`, the only unauthenticated call in
+  `src/api/` (`GET /game-settings`, no cookies/guard needed).
+- **`LoginPage.tsx`** — fetches it once on mount (alongside the existing execution-stream SSE
+  connection that drives the Server/Queue status dots) and, when `isPaused`, renders a banner with
+  `pauseMessage` plus a third "Game status" pulsing dot next to Server/Queue. The login form and
+  `REGISTER_ACCOUNT` button both stay fully enabled while paused — an ADMIN/MODERATOR still logs
+  in through this same form, and registration is explicitly not gated.
+- **`api/config.ts`**'s response interceptor — on a `403` whose body carries
+  `code: 'GAME_PAUSED'`, forces the same cleanup+redirect the refresh-failure branch already does
+  (clears `mod.actingAsUserId`/`mod.switchOn`, same reasoning as the Gotcha above, then
+  `POST /auth/logout` and hard-navigates to `/login`), **except** when the failing request was
+  itself `/auth/login` or `/auth/register` — a PLAYER hitting `GAME_PAUSED` there is already on
+  the login screen submitting the form and should see the message inline via the existing
+  `onSubmit` catch/`showError`, not get redirected away from the page they're on. Because the game
+  reloads on every SSE turn-completion tick and after most mutations, an already-open session
+  typically hits this within moments of an admin flipping Pause Game on.
+
+## Map Layout Cache
+
+`provincesApi.getLayoutCached()` (`api/provinces.ts`) caches `GET /provinces/layout`'s response
+(polygons, landscape, resource, neighbors — never changes except at a map re-import) in
+localStorage under `rp_provinces_layout_v2`, since refetching ~600 provinces' SVG polygon
+strings on every load is wasteful. See
+[GAME-MECHANICS.md](GAME-MECHANICS.md#map-checksum--layout-cache-invalidation) for the
+server-side half (`game_settings.map_checksum`, computed by `import-provinces.ts`).
+
+- **Stored shape:** `{ checksum: string | null, layout: ProvinceLayout[] }` — a single object,
+  not two separate keys, so a read is always atomic (no split-brain where the checksum updates
+  but the layout doesn't, or vice versa).
+- **Validity check, every call:** fetches `gameSettingsApi.getPublic()` (cheap, public, the same
+  call `LoginPage.tsx` makes) and compares its `mapChecksum` against the cached entry's
+  `checksum`. Match → return the cached `layout`, no `/provinces/layout` call. Mismatch (or no
+  cache) → `console.info` the old→new checksum transition, fetch fresh, re-cache both together.
+- **No more `forceRefresh` param.** The old design only bypassed the cache for a brand-new
+  player (`User.is_new`) — `GamePage`'s `fetchProvinces` (`pages/game/index.tsx`) called
+  `getLayoutCached(userData?.isNew === true)`. That missed every **existing** player's map
+  changing underneath them. The checksum check subsumes new users for free (no cache yet is
+  itself a mismatch) so `fetchProvinces` no longer takes or depends on `userData` at all.
+- **Old `_v1` key** (a bare array, no checksum wrapper) is left to age out of localStorage
+  rather than actively removed — matching this codebase's existing key-bump convention (see the
+  `mod` slice's similar localStorage handling above).
+
 ## Data Flow
 
-1. GamePage mounts → fetches layout (cached in localStorage), state, armies, buildings, techs, actions, users
+1. GamePage mounts → fetches layout (localStorage-cached, checksum-validated — see
+   [Map Layout Cache](#map-layout-cache)), state, armies, buildings, techs, actions, users
 2. Data dispatched to Redux slices
 3. Components read via `useAppSelector`
 4. User actions → `POST /actions` → queued server-side
@@ -134,6 +349,66 @@ graph rendered inside `TechsModal`.)
 - **Custom CSS** (glow effects, glassmorphism in `index.css`)
 - Custom fonts: Space Grotesk (headlines), Manrope (body)
 - Dark theme color palette in `tailwind.config.js`
+- **Visual identity, terminology, and copy source of truth: [`DESIGN.md`](DESIGN.md)**
+  (repo root) — read it before any UI/design work. It documents the exact color
+  tokens, type scale, spacing/radius tokens, component patterns, and the game's
+  closed vocabulary (building types, resources, diplomacy terms, etc.) pulled
+  directly from this codebase. Update it when the visual system changes.
+
+### Tailwind gotchas specific to this project
+
+`tailwind.config.js` sets **`corePlugins: { preflight: false }`** (no global CSS
+reset) and **`important: '#root'`** (every utility is scoped to require `#root`
+as an ancestor). Both are easy to forget and cause silent, hard-to-diagnose
+rendering bugs:
+
+- **Bare `<button>`/`<input>`/`<select>`/`<textarea>` keep native browser
+  chrome.** Without preflight, form controls retain the OS/browser default
+  background and border (Chrome's default button background is a visible light
+  gray, `rgb(239,239,239)`) unless you explicitly add `bg-transparent` (and
+  `border-none` if no border is wanted). Non-form elements (`div`/`span`/`p`)
+  don't have this problem since they have no native chrome to override.
+- **`border-{color}` alone does not draw a border on non-form elements.**
+  Tailwind's `border` utility only sets `border-width`; normally preflight sets
+  a global `border-style: solid` reset so any element with a border color
+  shows one. Without preflight, `<div>`/`<span>`/`<p>` fall back to the CSS
+  initial `border-style: none` — the border silently doesn't render even
+  though width and color are correct. Native form controls are exempt (browsers
+  give them their own default border style), which is why this only bites
+  divs/spans/badges/dividers, not buttons/inputs. **Fix: always pair `border`
+  with `border-solid`** on any non-form-control element.
+- **`<input>` defaults to `box-sizing: content-box`.** An input styled with
+  `w-full` plus horizontal padding (e.g. `pl-10 pr-4`) will overflow its
+  container by the padding amount, since padding is added on top of the full
+  width instead of being included in it. **Fix: add `box-border`** to any input
+  using `w-full` (or any explicit width) together with padding.
+- **Set input text color explicitly.** Browsers give form controls their own
+  default text color rather than always inheriting the surrounding page's
+  color — a dark-on-dark input (e.g. black text on a black field) is easy to
+  ship unnoticed. Add `text-white` (or the appropriate token) directly.
+- **MUI `Dialog`/`Modal` portals to `document.body` by default — outside
+  `#root`.** Since Tailwind's `important: '#root'` scopes every utility to
+  require an `#root` ancestor, any Tailwind class used inside a MUI Dialog's
+  content **silently does nothing** unless the dialog renders inside `#root`.
+  **Fix: pass `disablePortal` to `Dialog`** (or `container={() =>
+  document.getElementById('root')}`) whenever its content uses Tailwind
+  classes. This affects every MUI `Dialog`/`Modal` in this codebase — check for
+  it first if a modal's Tailwind styling appears to do nothing.
+
+### Verifying UI changes
+
+There's no visual regression suite — verify styling changes by actually running
+the app: `npm run start:dev` in `api/`, `npm run dev` in `web-map/` (DB via
+`docker compose up db` or `npm run db:local` from the repo root), then log in
+with a seeded test account. `api/src/scripts/seed-test-countries.ts` (run via
+`npm run seed:test-countries`) creates two ready-made opposing countries —
+logins `test-blue` / `test-red` (plus the pre-existing `TestUser1` admin),
+shared password `test123` — useful for exercising anything that needs another
+player, a diplomatic relation, or an army fight. A headless Chromium driven via
+Playwright (`playwright-core` + the system's installed `google-chrome` binary,
+no browser download needed) plus `getComputedStyle()` checks is the fastest way
+to confirm a fix actually changed the rendered CSS rather than trusting the
+source alone — this is how every gotcha above was originally diagnosed.
 
 ## Docker
 
@@ -147,12 +422,19 @@ graph rendered inside `TechsModal`.)
 
 ```
 web-map/src/
-├── api/              config.ts, auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts
-├── components/       MapView, ProvinceShape, SelectedProvinceHover, ArmyBlock, TopBar, TechTree, modals
+├── api/              config.ts, auth.ts, users.ts, provinces.ts, armies.ts, actions.ts, buildings.ts, techs.ts,
+│                     resources.ts, goods.ts, diplomacy.ts, notifications.ts, gameSettings.ts, knowledge.ts
+├── components/       MapView, ProvinceShape, SelectedProvinceHover, FastBuildPanel, ArmyBlock,
+│                     ManageArmiesModal, TopBar, TechTree, modals
 ├── pages/            game/index.tsx, auth/login/LoginPage.tsx, auth/register/RegisterPage.tsx
-├── store/            store.ts, hooks.ts, slices/ (user, provinces, armies, buildings, techs, actions, otherUsers)
+├── store/            store.ts, hooks.ts, slices/ (user, provinces, armies, buildings, techs, actions, otherUsers,
+│                     resources, goods, diplomacy, mod)
 ├── context/          AuthContext.tsx, SnackbarContext.tsx
 ├── hooks/            useApi.ts, useActionExecutionReload.ts
+├── utils/            mapModes.ts (map-mode coloring, build/upgrade eligibility, fast-build cell logic),
+│                     armyLocks.ts (ARMY_MOVE/MERGE/TRANSFER mutual per-turn lock, shared with MapView/
+│                     SelectedProvinceHover/ArmyBlock/ManageArmiesModal), supply.ts (client mirror of
+│                     the backend's army food-cost formula, see Supply Display above)
 ├── constants/        buildingIcons.ts
 ├── types.ts          TypeScript interfaces
 ├── App.tsx           Root layout

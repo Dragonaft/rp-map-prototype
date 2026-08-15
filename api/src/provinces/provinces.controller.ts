@@ -2,6 +2,7 @@ import { Controller, Get, Body, Patch, Param, ClassSerializerInterceptor, UseInt
 import { ProvincesService } from './provinces.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ProvincesUpdateBodyRequest } from './requests/provinces-update-body.request';
+import { resolveModFogBypass } from '../utils/mod-visibility';
 
 @Controller('provinces')
 @UseGuards(JwtAuthGuard)
@@ -11,7 +12,7 @@ export class ProvincesController {
 
   @Get()
   getAll(@Request() req) {
-    return this.provincesService.getAll(req.user.id);
+    return this.provincesService.getAll(req.user.id, resolveModFogBypass(req));
   }
 
   @Get('layout')
@@ -21,7 +22,7 @@ export class ProvincesController {
 
   @Get('state')
   getState(@Request() req) {
-    return this.provincesService.getState(req.user.id);
+    return this.provincesService.getState(req.user.id, resolveModFogBypass(req));
   }
 
   @Get(':id')

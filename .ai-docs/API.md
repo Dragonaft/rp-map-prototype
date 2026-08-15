@@ -24,9 +24,17 @@ AppModule
 ├── UsersModule         Player profiles, resources, projections
 ├── ProvincesModule     Map tiles, ownership, buildings, setup
 ├── BuildingsModule     Building template definitions
-├── TechsModule         Tech tree definitions + research effects
+├── TechsModule         Tech tree definitions + data-driven effects engine + per-user research progress
 ├── ArmiesModule        Army CRUD, troop types, visibility rules
-├── ActionsModule       Action queue, executor, scheduler, income, upkeep
+├── ActionsModule       Action queue, executor, scheduler, income, upkeep, army food supply
+├── ResourcesModule     Resource definitions + per-user UserResource capacity ledger (drives build gating + MINE income)
+├── GoodsModule         Good definitions + per-user UserGood inventory ledger — economy rework, step 3
+├── DiplomacyModule     Diplomatic states, wars, treaties, province occupation
+├── NotificationsModule Per-user durable notifications (action failures, admin broadcasts)
+├── ClassesModule       Player class definitions (`classes` table) + visibility gating for TechsModule
+├── ModModule           ADMIN/MODERATOR "god-mode" tools (spawn NPCs/armies/buildings, edit stocks) + act-as impersonation
+├── GameSettingsModule  Global singleton settings (`game_settings` table): pause switch + turn-execution switch
+├── KnowledgeModule     Player-facing "Codex" knowledge base (`knowledge_articles` table), markdown content seeded from api/data/knowledge/*.md
 └── AdminModule         Admin CRUD for all entities
 ```
 
@@ -45,7 +53,7 @@ AppModule
 | Method | Path     | Auth | Description |
 |--------|----------|------|-------------|
 | GET    | /        | JWT  | All users (partial: id, countryName, color) |
-| GET    | /:id     | JWT  | Full state if owner (income/upkeep projections), partial if viewer |
+| GET    | /:id     | JWT  | Full state if owner (income/upkeep/research/piety/food projections — `projectedFood` nets CAPITAL/FARM/GARDEN production against every army's stored `supply_distance`, see [GAME-MECHANICS.md](GAME-MECHANICS.md#supply-food)), partial if viewer |
 | PATCH  | /:id     | JWT  | Update user |
 | POST   | /        | JWT  | Create user |
 | DELETE | /:id     | JWT  | Delete user (204 No Content) |
@@ -53,10 +61,10 @@ AppModule
 ### Provinces (`/provinces`)
 | Method | Path        | Auth | Description |
 |--------|-------------|------|-------------|
-| GET    | /           | JWT  | All provinces (troops hidden for non-owners unless enemy present) |
+| GET    | /           | JWT  | All provinces (troops hidden for non-owners unless enemy present; non-owned buildings filtered to `Building.visible` unless an ADMIN/MODERATOR has the mod no-fog toggle on — see [Auth — Mod No-Fog-of-War Toggle](#auth--mod-no-fog-of-war-toggle)) |
 | GET    | /:id        | JWT  | Single province |
 | GET    | /layout     | JWT  | Static geometry (polygon, type, landscape, resource, neighbors) |
-| GET    | /state      | JWT  | Dynamic state (ownership, troops, buildings, building caps) |
+| GET    | /state      | JWT  | Dynamic state (ownership, troops, buildings, building caps) — same fog-of-war/mod-bypass rules as above; the endpoint the web client actually uses |
 | PATCH  | /:id        | JWT  | Update province |
 | PATCH  | /setup/:id  | JWT  | First-province claim: sets CAPITAL, grants 3000 troops + 5000 money |
 
@@ -65,16 +73,83 @@ AppModule
 |--------|------|------|-------------|
 | GET    | /    | JWT  | All building templates |
 
-### Techs (`/techs`)
+### Resources (`/resources`)
+| Method | Path  | Auth | Description |
+|--------|-------|------|-------------|
+| GET    | /     | JWT  | All resource definitions (key, name, type, plainIncome) |
+| GET    | /mine | JWT  | Caller's UserResource ledger rows (resource + available quantity) |
+
+### Goods (`/goods`)
+| Method | Path  | Auth | Description |
+|--------|-------|------|-------------|
+| GET    | /     | JWT  | All good definitions (name, type, price_per_one) |
+| GET    | /mine | JWT  | Caller's UserGood inventory rows (good + quantity). No spend/trade endpoints yet |
+
+### Knowledge (`/knowledge`)
+Read-only player-facing "Codex" — the in-app knowledge base for game mechanics (goods,
+buildings, troops, ports, supply, etc.), opened from the web client's top-bar Codex button. See
+[WEB-MAP.md](WEB-MAP.md#component-map) for the modal and [DATABASE.md](DATABASE.md#knowledgearticle)
+for the entity/seed pipeline.
+
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| GET    | /    | JWT  | Available techs (filtered by user class + completed research) |
+| GET    | /    | JWT  | Visible articles (`is_visible = true`), ordered by `sort_order` ASC, content included |
+
+### Techs (`/techs`)
+| Method | Path     | Auth | Description |
+|--------|----------|------|-------------|
+| GET    | /        | JWT  | Available techs (filtered by user class + completed research + `PlayerClass.is_visible`), each annotated with the caller's saved `progress` (0 if never started) toward `cost` |
+| POST   | /select  | JWT  | `{tech_key}` — sets `active_research_key` **immediately** (not queued/turn-delayed like other actions — see [GAME-MECHANICS.md](GAME-MECHANICS.md#tech-tree)); re-validates prerequisites/class/visibility same as the old RESEARCH action |
+
+### Diplomacy (`/diplomacy`)
+Real-time REST, **not** queued actions — treaty offers must persist across turns awaiting a reply, and the
+existing 503 turn-gate already prevents races with turn execution. See
+[GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation) for the full state/treaty/occupation model.
+
+| Method | Path                          | Auth | Description |
+|--------|-------------------------------|------|-------------|
+| GET    | /relations                    | JWT  | Caller's diplomatic state with every other player (missing row ⇒ `neutral`) |
+| GET    | /wars                         | JWT  | Wars the caller participates in (with side/leader info) |
+| GET    | /treaties                     | JWT  | Caller's treaties: pending in/out + accepted/rejected log |
+| GET    | /treaties/public/:userId      | JWT  | Another player's `public`, `accepted` treaties |
+| POST   | /declare-war                  | JWT  | `{targetUserId}` — instant; rejected if allied or already at peace/war |
+| POST   | /send-money                   | JWT  | `{targetUserId, amount}` — direct gift, no connectivity/treaty required; rejected if the pair is at `WAR` |
+| POST   | /treaties                     | JWT  | `{name, receiverId, kind, peaceScope?, visibility, recurring?, articles, note?}` — propose (pending) |
+| POST   | /treaties/:id/accept          | JWT  | Receiver accepts; re-validates and applies all articles atomically |
+| POST   | /treaties/:id/reject          | JWT  | Receiver rejects a pending proposal |
+| DELETE | /treaties/:id                 | JWT  | Proposer cancels their own pending proposal |
+| POST   | /treaties/:id/cancel-signed   | JWT  | Either signatory cancels an accepted `alliance`/`troops_pass` treaty |
+
+### Notifications (`/notifications`)
+Durable, per-user notifications — the only place a non-admin player can ever see *why* a queued action
+failed, since `ActionQueue` rows (including `failureReason`) are deleted by the scheduler's same-turn
+cleanup before the client's next fetch.
+
+| Method | Path              | Auth | Description |
+|--------|-------------------|------|-------------|
+| GET    | /                 | JWT  | Caller's notifications, newest first (max 200) |
+| POST   | /mark-read        | JWT  | `{type?}` — marks caller's notifications read, optionally scoped to one `type` |
+
+Three `type` values: `action_failed` (auto-created by the scheduler on any action failure — see
+`ActionSchedulerService.notifyActionFailed`), `system` (reserved, unused so far), `admin` (created via
+the admin broadcast endpoint below). The web client splits the feed by type: `action_failed`/`system` →
+Notifications Center's "System Logs" tab, `admin` → "News" tab.
+
+### Game Settings (`/game-settings`)
+| Method | Path | Auth   | Description |
+|--------|------|--------|-------------|
+| GET    | /    | Public | `{id, isPaused, pauseMessage, turnsEnabled, mapChecksum}` — the singleton `game_settings` row. Public (no guard) because the login screen must read pause state, and the web client's province-layout cache must read `mapChecksum`, before anyone is authenticated. Nothing exposed here is sensitive. Admin read/write is `/admin/game-settings` (below), ADMIN-gated |
+
+Read/write, singleton entity, and the pause-enforcement mechanism are covered in
+[GAME-MECHANICS.md](GAME-MECHANICS.md#global-game-settings). See also
+[Auth — Game Pause](#auth--game-pause) below and
+[GAME-MECHANICS.md](GAME-MECHANICS.md#map-checksum--layout-cache-invalidation) for `mapChecksum`.
 
 ### Armies (`/armies`)
 | Method | Path         | Auth | Description |
 |--------|--------------|------|-------------|
 | GET    | /            | JWT  | User's armies with units |
-| GET    | /all         | JWT  | All armies visible to the requesting user (fog of war: enemy armies shown with full composition only if in player-owned or neighboring province) |
+| GET    | /all         | JWT  | All armies visible to the requesting user (fog of war: enemy armies shown with full composition only if in player-owned or neighboring province; unfiltered for an ADMIN/MODERATOR with the mod no-fog toggle on — see [Auth — Mod No-Fog-of-War Toggle](#auth--mod-no-fog-of-war-toggle)) |
 | GET    | /troop-types | JWT  | Available troop types (filtered by class/tech/building) |
 | POST   | /            | JWT  | Queue ARMY_CREATE action |
 | PATCH  | /:id         | JWT  | Rename army |
@@ -83,7 +158,7 @@ AppModule
 ### Actions (`/actions`)
 | Method | Path              | Auth  | Description |
 |--------|-------------------|-------|-------------|
-| POST   | /                 | JWT   | Queue action (BUILD, UPGRADE, RESEARCH, ARMY_MOVE, COLONIZE, etc.) |
+| POST   | /                 | JWT   | Queue action (BUILD, UPGRADE, ARMY_MOVE, COLONIZE, etc. — not RESEARCH, see Techs) |
 | GET    | /                 | JWT   | User's actions (all statuses) |
 | GET    | /pending          | JWT   | User's pending actions only |
 | DELETE | /pending/:id      | JWT   | Retract pending action |
@@ -116,6 +191,99 @@ AppModule
 | POST   | /troop-types     | Admin | Create troop type |
 | PATCH  | /troop-types/:id | Admin | Update troop type |
 | DELETE | /troop-types/:id | Admin | Delete troop type |
+| GET    | /resources     | Admin | List resources |
+| POST   | /resources     | Admin | Create resource |
+| PATCH  | /resources/:id | Admin | Update resource |
+| DELETE | /resources/:id | Admin | Delete resource |
+| GET    | /goods         | Admin | List goods |
+| POST   | /goods         | Admin | Create good |
+| PATCH  | /goods/:id     | Admin | Update good |
+| DELETE | /goods/:id     | Admin | Delete good |
+| GET    | /classes       | Admin | List player classes (full list, including hidden) |
+| POST   | /classes       | Admin | Create class (`{key, name, is_visible?}`) |
+| PATCH  | /classes/:id   | Admin | Update class (rename, toggle `is_visible`) |
+| DELETE | /classes/:id   | Admin | Delete class (does not touch existing `User.class`/`Tech.branch` string values) |
+| GET    | /knowledge     | Admin | List Codex articles (full list, including hidden) |
+| POST   | /knowledge     | Admin | Create article (`{key, title, category, sort_order, content, is_visible?}`) |
+| PATCH  | /knowledge/:id | Admin | Update article — a reseed (`npm run seed:knowledge`) overwrites edits by `key`, same convention as Classes/Goods |
+| DELETE | /knowledge/:id | Admin | Delete article |
+| GET    | /game-settings | Admin only | Read the singleton `game_settings` row (`is_paused`, `pause_message`, `turns_enabled`, `map_checksum`, snake_case — no `ClassSerializerInterceptor` here, unlike the public `GET /game-settings`) |
+| PATCH  | /game-settings | Admin only | Update any subset of the four fields (though `map_checksum` has no admin-panel form control — it's write-only from `import-provinces.ts`, this endpoint just doesn't reject it if sent). **ADMIN role only** — overrides the controller's default ADMIN\|MODERATOR gate via a route-level `@Roles(ADMIN)`, since pausing the whole game is treated as an ADMIN-only action, unlike every other row in this table |
+| GET    | /diplomacy-relations     | Admin | List diplomatic relations |
+| POST   | /diplomacy-relations     | Admin | Create diplomatic relation |
+| PATCH  | /diplomacy-relations/:id | Admin | Update diplomatic relation |
+| DELETE | /diplomacy-relations/:id | Admin | Delete diplomatic relation |
+| GET    | /wars          | Admin | List wars (with participants) |
+| POST   | /wars          | Admin | Create war |
+| PATCH  | /wars/:id      | Admin | Update war |
+| DELETE | /wars/:id      | Admin | Delete war |
+| POST   | /notifications/broadcast | Admin | `{title, message, severity?}` — fans one `Notification` row out to every registered user (admin-panel's Notifications tab) |
+
+> No admin-panel UI tab exists for diplomacy-relations/wars yet — only the REST endpoints (for direct inspection/editing).
+
+### Mod (`/mod`)
+ADMIN/MODERATOR-only "god-mode" tools for running NPC countries and seeding test state, gated
+by the controller-level `@Roles(ADMIN, MODERATOR)` guard (`mod.controller.ts`). Distinct from
+`/admin/*`: these act on **game entities** (armies, buildings, stocks) using the same executor
+paths a player would, not raw CRUD.
+
+| Method | Path                   | Auth        | Description |
+|--------|------------------------|-------------|-------------|
+| POST   | /npc                   | ADMIN/MOD   | `{login, country_name, color, money?, troops?, piety?}` — creates a `User` with `is_npc = true` (can't log in) |
+| GET    | /npcs                  | ADMIN/MOD   | List NPC users |
+| PATCH  | /province/:id/owner    | ADMIN/MOD   | `{userId}` — force-sets a province's legal owner directly |
+| POST   | /army                  | ADMIN/MOD   | `{userId, provinceId, name?, units}` — spawns an army instantly (no queue/turn wait) |
+| POST   | /building               | ADMIN/MOD   | `{provinceId, buildingId}` — places a building instantly |
+| DELETE | /building/:id          | ADMIN/MOD   | Removes a built `ProvinceBuilding` instance instantly |
+| PATCH  | /user/:id/stocks       | ADMIN/MOD   | `{money?, troops?, piety?, goods?, resources?}` — directly sets a user's stockpiles |
+
+### Auth — Mod Impersonation
+`ActAsInterceptor` (`api/src/auth/interceptors/act-as.interceptor.ts`), registered globally as
+an `APP_INTERCEPTOR` in `AuthModule`, lets an ADMIN/MODERATOR "play" an NPC through the normal
+player API surface: if the request carries an `X-Act-As-User: <npcId>` header, and the real
+caller is ADMIN/MODERATOR, and the target user has `is_npc = true`, `req.user` is swapped to
+the NPC (id + role) for the rest of that request — every existing `req.user.id` call site
+(actions, armies, techs, etc.) then runs exactly as if the NPC itself had submitted it. The real
+actor is preserved on `req.realUser`. Live-player impersonation is never allowed (only
+`is_npc = true` targets); guards run before interceptors, so anything RBAC-gated (e.g.
+`/admin/*`) still evaluates against the real actor's role first — the swap only ever narrows
+permissions, never escalates them. The web client sets this header from `mod.actingAsUserId`
+(Redux `modSlice`, persisted in `localStorage`) on every request except `/auth/*` — see
+[WEB-MAP.md](WEB-MAP.md#mod--npc-impersonation-state). **Gotcha:** that header is derived from
+`localStorage`, not the auth session, so logging out must explicitly clear it (`setActingAsUserId(null)`)
+or the next account to log in on the same browser inherits a stale act-as target and gets a 403
+from this interceptor on every request.
+
+### Auth — Mod No-Fog-of-War Toggle
+`resolveModFogBypass(req)` (`api/src/utils/mod-visibility.ts`) is a plain helper — not an
+interceptor — called explicitly from `ArmiesController.getAllArmies` and
+`ProvincesController.getAll`/`getState`. It returns `true` only when the request carries
+`X-Mod-Full-Visibility: true` **and** the real authenticated actor (`req.realUser ?? req.user`,
+same "prefer realUser" logic as `ActAsInterceptor`'s swap, so it still works correctly mid
+act-as impersonation) is ADMIN/MODERATOR; a PLAYER sending the header is silently ignored
+(no exception — this only relaxes what data is returned, not what actions can be taken). The
+resulting `bypassFog` boolean is threaded into `ArmiesService.getAllArmies` (every army
+included regardless of province visibility) and `ProvincesService.getAll`/`getState` (every
+non-owned province's buildings included regardless of `Building.visible`) — see
+[GAME-MECHANICS.md](GAME-MECHANICS.md#visibility-fog-of-war). The web client attaches the header from `mod.switchOn` — see
+[WEB-MAP.md](WEB-MAP.md#mod--npc-impersonation-state).
+
+### Auth — Game Pause
+`GamePauseInterceptor` (`api/src/settings/interceptors/game-pause.interceptor.ts`), registered
+globally as `APP_INTERCEPTOR` in `GameSettingsModule` — same registration pattern as
+`ActAsInterceptor` (an interceptor rather than middleware/a guard because it needs `req.user`,
+which only exists once the auth guards have already run). A request with no `req.user` (every
+public route: `/auth/*`, `/actions/execution-stream`, `GET /game-settings`) always passes
+through untouched. Otherwise it resolves the **real** actor as `req.realUser ?? req.user` (same
+"prefer realUser" rule `resolveModFogBypass` uses above) — ADMIN/MODERATOR always passes through,
+so a mod acting as an NPC stays unaffected by a pause. A PLAYER gets a `403` with
+`{error: 'Forbidden', message, code: 'GAME_PAUSED'}` whenever `game_settings.is_paused` is true.
+`AuthService.login`/`refreshTokens` apply the identical check directly (belt-and-braces — without
+it, a tab left open would keep silently renewing its access token via `/auth/refresh`, since the
+interceptor only runs on requests, not on the refresh call's own token-signing logic being
+otherwise unguarded). See [GAME-MECHANICS.md](GAME-MECHANICS.md#global-game-settings) for the full
+pause/turns-enabled model and [WEB-MAP.md](WEB-MAP.md#game-pause-handling) for how the client
+reacts to the `GAME_PAUSED` code.
 
 ## Action Types (Enum)
 
@@ -127,26 +295,35 @@ by `ActionsService.validateActionPayload` (see Key Services).
 | BUILD             | province_id, building_id                                   |
 | UPGRADE           | province_id, province_building_id                          |
 | REMOVE            | province_id, province_building_id                          |
-| RESEARCH          | tech_key                                                   |
 | COLONIZE          | province_id (land-province check enforced by executor, not at queue time) |
 | ARMY_CREATE       | province_id, name?, units: [{ troop_type_key, count }]     |
-| ARMY_MOVE         | army_id, to_province_id (one move per army per turn)      |
+| ARMY_MOVE         | army_id, to_province_id (diplomacy-gated — see [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation)) |
 | ARMY_RECRUIT      | army_id, units: [{ troop_type_key, count }]               |
-| ARMY_MERGE        | source_army_id, target_army_id (must differ)             |
+| ARMY_MERGE        | source_army_id, target_army_id (must differ) — dissolves source into target |
+| ARMY_TRANSFER     | army_a_id, army_b_id, transfers: [{ troop_type_key, from_army_id, to_army_id, count }] — rebalance, both armies survive |
 | ARMY_DISBAND      | army_id                                                    |
 | ARMY_EDIT         | army_id, troop_type_key, count                             |
 
-**Legacy/unused enum values:** `TRANSFER_TROOPS` (stub handler, nothing queues it)
-and `DISBAND` (no handler). `INVADE` and `DEPLOY` were removed. Troop counts must
-be integers in `[1, 1_000_000]`.
+`ARMY_MOVE`/`ARMY_MERGE`/`ARMY_TRANSFER` mutually lock the armies they reference — an army may
+have at most one of the three pending at a time (see
+[GAME-MECHANICS.md](GAME-MECHANICS.md#movement)).
+
+**Legacy/unused enum values:** `DISBAND` (no handler) and `RESEARCH` (explicitly rejected by
+`ActionsService.createAction` — tech selection is `POST /techs/select` now, since research can't
+afford to wait a turn just for the selection itself to take effect). `INVADE`, `DEPLOY`, and
+`TRANSFER_TROOPS` were removed outright (the latter was a dead stub with nothing ever queuing
+it — not to be confused with the current `ARMY_TRANSFER`, an unrelated, fully-implemented
+action). Troop counts must be integers in `[1, 1_000_000]`.
 
 ## Key Services
 
 ### ActionsService (queue-time validation)
-- `createAction` validates payload shape per action type, enforces a per-user
-  cap (`MAX_PENDING_ACTIONS_PER_USER = 200` pending), and rejects duplicates
-  (one ARMY_MOVE per army, one RESEARCH per tech_key). The executor re-checks
-  everything at turn time — queue validation is just fast feedback.
+- `createAction` rejects `RESEARCH` outright (400 — use `POST /techs/select`), validates
+  payload shape per action type, enforces a per-user cap (`MAX_PENDING_ACTIONS_PER_USER = 200`
+  pending), and rejects duplicates via `assertNotDuplicate`: every army id referenced by a
+  pending `ARMY_MOVE`/`ARMY_MERGE`/`ARMY_TRANSFER` is locked, so an army can have at most one of
+  the three queued at a time (queuing any of them for an already-locked army 400s). The executor
+  re-checks everything at turn time — queue validation is just fast feedback.
 - `POST /actions` body is validated by `CreateActionDto` (`@IsEnum(ActionType)`),
   so unknown action types are rejected with 400.
 - All action creation funnels through here, including ARMY_CREATE / ARMY_DISBAND
@@ -156,19 +333,103 @@ be integers in `[1, 1_000_000]`.
 - Production: two separate crons, `0 13 * * *` and `0 20 * * *` (Europe/Kyiv) — i.e. 13:00 and 20:00
 - Dev: two fast crons, every 2 minutes (`*/2 * * * *`) and every 5 minutes (`*/5 * * * *`), both gated by `isFastDevCronEnabled()` (disabled if `DISABLE_FAST_ACTION_CRON=true` or `NODE_ENV=production`)
 - Acquires distributed `ExecutionLock` before processing
-- Phases: income → upkeep → action execution → cleanup (mark actions completed/failed) → post-processing integrity checks
+- Phases: income → production → upkeep → **supply** → recurring-trade settlement → action
+  execution → cleanup (mark actions completed/failed) → post-processing
+  integrity checks → diplomacy tick
+- Every action failure (either handler returning `{success:false}` or a thrown exception) calls
+  `notifyActionFailed`, creating an `action_failed` `Notification` via `NotificationsService` — this is
+  the only durable, player-visible record of *why* an action failed, since cleanup (next bullet) deletes
+  the `ActionQueue` row (including its `failureReason`) before the client's next poll ever sees it
 - Post-processing (disband weak armies, resolve multi-faction combat, sync
-  province ownership) each runs in its own transaction. Multi-faction combat
-  engages attackers in a deterministic order (strongest attack power first).
+  province control) each runs in its own transaction. Multi-faction combat
+  only engages **hostile** attacker groups (allies/troops-pass grantees
+  co-locate peacefully) and calls `OccupationService.applyControlResult`
+  instead of writing `province.user_id` directly — see
+  [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation). Attackers
+  engage in a deterministic order (strongest attack power first).
+- Diplomacy tick (`tickOccupations`, `DiplomacyService.tickPeaceDecay`,
+  `TreatyService.tickPendingExpiry`): ages every occupied province by one
+  turn (auto-cores at `OCCUPATION_CORE_THRESHOLD`), decays `PEACE` relations
+  to `NEUTRAL` after `PEACE_DURATION_TURNS`, and auto-rejects pending treaty
+  proposals older than `TREATY_EXPIRY_TURNS`.
 
 ### ActionExecutionBlockMiddleware
-- Returns **503** during turn execution on all routes except an exact-match whitelist of five paths: `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout` (note: `/auth/me` is **not** whitelisted and is blocked during processing)
+- Returns **503** during turn execution on all routes except an exact-match whitelist of six paths: `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`, `/game-settings` (note: `/auth/me` is **not** whitelisted and is blocked during processing)
 - Toggle: `DISABLE_ACTION_EXECUTION_GATE=true` for local debugging
 
 ### ActionExecutionStateService
 - RxJS `BehaviorSubject` tracks processing state
 - SSE endpoint streams state changes to clients
 - **Single-process only** — needs Redis for horizontal scaling
+
+### UserGoodsService
+- Keeps `UserGood` fully populated: one row per (user, good) pair, always.
+- `createRowsForNewGood(good)` — called from `AdminService.createGood` — inserts a zero-quantity row for every existing user.
+- `createRowsForNewUser(user)` — called from `UsersService.create` (registration) and `AdminService.createUser` — inserts a zero-quantity row for every existing good.
+- `adjustQuantity(manager, userId, goodId, delta)` — unconditional grant/release, clamped at 0. Keyed by `goodId` (not a key string — `Good` has no natural key like `Resource` does). Used to credit turn production and to release a `requirement_good` reservation on demolish/upgrade.
+- `tryReserve(manager, userId, goodId, amount)` — atomic conditional decrement (locks the row). Used at BUILD/UPGRADE time to consume `requirement_good` (e.g. BARRACKS' 25 Weapons, SAWMILL's 25 Bricks), and per-turn by `SupplyActionService` to consume army food upkeep — armies left unfed after a failed reservation starve.
+
+### ProductionActionService
+- Runs once per scheduled queue tick, right after `IncomeActionService` and before `UpkeepActionService`. Two passes over every building each user owns:
+  1. **Resource production** — any building with `resource_production_amount` set (MINE, FORESTRY, BARN) unconditionally credits that amount of `province.resource.key` into `UserResource` via `adjustQuantity`.
+  2. **Goods production** — for buildings with `isProduction && production_good_id` set: if `production_requirement_resource` is also set, atomically `tryReserve` (spend) `production_requirement_resource_amount` of it from `UserResource` — skip this building for the turn if that fails. Otherwise (or on success), credit `production_amount` of `productionGoodEntity` into `UserGood` via `UserGoodsService.adjustQuantity`.
+- Pass 1 always completes before pass 2 starts, so this turn's mined resources are available to this turn's manufacturing regardless of building iteration order.
+
+### SupplyActionService
+- Runs once per scheduled queue tick, right after `UpkeepActionService` and before recurring-trade
+  settlement — see [GAME-MECHANICS.md](GAME-MECHANICS.md#supply-food) for the full formula and
+  the occupied-fort-supplies-its-occupier control rule.
+- Per user: multi-source BFS (`supply-utils.ts`'s `bfsDistances`, depth-bounded to 16) from every
+  `supply_building` province the user controls, over the full province graph (any owner —
+  supply range is pure geography). Writes each army's result to `Army.supply_distance`.
+- Charges food (`UserGoodsService.tryReserve`) per army, scaled by the resulting distance
+  multiplier, feeding armies in ascending-multiplier order per user; unfed armies take attrition
+  via a private helper (not `combat-calculator.ts`'s `applyCasualties` — that helper rounds down
+  and doesn't delete zero-count `ArmyUnit` rows, which this service does explicitly).
+- Pure cost-formula helpers (`supplyMultiplierForDistance`, `computeArmyBaseFoodNeed`,
+  `scaleFoodNeed`, plus the constants) live in `supply-utils.ts` with no NestJS/TypeORM
+  dependencies, specifically so `UsersService`'s `projectedFood` can import them directly without
+  a cross-module DI dependency — the projection and the actual turn charge can never drift apart.
+
+### UserResourcesService
+- Maintains the `UserResource` manufacturing stockpile — see [DATABASE.md](DATABASE.md#userresource) for the full column/semantics writeup and why money income no longer reads it.
+- `adjustQuantity(manager, userId, resourceKey, delta)` — unconditional grant/release, clamped at 0. Used for per-turn MINE/FORESTRY production credit and for releasing a `requirement_resource` reservation on demolish/upgrade.
+- `tryReserve(manager, userId, resourceKey, amount)` — atomic conditional decrement (locks the row). Used at BUILD/UPGRADE time to consume `requirement_resource`, and per-turn in `ProductionActionService` to consume `production_requirement_resource_amount`.
+- `createRowsForNewResource`/`createRowsForNewUser` — same fan-out pattern as `UserGoodsService`.
+- All mutating methods take an explicit `EntityManager` so they participate in the same transaction as the BUILD/REMOVE/UPGRADE action handler or turn-phase service calling them.
+- Called from `action-executor.service.ts` (Build/Remove/UpgradeActionHandler, plus the new `requirement_good` checks via `UserGoodsService`) and `OccupationService.transferProvinceResourceFootprint` (invoked by both `applyControlResult` and `coreProvince` on every legal-ownership change — transfers `requirement_resource`/`requirement_good` reservations only; per-turn production isn't transferred, it's derived fresh from whoever owns the building next turn).
+
+### ClassesService
+- `findAll()`/`findAllVisible()` — full vs. `is_visible = true` only (admin CRUD vs. potential
+  player-facing use; no player-facing controller exists today since `GET /techs` is what
+  actually gates player visibility, not a `/classes` endpoint).
+- `getClassKeys()` — every `PlayerClass.key` as a `Set<string>`; replaces the old hard-coded
+  `CLASS_BRANCHES` set in `TechsService` — a branch is "class-gated" iff its string is in this set.
+- `getHiddenKeys()` — keys where `is_visible = false`; consumed by `TechsService` to drop those
+  branches' techs from `GET /techs` and to reject them in `POST /techs/select`.
+- Injected into `TechsModule` (exported by `ClassesModule`); no relation table — everything
+  downstream (`User.class`, `Tech.branch`, `CLASS_RESTRICTED_TROOPS` in `armies.service.ts`/
+  `action-executor.service.ts`) matches by the `key` string, not a foreign key. See
+  [DATABASE.md](DATABASE.md#playerclass).
+
+### DiplomacyService
+- Relation/war/passage/trade-connectivity logic. Key methods: `getState`/`isHostile` (hostile = `neutral|war`), `hasPassage(mover, owner)` (alliance OR a granted `troops_pass`), `startWar`/`ensureWarBetween`/`callAllies` (call-to-arms: an attacked player's allies join their side against the aggressor; an ally that was *also* allied to the aggressor breaks that alliance first), `leaveWar`/`endWar`, `evacuateForeignArmies` (teleports non-hostile foreign armies to their owner's nearest fort/capital-tier province, else nearest owned province, else leaves them in place — used when a troops-pass/alliance is cancelled), `tradeConnected` (BFS over the player-border graph; intermediates must have granted passage to one of the two traders), `tickPeaceDecay`.
+- All mutating methods take an explicit `EntityManager`, same convention as `UserResourcesService`/`UserGoodsService`.
+
+### OccupationService
+- `applyControlResult(manager, province, winnerId)` — the single place that decides claim / retake / occupy whenever a player wins military control of a province (empty land → direct claim; own core, occupied → retake; someone else's core → occupy + `ensureWarBetween`). Called from `ArmyMoveHandler` (uncontested move + attacker-wins) and from the scheduler's `resolveArmyConflicts`/`syncProvinceOwnershipWithArmies`.
+- `coreProvince(manager, province, newOwnerId)` — legal ownership transfer (10-turn auto-core tick, or a peace treaty's `cede_province` article); calls `transferProvinceResourceFootprint`.
+- `clearOccupation` — returns a province to its owner without an ownership change (peace non-cession, friendly retake).
+
+### TreatyService
+- `proposeTreaty`/`acceptTreaty`/`rejectTreaty`/`cancelPendingProposal`/`cancelSignedTreaty`/`declareWar`/`sendMoney` — see [GAME-MECHANICS.md](GAME-MECHANICS.md#diplomacy--occupation) for the full treaty-kind/validation matrix.
+- `processRecurringTrades` (called each turn from the economy transaction) and `tickPendingExpiry` (called from the diplomacy tick) are the two turn-driven entry points; everything else is invoked directly from `DiplomacyController`.
+
+### NotificationsService
+- `createForUser(userId, type, title, message, severity)` — single-row insert. Called by `ActionSchedulerService.notifyActionFailed` (`type: action_failed`, `severity: error`) on every action failure.
+- `broadcastToAll(title, message, severity)` — fans one row out to every registered user, same one-row-per-user pattern as `UserGoodsService.createRowsForNewGood`. Called from `AdminService.broadcastNotification` (`POST /admin/notifications/broadcast`, `type: admin`).
+- `getMine(userId)` — newest-first, capped at 200 rows. `markAllRead(userId, type?)` — marks read, optionally scoped to one `type` so marking "System Logs" seen doesn't also clear an unread "News" broadcast.
+- `type` values: `action_failed`, `system` (reserved, unused so far), `admin`. Not a DB enum — plain `varchar`, matching this codebase's usual convention for kind-like fields.
 
 ## File Structure
 
@@ -178,19 +439,36 @@ api/src/
 ├── app.module.ts
 ├── auth/           controllers, services, strategies, guards, decorators
 ├── users/          controller, service, entity, request DTOs
-├── provinces/      controller, service, entity, request DTOs
+├── provinces/      controller, service, entity, request DTOs, map-checksum.util.ts
+│                   (pure sha256 hash of map layout, used by scripts/import-provinces.ts)
 ├── buildings/      controller, service, entity, types
-├── techs/          controller, service, entity, research-effects.ts
+├── techs/          controller, service, entity, tech-effects.service.ts, effect-types.ts,
+│                   user-tech-progress.service.ts, entities (tech, user-tech-progress), dto/
 ├── armies/         controller, service, entities (army, army-unit, troop-type)
-├── actions/        controller, service, executor (12 handlers), scheduler,
-│                   combat-calculator, income, upkeep, state-loader, middleware
+├── actions/        controller, service, executor (11 handlers), scheduler,
+│                   combat-calculator, income, upkeep, supply-action.service.ts + supply-utils.ts
+│                   (army food supply), state-loader, middleware
+├── resources/      controller, service (Resource), user-resources.service (UserResource ledger),
+│                   entities (resource, user-resource), types (plain/consumable)
+├── goods/          controller, service (Good), user-goods.service (UserGood ledger),
+│                   entities (good, user-good)
+├── diplomacy/      controller, diplomacy.service (relations/wars/passage), occupation.service
+│                   (province control), treaty.service (propose/accept/peace/trade),
+│                   entities (diplomatic-relation, war, war-participant, treaty), dto/, types/
+├── notifications/  controller, service, entity (notification) — per-user durable notifications
+├── settings/       controller, service (cached), entity (game_settings, singleton row),
+│                   interceptors/game-pause.interceptor.ts (global APP_INTERCEPTOR)
+├── knowledge/      controller, service, entity (knowledge-article) — read-only player-facing Codex
 ├── admin/          controller, service
 ├── db/             data-source.ts, data-source.prod.ts, migrations/
-├── utils/          logger.ts, parseIncome.ts
-└── scripts/        import-provinces, seed-buildings, seed-techs, seed-troop-types, balance-report, reset-game-data
+├── utils/          logger.ts, parseIncome.ts, colorDistance.ts, mod-visibility.ts (resolveModFogBypass)
+└── scripts/        seed-resources, seed-goods, import-provinces, seed-buildings, seed-techs,
+                    seed-troop-types, seed-knowledge, balance-report, reset-game-data
 
-api/data/           provinces.json, buildings.json, techs.json, troop-types.json
+api/data/           resources.json, goods.json, provinces.json, buildings.json, techs.json, troop-types.json
                     (sibling of src/, NOT api/src/data/)
+                    knowledge/  — one markdown file per Codex article (frontmatter + body),
+                    read by seed-knowledge.ts
 ```
 
 ## npm Scripts
@@ -201,9 +479,17 @@ api/data/           provinces.json, buildings.json, techs.json, troop-types.json
 | `build`            | Compile TypeScript                               |
 | `migration:run`    | Run pending migrations                           |
 | `migration:fresh`  | Drop schema + re-run all migrations              |
+| `seed:resources`   | Seed resource definitions (run before `import:provinces`) |
+| `seed:goods`       | Seed good definitions (run before `seed:buildings` and `seed:troop-types`) |
 | `import:provinces` | Import provinces.json into DB                    |
-| `seed:buildings`   | Seed building definitions                        |
+| `seed:buildings`   | Seed building definitions (resolves `production_good_name` — run after `seed:goods`) |
 | `seed:techs`       | Seed tech tree                                   |
-| `seed:troop-types` | Seed troop type definitions                      |
+| `seed:troop-types` | Seed troop type definitions (resolves `required_goods_name` — run after `seed:goods`) |
+| `seed:knowledge`   | Seed Codex articles from `api/data/knowledge/*.md` (idempotent upsert by `key`, independent of any other seed) |
 | `balance:report`   | Generate combat balance analysis                 |
-| `reset:game`       | Reset game data (`reset:game:prod` for prod)     |
+| `reset:game`       | Reset game data                                  |
+
+> All scripts above (except `migration:generate`/`migration:create`, which are dev-only tooling) route through `api/scripts/run-env.js`, which reads `NODE_ENV` and picks `ts-node` against `src/` (dev) or plain `node` against compiled `dist/` (prod) — no separate `:prod` script names. See [DOCKER.md](DOCKER.md#post-build-setup).
+
+## None
+- For creating migrations use `typeorm -- migration:create` command, don’t create migrations manually.

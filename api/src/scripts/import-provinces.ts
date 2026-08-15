@@ -1,6 +1,9 @@
 import { AppDataSource as AppDataSourceDev } from '../db/data-source';
 import { AppDataSource as AppDataSourceProd } from '../db/data-source.prod';
 import { Province } from '../provinces/entities/province.entity';
+import { Resource } from '../resources/entities/resource.entity';
+import { GameSettings } from '../settings/entities/game-settings.entity';
+import { computeMapChecksum } from '../provinces/map-checksum.util';
 import * as fs from 'fs';
 import * as path from 'path';
 import { colors, logger } from "../utils/logger";
@@ -17,7 +20,6 @@ interface ProvinceInput {
   polygon: string;
   type: string;
   landscape: string;
-  local_troops: number;
   resource_type: string | null;
   user_id: string | null;
   region_id: string;
@@ -36,11 +38,6 @@ function validateProvinceObject(obj: any, index: number): obj is ProvinceInput {
       logger.error(`Province at index ${index}: field '${field}' must be a string`);
       return false;
     }
-  }
-
-  if ('local_troops' in obj && typeof obj.local_troops !== 'number') {
-    logger.error(`Province at index ${index}: field 'local_troops' must be a number`);
-    return false;
   }
 
   if ('resource_type' in obj && obj.resource_type !== null && typeof obj.resource_type !== 'string') {
@@ -115,6 +112,18 @@ async function importProvinces() {
     logger.log('All provinces are valid');
   }
 
+  // Computed from the source file, before any DB write — this is what the web client
+  // compares against to decide whether its cached layout is stale. See map-checksum.util.ts.
+  const mapChecksum = computeMapChecksum(validProvinces.map((p) => ({
+    region_id: p.region_id,
+    polygon: p.polygon,
+    type: p.type,
+    landscape: p.landscape,
+    resource_type: p.resource_type ?? null,
+    neighbor_regions: p.neighbor_regions,
+  })));
+  logger.log(`Computed map checksum: ${colors.blue}${mapChecksum}${colors.reset}`);
+
   // Step 4: Connect to database
   logger.log('Connecting to database...');
   try {
@@ -126,6 +135,16 @@ async function importProvinces() {
   }
 
   const provinceRepository = AppDataSource.getRepository(Province);
+  const resourceRepository = AppDataSource.getRepository(Resource);
+
+  // Step 4.5: Load the resource key -> id lookup (resources must be seeded first)
+  const resources = await resourceRepository.find();
+  if (resources.length === 0) {
+    logger.error('No resources found — run `npm run seed:resources` before importing provinces');
+    await AppDataSource.destroy();
+    process.exit(1);
+  }
+  const resourceIdByKey = new Map(resources.map((r) => [r.key, r.id]));
 
   // Step 5: Clear existing provinces and relations
   logger.log('Clearing existing provinces and relations...');
@@ -155,12 +174,21 @@ async function importProvinces() {
     const provinceData = validProvinces[i];
 
     try {
+      let resource_id: string | null = null;
+      if (provinceData.resource_type) {
+        resource_id = resourceIdByKey.get(provinceData.resource_type) ?? null;
+        if (!resource_id) {
+          throw new Error(
+            `Unknown resource_type "${provinceData.resource_type}" — not present in the resources table`,
+          );
+        }
+      }
+
       const province = provinceRepository.create({
         polygon: provinceData.polygon,
         type: provinceData.type,
         landscape: provinceData.landscape,
-        local_troops: provinceData.local_troops ?? 0,
-        resource_type: provinceData.resource_type,
+        resource_id,
         user_id: provinceData.user_id,
         region_id: provinceData.region_id,
         neighbor_ids: null, // Will be populated in second pass
@@ -218,6 +246,28 @@ async function importProvinces() {
     logger.log(`Provinces without neighbors: ${colors.blue}${neighborsSkipped}${colors.reset}`);
   }
 
+  // Step 7.5: Store the map checksum so the web client can detect this import and refresh
+  // its cached layout (GameSettingsService.get() picks it up on the running API server
+  // within its 5s cache TTL — this script has no NestJS DI, so upsert the singleton row
+  // directly, mirroring GameSettingsService.get()'s own get-or-create logic).
+  if (importedCount > 0) {
+    logger.log('Storing map checksum in game_settings...');
+    try {
+      const gameSettingsRepository = AppDataSource.getRepository(GameSettings);
+      let settings = await gameSettingsRepository.findOne({ where: { id: 'global' } });
+      if (!settings) {
+        settings = gameSettingsRepository.create({ id: 'global', is_paused: false, pause_message: null, turns_enabled: true });
+      }
+      settings.map_checksum = mapChecksum;
+      await gameSettingsRepository.save(settings);
+      logger.log('Map checksum stored successfully');
+    } catch (error) {
+      // Non-fatal: the import itself already succeeded. Worst case, the web client's cache
+      // just doesn't self-invalidate until the next successful import.
+      logger.error(`Failed to store map checksum: ${error.message}`);
+    }
+  }
+
   // Step 8: Summary
   console.log('');
   logger.log(`${colors.green}========== IMPORT SUMMARY ==========${colors.reset}`);
@@ -225,6 +275,7 @@ async function importProvinces() {
   logger.log(`Valid provinces: ${colors.blue}${validCount}${colors.reset}`);
   logger.log(`Successfully imported: ${colors.green}${importedCount}${colors.reset}`);
   logger.log(`Errors: ${errorCount > 0 ? colors.red : colors.green}${errorCount}${colors.reset}`);
+  logger.log(`Map checksum: ${colors.blue}${mapChecksum}${colors.reset}`);
   logger.log(`${colors.green}====================================${colors.reset}`);
   console.log('');
 

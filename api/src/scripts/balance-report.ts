@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { BATTLE_RESEARCH_EFFECTS } from '../techs/research-effects';
+import { TechEffect } from '../techs/effect-types';
 import {
   ARMY_MIN_SIZE,
   CASUALTY_FLOOR,
@@ -10,6 +10,7 @@ import {
   CombatBuilding,
   applyCasualties,
   armyAttackPower,
+  armyCategoryMix,
   armyDefensePower,
   armyTotalTroops,
   computeBuildModifier,
@@ -298,12 +299,54 @@ function getScenarioBuildings(
     .filter((building): building is BuildingRow => Boolean(building));
 }
 
-function applyAttackTechs(basePower: number, techs: string[]): number {
-  const ctx = { attackingTroops: basePower };
-  for (const techKey of techs) {
-    BATTLE_RESEARCH_EFFECTS[techKey]?.(ctx);
+/**
+ * Populated once in main() from data/techs.json — this script reads seed data
+ * directly (no DB/NestJS DI), so it mirrors TechEffectsService's `army_attack`
+ * stacking rule (last `set` wins -> sum adds -> multiply) rather than importing
+ * the service itself.
+ */
+let TECH_EFFECTS: Map<string, TechEffect[]> = new Map();
+
+function loadTechEffects(): Map<string, TechEffect[]> {
+  const techs = readJsonArray<{ key: string; effects?: TechEffect[] | null }>(
+    path.join(DATA_DIR, 'techs.json'),
+  );
+  const map = new Map<string, TechEffect[]>();
+  for (const tech of techs) {
+    if (tech.effects?.length) map.set(tech.key, tech.effects);
   }
-  return ctx.attackingTroops;
+  return map;
+}
+
+function applyAttackTechs(basePower: number, techs: string[]): number {
+  const effects = techs.flatMap(
+    (key) => (TECH_EFFECTS.get(key) ?? []).filter((effect) => effect.target === 'army_attack'),
+  );
+  if (!effects.length) return basePower;
+
+  let result = basePower;
+  for (const effect of effects) {
+    if (effect.op === 'set') result = effect.value;
+  }
+
+  // Matches TechEffectsService.apply's real stacking rule: 'add_scaled' multiplies by a
+  // whitelisted ctx quantity (provinceCount/capitalCount/etc.), which this offline combat
+  // simulator has no ctx for — army_attack/army_defense aren't even in TARGET_SCALE_OPTIONS
+  // in effect-types.ts, so validateEffects rejects add_scaled on those targets today, but
+  // this used to silently treat it as a full-value plain 'add' instead of contributing 0,
+  // which would have mis-modeled it the moment that changed.
+  let additive = 0;
+  for (const effect of effects) {
+    if (effect.op === 'add') additive += effect.value;
+    // 'add_scaled' intentionally contributes 0 here — no ctx quantity is available offline.
+  }
+  result += additive;
+
+  for (const effect of effects) {
+    if (effect.op === 'multiply') result *= effect.value;
+  }
+
+  return Math.round(result);
 }
 
 function makePureArmy(troopType: TroopTypeRow, count: number): SimArmy {
@@ -445,9 +488,13 @@ function simulateArmyCombat(
   const attacker = cloneArmy(attackerInput);
   const defender = cloneArmy(defenderInput);
 
-  const attackerBasePower = armyAttackPower(attacker);
+  // Counter matrix: each side's power is scaled against the *opposing* side's category mix,
+  // mirroring ArmyMoveHandler/resolveArmyConflicts (see combat-calculator.ts).
+  const defenderMix = armyCategoryMix(defender);
+  const attackerMix = armyCategoryMix(attacker);
+  const attackerBasePower = armyAttackPower(attacker, false, defenderMix);
   const attackerPower = applyAttackTechs(attackerBasePower, attackerTechs);
-  const defenderBasePower = armyDefensePower(defender);
+  const defenderBasePower = armyDefensePower(defender, false, attackerMix);
   const buildingModifier = computeBuildModifier(defenderBuildings);
   const defenderPower = defenderBasePower * buildingModifier;
 
@@ -529,68 +576,6 @@ function minimumAttackersToWin(
     } else {
       low = mid + 1;
     }
-  }
-
-  return low;
-}
-
-function simulateLegacyLocalCombat(
-  attackerCount: number,
-  defenderCount: number,
-  defenderBuildings: CombatBuilding[],
-  attackerTechs: string[],
-) {
-  const buildingModifier = computeBuildModifier(defenderBuildings);
-  const attackingTroops = applyAttackTechs(attackerCount, attackerTechs);
-  const battleResult = attackingTroops / buildingModifier - defenderCount;
-
-  if (battleResult > 0) {
-    return {
-      winner: 'ATTACKER',
-      attackerPower: attackingTroops,
-      buildingModifier,
-      targetTroopsAfter: Math.round(battleResult),
-    };
-  }
-
-  if (battleResult < 0) {
-    return {
-      winner: 'DEFENDER',
-      attackerPower: attackingTroops,
-      buildingModifier,
-      targetTroopsAfter: Math.round(-battleResult),
-    };
-  }
-
-  return {
-    winner: 'DRAW_DEFENDER_EMPTY',
-    attackerPower: attackingTroops,
-    buildingModifier,
-    targetTroopsAfter: 0,
-  };
-}
-
-function minimumLegacyAttackersToWin(
-  defenderCount: number,
-  defenderBuildings: CombatBuilding[],
-  attackerTechs: string[],
-): number | null {
-  const modifier = computeBuildModifier(defenderBuildings);
-
-  const winsAt = (attackerCount: number): boolean =>
-    applyAttackTechs(attackerCount, attackerTechs) / modifier - defenderCount > 0;
-
-  let high = 1;
-  while (!winsAt(high)) {
-    high *= 2;
-    if (high > 10_000_000) return null;
-  }
-
-  let low = 1;
-  while (low < high) {
-    const mid = Math.floor((low + high) / 2);
-    if (winsAt(mid)) high = mid;
-    else low = mid + 1;
   }
 
   return low;
@@ -972,41 +957,6 @@ function buildReport(
     }),
   ));
 
-  pushSection(lines, 'Legacy Local-Troops INVADE Formula');
-  lines.push('This covers the older province local_troops combat: result = attackingTroops / buildingModifier - defenderTroops.');
-  lines.push('Local troops do not use troop type attack/defense stats.');
-  lines.push(...renderTable(
-    [
-      'buildings',
-      'tech',
-      'def_count',
-      'min_attackers',
-      'result_at_min',
-      'target_troops_after',
-      'modifier',
-    ],
-    BUILDING_SCENARIOS.flatMap((buildingScenario) => {
-      const scenarioBuildings = getScenarioBuildings(buildingScenario, buildingByType);
-      return ATTACK_TECH_SCENARIOS.flatMap((techScenario) =>
-        options.defenderCounts.map((defenderCount) => {
-          const minAttackers = minimumLegacyAttackersToWin(defenderCount, scenarioBuildings, techScenario.techs);
-          const result = minAttackers == null
-            ? null
-            : simulateLegacyLocalCombat(minAttackers, defenderCount, scenarioBuildings, techScenario.techs);
-          return [
-            buildingScenario.key,
-            techScenario.key,
-            defenderCount,
-            minAttackers ?? 'n/a',
-            result?.winner ?? 'n/a',
-            result?.targetTroopsAfter ?? 'n/a',
-            result ? fmt(result.buildingModifier) : 'n/a',
-          ];
-        }),
-      );
-    }),
-  ));
-
   pushSection(lines, 'Reference: Mixed Army Templates');
   lines.push(...renderTable(
     ['key', 'name', 'example at 1000 troops'],
@@ -1025,6 +975,7 @@ function main(): void {
   const buildingsPath = path.join(DATA_DIR, 'buildings.json');
   const troopTypes = readJsonArray<TroopTypeRow>(troopTypesPath);
   const buildings = readJsonArray<BuildingRow>(buildingsPath);
+  TECH_EFFECTS = loadTechEffects();
 
   const report = buildReport(troopTypes, buildings, options);
   const outPath = resolveOutputPath(options.outPath);

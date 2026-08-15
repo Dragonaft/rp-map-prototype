@@ -7,18 +7,29 @@ import { SelectedProvinceHover } from "./SelectedProvinceHover.tsx";
 import { TroopMovementModal } from './TroopMovementModal';
 import { ArmyBlock } from './ArmyBlock.tsx';
 import { CreateArmyModal } from './CreateArmyModal.tsx';
-import { setMapModeFilterValue, setSelectedProvinceId, setSelectedTroops, updateProvinceById } from '../store/slices/provincesSlice';
+import { ManageArmiesModal } from './ManageArmiesModal.tsx';
+import { setMapModeFilterValue, setSelectedProvinceId, setSelectedTroops } from '../store/slices/provincesSlice';
 import type { RootState } from '../store/store';
 import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { actionsApi } from '../api/actions.ts';
-import { removeActionById } from '../store/slices/actionsSlice.ts';
+import { addAction, removeActionById } from '../store/slices/actionsSlice.ts';
+import { useSnackbar } from '../context/SnackbarContext.tsx';
+import { FastBuildPanel } from './FastBuildPanel.tsx';
 import {
+  getFastBuildCell,
+  getPendingBuildActionsByProvinceId,
   getPendingBuildCountsByProvinceId,
+  getPendingGoodUsage,
+  getPendingProvinceBuildingIdsByProvinceId,
+  getPendingResourceUsage,
+  getPendingUpgradeActionIdByInstanceId,
   getProvinceBuildingSlots,
   getProvinceEconomy,
   getProvinceRecruits,
+  provinceHasWaterNeighbor,
 } from '../utils/mapModes.ts';
 import type { MapModeRenderData } from '../utils/mapModes.ts';
+import { getLockedArmyIds } from '../utils/armyLocks.ts';
 
 
 export const MapView = ({ loading, error }: { loading: boolean, error: string | null }) => {
@@ -29,11 +40,19 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const provinceCentersById = useAppSelector((state: RootState) => state.provinces.provinceCentersById);
   const provinceBBoxById = useAppSelector((state: RootState) => state.provinces.provinceBBoxById);
   const mapWidth  = useAppSelector((state: RootState) => state.provinces.mapWidth);
+  const mapHeight = useAppSelector((state: RootState) => state.provinces.mapHeight);
   const armies = useAppSelector((state: RootState) => state.armies.armies);
   const currentUserId = useAppSelector((state: RootState) => state.user.id);
+  const currentUserMoney = useAppSelector((state: RootState) => state.user.money);
   const completedResearch = useAppSelector((state: RootState) => state.user.completedResearch);
+  const buildings = useAppSelector((state: RootState) => state.buildings.buildings);
+  const techs = useAppSelector((state: RootState) => state.techs.techs);
   const mapMode = useAppSelector((state: RootState) => state.provinces.mapMode);
   const mapModeFilterValue = useAppSelector((state: RootState) => state.provinces.mapModeFilterValue);
+  const fastBuild = useAppSelector((state: RootState) => state.provinces.fastBuild);
+  const myResourceHoldings = useAppSelector((state: RootState) => state.resources.mine);
+  const myGoodHoldings = useAppSelector((state: RootState) => state.goods.mine);
+  const { showError } = useSnackbar();
 
   // Camera state
   const [viewBox, setViewBox] = useState({ x: 0, y: 0, width: 800, height: 600 });
@@ -42,6 +61,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const lastMousePosRef = useRef<{ x: number; y: number } | null>(null);
   const hasDraggedRef = useRef(false);
   const svgRef = useRef<SVGSVGElement>(null);
+  const hasCenteredCameraRef = useRef(false);
 
   // Modal state
   const [modalState, setModalState] = useState<{
@@ -55,9 +75,176 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [selectedArmyId, setSelectedArmyId] = useState<string | null>(null);
   const [showCreateArmy, setShowCreateArmy] = useState(false);
+  const [showManageArmies, setShowManageArmies] = useState(false);
+
+  // Armies already committed to a pending move/merge/transfer this turn — mirrors the
+  // backend's mutual per-turn lock (see ActionsService.assertNotDuplicate).
+  const lockedArmyIds = useMemo(() => getLockedArmyIds(userActions), [userActions]);
+
+  // Player's resource ledger (GET /resources/mine) / goods ledger (GET /goods/mine), keyed
+  // for quick lookup — feeds fast-build mode's requirement checks. Mirrors
+  // SelectedProvinceHover's build-menu computation so the two share one source of truth.
+  const userResourcesByKey = useMemo(
+    () => Object.fromEntries(myResourceHoldings.map((h) => [h.resource.key, h.quantity])),
+    [myResourceHoldings],
+  );
+  const userGoodsById = useMemo(
+    () => Object.fromEntries(myGoodHoldings.map((h) => [h.good_id, h.quantity])),
+    [myGoodHoldings],
+  );
+  const pendingResourceUsage = useMemo(
+    () => getPendingResourceUsage(userActions, buildings),
+    [userActions, buildings],
+  );
+  const pendingGoodUsage = useMemo(
+    () => getPendingGoodUsage(userActions, buildings),
+    [userActions, buildings],
+  );
+  const provinceTypeById = useMemo(
+    () => new Map(provinces.map((p) => [p.id, p.type])),
+    [provinces],
+  );
+
+  const mapModeRenderData = useMemo<MapModeRenderData>(() => {
+    const pendingBuildCountsByProvinceId = getPendingBuildCountsByProvinceId(userActions);
+    const pendingUpgradeBuildingIdsByProvinceId = getPendingProvinceBuildingIdsByProvinceId(userActions, ActionType.UPGRADE);
+    const pendingRemoveBuildingIdsByProvinceId = getPendingProvinceBuildingIdsByProvinceId(userActions, ActionType.REMOVE);
+    const pendingBuildActionsByProvinceId = getPendingBuildActionsByProvinceId(userActions, buildings);
+    const pendingUpgradeActionIdByInstanceId = getPendingUpgradeActionIdByInstanceId(userActions);
+    const economyByProvinceId: MapModeRenderData['economyByProvinceId'] = {};
+    const recruitsByProvinceId: MapModeRenderData['recruitsByProvinceId'] = {};
+    const buildingSlotsByProvinceId: MapModeRenderData['buildingSlotsByProvinceId'] = {};
+    const fastBuildByProvinceId: MapModeRenderData['fastBuildByProvinceId'] = {};
+    let economyMaxAbs = 0;
+    let recruitsMax = 0;
+
+    const fastBuildTargetBuilding = mapMode === 'fastbuild' && fastBuild
+      ? buildings.find((b) => b.id === fastBuild.buildingId) ?? null
+      : null;
+    const fastBuildActionKind = fastBuild?.action ?? 'build';
+
+    for (const province of provinces) {
+      if (province.type === 'water') continue;
+
+      if (province.userId !== currentUserId) continue;
+
+      const slots = getProvinceBuildingSlots(
+        province,
+        pendingBuildCountsByProvinceId[province.id] ?? 0,
+        {
+          pendingUpgradeBuildingIds: pendingUpgradeBuildingIdsByProvinceId[province.id],
+          pendingRemoveBuildingIds: pendingRemoveBuildingIdsByProvinceId[province.id],
+          buildingTemplates: buildings,
+          userMoney: currentUserMoney,
+          completedResearch,
+        },
+      );
+      buildingSlotsByProvinceId[province.id] = slots;
+
+      const economy = getProvinceEconomy(province, completedResearch, techs);
+      economyByProvinceId[province.id] = economy;
+      economyMaxAbs = Math.max(economyMaxAbs, Math.abs(economy.net));
+
+      const recruits = getProvinceRecruits(province, completedResearch, techs);
+      recruitsByProvinceId[province.id] = recruits;
+      recruitsMax = Math.max(recruitsMax, recruits);
+
+      if (fastBuildTargetBuilding) {
+        fastBuildByProvinceId[province.id] = getFastBuildCell(
+          province,
+          fastBuildTargetBuilding,
+          fastBuildActionKind,
+          provinceHasWaterNeighbor(province, provinceTypeById),
+          {
+            buildingTemplates: buildings,
+            pendingBuildActionsInProvince: pendingBuildActionsByProvinceId[province.id] ?? [],
+            pendingUpgradeBuildingIds: pendingUpgradeBuildingIdsByProvinceId[province.id],
+            pendingRemoveBuildingIds: pendingRemoveBuildingIdsByProvinceId[province.id],
+            pendingUpgradeActionIdByInstanceId,
+            freeSlots: slots.free,
+            buildRequirementCtx: {
+              userMoney: currentUserMoney,
+              completedResearch,
+              userResourcesByKey,
+              pendingResourceUsage,
+              userGoodsById,
+              pendingGoodUsage,
+            },
+          },
+        );
+      }
+    }
+
+    return {
+      mode: mapMode,
+      filterValue: mapModeFilterValue,
+      economyByProvinceId,
+      economyMaxAbs,
+      recruitsByProvinceId,
+      recruitsMax,
+      buildingSlotsByProvinceId,
+      fastBuildByProvinceId,
+    };
+  }, [
+    userActions, provinces, currentUserId, currentUserMoney, completedResearch, buildings,
+    techs, mapMode, mapModeFilterValue, fastBuild, provinceTypeById,
+    userResourcesByKey, pendingResourceUsage, userGoodsById, pendingGoodUsage,
+  ]);
+
+  // Fast-build mode: a click on a green/yellow province queues BUILD/UPGRADE immediately
+  // through the normal action-queue API — same call pattern as SelectedProvinceHover's
+  // handleBuildAction/handleUpgradeAction.
+  const handleFastBuildClick = useCallback(async (prov: Province) => {
+    if (!fastBuild) return;
+    const cell = mapModeRenderData.fastBuildByProvinceId[prov.id];
+    if (!cell || !cell.canQueue) {
+      // Yellow-but-full or a fresh money/requirement change since the last render — red
+      // stays a silent no-op (matches "click a red province → nothing happens").
+      if (cell?.status === 'yellow') {
+        showError('Already queued here — no slot left to queue another this turn.');
+      }
+      return;
+    }
+    try {
+      if (fastBuild.action === 'build') {
+        const response = await actionsApi.createAction({
+          type: ActionType.BUILD,
+          actionData: { province_id: prov.id, building_id: fastBuild.buildingId },
+        });
+        dispatch(addAction(response));
+      } else if (cell.upgradeInstanceId) {
+        const response = await actionsApi.createAction({
+          type: ActionType.UPGRADE,
+          actionData: { province_id: prov.id, province_building_id: cell.upgradeInstanceId },
+        });
+        dispatch(addAction(response));
+      }
+    } catch (err: any) {
+      showError(err?.response?.data?.message || 'Failed to queue action');
+    }
+  }, [fastBuild, mapModeRenderData, dispatch, showError]);
+
+  // Fast-build mode: right-clicking a yellow province (one already queuing a BUILD/UPGRADE
+  // of the selected building) cancels that pending action — same call pattern as
+  // SelectedProvinceHover's handleCancelAction/handleCancelColonize.
+  const handleFastBuildCancel = useCallback(async (prov: Province) => {
+    if (!fastBuild) return;
+    const cell = mapModeRenderData.fastBuildByProvinceId[prov.id];
+    if (!cell || cell.status !== 'yellow' || !cell.cancelActionId) return;
+    try {
+      await actionsApi.removeAction(cell.cancelActionId);
+      dispatch(removeActionById(cell.cancelActionId));
+    } catch (err: any) {
+      showError(err?.response?.data?.message || 'Failed to cancel action');
+    }
+  }, [fastBuild, mapModeRenderData, dispatch, showError]);
 
   const toggleSelect = useCallback((prov: Province) => {
     if (hasDraggedRef.current) return;
+    if (mapMode === 'fastbuild' && fastBuild) {
+      handleFastBuildClick(prov);
+      return;
+    }
     if (mapMode === 'landscape' || mapMode === 'resource') {
       const nextFilter = prov.type === 'water'
         ? null
@@ -68,7 +255,7 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     }
     dispatch(setSelectedProvinceId(selectedProvinceId === prov.id ? null : prov.id));
     setSelectedArmyId(null);
-  }, [dispatch, selectedProvinceId, mapMode]);
+  }, [dispatch, selectedProvinceId, mapMode, fastBuild, handleFastBuildClick]);
 
   // ── Reachable provinces from selected army (BFS matching BE logic) ────────
   const reachableFromSelectedArmy = useMemo((): Set<string> | null => {
@@ -113,18 +300,27 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   }, [selectedArmyId, armies, provinces, currentUserId, completedResearch]);
 
   const handleProvinceRightClick = useCallback((targetProvince: Province) => {
+    if (mapMode === 'fastbuild' && fastBuild) {
+      handleFastBuildCancel(targetProvince);
+      return;
+    }
     if (!selectedArmyId || !reachableFromSelectedArmy) return;
     if (!reachableFromSelectedArmy.has(targetProvince.id)) return;
     const army = armies.find(a => a.id === selectedArmyId);
     if (!army) return;
     if (army.user_id !== currentUserId) return;
+    // An army with a pending merge/transfer (or an already-queued move) can't queue another move.
+    if (lockedArmyIds.has(selectedArmyId)) {
+      showError('This army already has a pending move, merge, or transfer this turn');
+      return;
+    }
     setModalState({
       open: true,
       armyId: selectedArmyId,
       armyName: army.name ?? 'Unnamed Army',
       toProvinceId: targetProvince.id,
     });
-  }, [selectedArmyId, armies, reachableFromSelectedArmy]);
+  }, [mapMode, fastBuild, handleFastBuildCancel, selectedArmyId, armies, reachableFromSelectedArmy, currentUserId, lockedArmyIds, showError]);
 
   const handleCloseModal = useCallback(() => setModalState(null), []);
 
@@ -144,14 +340,11 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     setIsCancellingAction(true);
     setCancelError(null);
     try {
-      const response = await actionsApi.removeAction(cancelActionId);
+      // ActionsService.retractAction always returns `province: null` (actions.service.ts),
+      // so there was never a province update to apply from this response — removed along
+      // with the now-gone `localTroops` field it read.
+      await actionsApi.removeAction(cancelActionId);
       dispatch(removeActionById(cancelActionId));
-      if (response?.province?.id != null) {
-        dispatch(updateProvinceById({
-          id: response.province.id,
-          updates: { localTroops: response.province.localTroops },
-        }));
-      }
       setCancelActionId(null);
     } catch (err: any) {
       setCancelError(err?.response?.data?.message || 'Failed to cancel action');
@@ -171,11 +364,12 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
   const armyTroopsByProvinceId = useMemo(() => {
     const map: Record<string, number> = {};
     for (const army of armies) {
+      if (army.user_id !== currentUserId) continue;
       const total = army.units.reduce((s, u) => s + u.count, 0);
       map[army.province_id] = (map[army.province_id] ?? 0) + total;
     }
     return map;
-  }, [armies]);
+  }, [armies, currentUserId]);
 
   const armiesByProvinceId = useMemo(() => {
     const map: Record<string, typeof armies> = {};
@@ -185,44 +379,6 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     }
     return map;
   }, [armies]);
-
-  const mapModeRenderData = useMemo<MapModeRenderData>(() => {
-    const pendingBuildCountsByProvinceId = getPendingBuildCountsByProvinceId(userActions);
-    const economyByProvinceId: MapModeRenderData['economyByProvinceId'] = {};
-    const recruitsByProvinceId: MapModeRenderData['recruitsByProvinceId'] = {};
-    const buildingSlotsByProvinceId: MapModeRenderData['buildingSlotsByProvinceId'] = {};
-    let economyMaxAbs = 0;
-    let recruitsMax = 0;
-
-    for (const province of provinces) {
-      if (province.type === 'water') continue;
-
-      buildingSlotsByProvinceId[province.id] = getProvinceBuildingSlots(
-        province,
-        pendingBuildCountsByProvinceId[province.id] ?? 0,
-      );
-
-      if (province.userId !== currentUserId) continue;
-
-      const economy = getProvinceEconomy(province, completedResearch);
-      economyByProvinceId[province.id] = economy;
-      economyMaxAbs = Math.max(economyMaxAbs, Math.abs(economy.net));
-
-      const recruits = getProvinceRecruits(province);
-      recruitsByProvinceId[province.id] = recruits;
-      recruitsMax = Math.max(recruitsMax, recruits);
-    }
-
-    return {
-      mode: mapMode,
-      filterValue: mapModeFilterValue,
-      economyByProvinceId,
-      economyMaxAbs,
-      recruitsByProvinceId,
-      recruitsMax,
-      buildingSlotsByProvinceId,
-    };
-  }, [userActions, provinces, currentUserId, completedResearch, mapMode, mapModeFilterValue]);
 
   // Enemy army presence per province: null = present/unknown count, number = spy-revealed total
   const enemyArmyInfoByProvinceId = useMemo(() => {
@@ -331,6 +487,62 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
     return result;
   }, [provinces, provinceBBoxById, viewBox, mapWidth, tileIndices]);
 
+  // ── Keep viewBox aspect ratio matched to the rendered element ─────────────
+  // The viewBox starts as a fixed 800x600 (4:3) box. Without this, the SVG's
+  // default preserveAspectRatio="xMidYMid meet" scales that box to fit inside
+  // the actual container while preserving its aspect ratio, pillarboxing
+  // whenever the screen isn't 4:3 (i.e. almost always). Re-deriving height
+  // from the current width + the element's real aspect ratio keeps content
+  // scaled uniformly (no distortion) while eliminating the letterbox bars.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg || loading) return;
+
+    const syncAspectRatio = (clientWidth: number, clientHeight: number) => {
+      if (clientWidth <= 0 || clientHeight <= 0) return;
+      setViewBox(prev => {
+        const targetHeight = prev.width / (clientWidth / clientHeight);
+        if (Math.abs(targetHeight - prev.height) < 0.5) return prev;
+        const centerY = prev.y + prev.height / 2;
+        return { ...prev, height: targetHeight, y: centerY - targetHeight / 2 };
+      });
+    };
+
+    const observer = new ResizeObserver(entries => {
+      const entry = entries[0];
+      if (!entry) return;
+      syncAspectRatio(entry.contentRect.width, entry.contentRect.height);
+    });
+    observer.observe(svg);
+    return () => observer.disconnect();
+  }, [loading]);
+
+  // ── Initial camera position (once, on first load) ─────────────────────────
+  // Point at the centroid of the player's own provinces if they have any;
+  // otherwise fall back to the center of the map (new/unclaimed player).
+  // Guarded to run exactly once so it doesn't fight the user's own panning
+  // on later re-renders (e.g. after claiming a starting province mid-session).
+  useEffect(() => {
+    if (hasCenteredCameraRef.current) return;
+    if (loading || !currentUserId || !provinces.length) return;
+
+    hasCenteredCameraRef.current = true;
+
+    const ownedCenters = provinces
+      .filter(p => p.userId === currentUserId)
+      .map(p => provinceCentersById[p.id])
+      .filter((c): c is { x: number; y: number } => !!c);
+
+    const center = ownedCenters.length
+      ? {
+          x: ownedCenters.reduce((sum, c) => sum + c.x, 0) / ownedCenters.length,
+          y: ownedCenters.reduce((sum, c) => sum + c.y, 0) / ownedCenters.length,
+        }
+      : { x: mapWidth / 2, y: mapHeight / 2 };
+
+    setViewBox(prev => ({ ...prev, x: center.x - prev.width / 2, y: center.y - prev.height / 2 }));
+  }, [loading, currentUserId, provinces, provinceCentersById, mapWidth, mapHeight]);
+
   // ── Wheel zoom ────────────────────────────────────────────────────────────
   useEffect(() => {
     const svg = svgRef.current;
@@ -427,10 +639,12 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '93vh', marginTop: '65px', background: '#1e293b' }}>
+      <FastBuildPanel buildings={buildings} />
       <SelectedProvinceHover
         selectedArmyId={selectedArmyId}
         onSelectArmy={(id) => setSelectedArmyId(id)}
         onCreateArmy={() => setShowCreateArmy(true)}
+        onManageArmies={() => setShowManageArmies(true)}
       />
       {selectedArmy && (
         <div style={{ position: 'absolute', top: '1rem', right: '310px' }}>
@@ -443,6 +657,13 @@ export const MapView = ({ loading, error }: { loading: boolean, error: string | 
           provinceId={selectedProvinceId}
           onClose={() => setShowCreateArmy(false)}
           onCreated={() => setShowCreateArmy(false)}
+        />
+      )}
+      {showManageArmies && selectedProvinceId && (
+        <ManageArmiesModal
+          open={showManageArmies}
+          provinceId={selectedProvinceId}
+          onClose={() => setShowManageArmies(false)}
         />
       )}
 

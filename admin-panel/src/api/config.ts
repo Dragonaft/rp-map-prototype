@@ -1,6 +1,8 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+// Exported for building absolute URLs for raw <img> tags (flag thumbnails), which bypass
+// this axios instance and need the base URL prefixed onto the API-relative path themselves.
+export const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 export const apiClient = axios.create({
   baseURL: apiBaseUrl,

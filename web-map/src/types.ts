@@ -4,7 +4,7 @@ export type ProvinceType = 'land' | 'water';
 
 export type Landscape = 'plains' | 'forest' | 'mountain' | 'desert' | 'hills' | 'swamp';
 
-export type MapMode = 'normal' | 'landscape' | 'resource' | 'economic' | 'army' | 'buildings';
+export type MapMode = 'normal' | 'landscape' | 'resource' | 'economic' | 'army' | 'buildings' | 'fastbuild';
 
 export enum BuildingTypes {
   CAPITOL = 'CAPITOL',
@@ -24,6 +24,47 @@ export enum BuildingTypes {
   CATHEDRAL = 'CATHEDRAL',
   TRADE_HOUSE = 'TRADE_HOUSE',
   CASTLE = 'CASTLE',
+  SAWMILL = 'SAWMILL',
+  BRICKYARD = 'BRICKYARD',
+  BARN = 'BARN',
+  PORT = 'PORT',
+  /** NOBLE-only prestige building — produces Warhorses from grain. */
+  STUD_FARM = 'STUD_FARM',
+  /** HOLY-only prestige building — produces Relics from gold. Requires TEMPLE. */
+  RELIQUARY = 'RELIQUARY',
+  /** GUILD-only prestige building — produces Spices from fish. Requires PORT. */
+  SPICE_WHARF = 'SPICE_WHARF',
+}
+
+// Mirrors api/src/techs/effect-types.ts — a tech's mechanical effect is data, not code.
+// Kept in sync manually, same convention as admin-panel/src/pages/dashboard/effectsSchema.ts.
+export type EffectTarget =
+  | 'income'
+  | 'upkeep'
+  | 'research_points'
+  | 'building_cap'
+  | 'army_attack'
+  | 'army_defense'
+  | 'road_hops'
+  | 'water_turns_bonus'
+  | 'goods_production'
+  | 'supply_range'
+  | 'troop_pool';
+
+export type EffectOp = 'add' | 'add_scaled' | 'multiply' | 'set';
+
+export interface EffectCondition {
+  landscape?: string;
+  resource?: string;
+}
+
+export interface TechEffect {
+  target: EffectTarget;
+  op: EffectOp;
+  value: number;
+  scaleBy?: string;
+  when?: EffectCondition;
+  note?: string;
 }
 
 export interface Tech {
@@ -35,8 +76,36 @@ export interface Tech {
   isClassRoot: boolean;
   cost: number;
   prerequisites: string[];
+  /** Caller's saved research progress toward `cost` (0 if never started). */
+  progress: number;
+  /** Data-driven mechanical effect(s) of this tech — see effect-types.ts. Null/empty = flavor-only. */
+  effects: TechEffect[] | null;
 }
 
+
+export interface Resource {
+  id: string;
+  key: string;
+  name: string;
+  type: 'plain' | 'consumable';
+  plainIncome: number;
+}
+
+export interface Good {
+  id: string;
+  name: string;
+  type: 'civilian' | 'military';
+  price_per_one: number;
+}
+
+/** A row from the player's goods inventory (GET /goods/mine). */
+export interface UserGoodHolding {
+  id: string;
+  user_id: string;
+  good_id: string;
+  good: Good;
+  quantity: number;
+}
 
 export interface Building {
   id: string;
@@ -53,11 +122,25 @@ export interface Building {
   buildable: boolean;
   destructible: boolean;
   uniquePerProvince: boolean;
+  requiresNeighborWater: boolean;
   allowedProvinceResources: string[] | null;
   requirementResource: string | null;
   requirementResourceAmount: number | null;
   visible: boolean;
   canRecruit: boolean;
+  isProduction: boolean;
+  productionGood: string | null;
+  productionRequirementResource: string | null;
+  productionRequirementResourceAmount: number | null;
+  productionAmount: number | null;
+  resourceProductionAmount: number | null;
+  /** Overrides which resource key resourceProductionAmount credits, instead of the province's own resource (e.g. PORT produces fish while sitting on land). */
+  resourceProductionKey: string | null;
+  requirementGood: string | null;
+  requirementGoodAmount: number | null;
+  /** A second, independent one-time goods cost, same mechanic as requirementGood/requirementGoodAmount. */
+  requirementGood2: string | null;
+  requirementGood2Amount: number | null;
 }
 
 /** A building as it exists in a province — template fields plus the unique
@@ -81,10 +164,12 @@ export interface ProvinceLayout {
 export interface ProvinceStateData {
   id: string;
   userId: string | null;
-  localTroops: number | null;
   enemyHere?: boolean;
   buildings?: ProvinceBuilding[];
   buildingCap: number | null;
+  /** Military controller when occupied (not the legal owner). Null = not occupied. */
+  occupierId: string | null;
+  occupationTurns: number;
 }
 
 export interface Province {
@@ -95,11 +180,12 @@ export interface Province {
   resourceType: string;
   regionId: string;
   userId: string | null;
-  localTroops: number;
   enemyHere?: boolean;
   buildings?: ProvinceBuilding[];
   neighbors?: string[] | null;
   buildingCap: number;
+  occupierId: string | null;
+  occupationTurns: number;
 }
 
 export enum UserClasses {
@@ -108,17 +194,20 @@ export enum UserClasses {
   NOBLE = 'noble',
 }
 
-export interface UserResources {
-  stone: number;
-  iron: number;
-  gold: number;
-  wood: number;
+/** A row from the player's resource ledger (GET /resources/mine). */
+export interface UserResourceHolding {
+  id: string;
+  user_id: string;
+  resource_id: string;
+  resource: Resource;
+  quantity: number;
 }
 
 export interface UserUpdate {
   id: string;
   color?: string;
   countryName?: string;
+  lore?: string;
 }
 
 export interface User {
@@ -134,7 +223,16 @@ export interface User {
   provinces: Province[];
   researchPoints: number;
   completedResearch: string[];
-  resources: UserResources;
+  /** Tech key currently accruing progress each turn; null = idle. */
+  activeResearch: string | null;
+  role?: string | null;
+  /** Non-playable "DM" country — created via the mod layer, cannot log in. */
+  isNpc?: boolean;
+  /** `/users/{id}/flag?v={hash}` (relative to the API base), or null when no flag is set. */
+  flagUrl: string | null;
+  /** Freeform markdown RP background text. Owner-only field — not present on PartialUser;
+   *  other players' lore is fetched on demand via usersApi.getLore. */
+  lore: string | null;
 }
 
 export interface UserActive extends User {
@@ -142,6 +240,8 @@ export interface UserActive extends User {
   projectedPiety: number | null;
   projectedResearch: number;
   projectedTroops: number;
+  /** Net Food/turn: production (CAPITAL/FARM/GARDEN) minus every army's distance-scaled supply cost. */
+  projectedFood: number;
 }
 
 export enum TroopCategory {
@@ -161,9 +261,25 @@ export interface TroopType {
   cost_per_100: number;
   attack: number;
   defense: number;
+  /** Power multiplier applied while fighting on a water province (1 = no penalty). */
+  water_combat_modifier: number;
   upkeep_per_100: number;
   tech_requirement: string | null;
   building_requirement: string | null;
+  /** Good id, resolved against goods.mine for name/quantity. Null = no goods needed (money/pool only). */
+  required_goods: string | null;
+  /** Units of required_goods consumed per 100 troops recruited, one-time (not refunded on disband/removal). */
+  goods_amount: number | null;
+  /** A second, independent one-time recruitment goods cost, same mechanic as required_goods/goods_amount. */
+  required_goods_2: string | null;
+  goods_amount_2: number | null;
+  /** Good id consumed each turn as food (resolved against goods.mine), scaled by the army's supply_distance. Null = no per-turn supply cost. */
+  supply_good_id: string | null;
+  /** Units of supply_good_id consumed per 100 troops per turn, before the distance multiplier. */
+  supply_per_100: number | null;
+  /** A second per-turn supply good — the class elite units' permanent partner-good dependency. Null = no second supply cost. */
+  supply_good_2_id: string | null;
+  supply_per_100_2: number | null;
 }
 
 export interface ArmyUnit {
@@ -180,6 +296,10 @@ export interface Army {
   user_id: string;
   province_id: string;
   flat_upkeep: number;
+  /** Consecutive turns this army has spent on a water province (0 when on land). */
+  water_turns: number;
+  /** Distance (in tiles) to the nearest reachable supply_building, written each turn. Null = no source reachable (pays the max supply multiplier). */
+  supply_distance: number | null;
   units: ArmyUnit[];
   /** Only present for enemy armies. null = present but count unknown; number = spy network revealed total. */
   totalTroops?: number | null;
@@ -189,6 +309,8 @@ export interface PartialUser {
   id: string;
   countryName: string;
   color: string;
+  /** `/users/{id}/flag?v={hash}` (relative to the API base), or null when no flag is set. */
+  flagUrl: string | null;
 }
 
 export interface SetupUserResponse {
@@ -206,7 +328,7 @@ export interface SetupUserResponse {
     projectedPiety: number,
     projectedResearch: number,
     projectedTroops: number,
-    resources: UserResources,
+    projectedFood: number,
   };
   province: {
     id: string;
@@ -216,20 +338,19 @@ export interface SetupUserResponse {
     resource_type: string;
     region_id: string;
     user_id: string;
-    local_troops: number;
   };
 }
 
 export enum ActionType {
   BUILD = 'BUILD',
   UPGRADE = 'UPGRADE',
-  TRANSFER_TROOPS = 'TRANSFER_TROOPS',
   RESEARCH = 'RESEARCH',
   REMOVE = 'REMOVE',
   ARMY_CREATE = 'ARMY_CREATE',
   ARMY_MOVE = 'ARMY_MOVE',
   ARMY_RECRUIT = 'ARMY_RECRUIT',
   ARMY_MERGE = 'ARMY_MERGE',
+  ARMY_TRANSFER = 'ARMY_TRANSFER',
   ARMY_DISBAND = 'ARMY_DISBAND',
   ARMY_EDIT = 'ARMY_EDIT',
   COLONIZE = 'COLONIZE',
@@ -243,5 +364,170 @@ export interface ActionData {
   troopCount?: number;
   upgradeLevel?: number;
   [key: string]: any; // Flexible for future action types
+}
+
+// ── Diplomacy ────────────────────────────────────────────────────────────
+
+export enum DiplomaticState {
+  NEUTRAL = 'neutral',
+  WAR = 'war',
+  PEACE = 'peace',
+  ALLIANCE = 'alliance',
+}
+
+export enum TreatyKind {
+  PEACE = 'peace',
+  ALLIANCE = 'alliance',
+  TRADE = 'trade',
+  TROOPS_PASS = 'troops_pass',
+  ARTICLE = 'article',
+}
+
+export enum TreatyVisibility {
+  PUBLIC = 'public',
+  PRIVATE = 'private',
+}
+
+export enum TreatyStatus {
+  PENDING = 'pending',
+  ACCEPTED = 'accepted',
+  REJECTED = 'rejected',
+  CANCELLED = 'cancelled',
+}
+
+export enum PeaceScope {
+  LEADER = 'leader',
+  SEPARATE = 'separate',
+}
+
+export enum WarSide {
+  ATTACKER = 'attacker',
+  DEFENDER = 'defender',
+}
+
+export type TreatyArticle =
+  | { type: 'cede_province'; provinceId: string; from: string; to: string }
+  | { type: 'money_tribute'; amount: number; from: string; to: string }
+  | { type: 'resource_tribute'; resourceKey: string; amount: number; from: string; to: string }
+  | { type: 'goods_tribute'; goodId: string; amount: number; from: string; to: string }
+  | { type: 'set_state'; state: DiplomaticState }
+  | { type: 'grant_pass'; from: string; to: string }
+  | { type: 'trade_agreement' }
+  | { type: 'text'; markdown: string };
+
+/** Normalized, per-other-player view returned by GET /diplomacy/relations. */
+export interface DiplomaticRelation {
+  otherUserId: string;
+  state: DiplomaticState;
+  hasTrade: boolean;
+  /** True if the other player has granted troops-pass to me. */
+  passToOther: boolean;
+  /** True if I have granted troops-pass to the other player. */
+  passFromOther: boolean;
+}
+
+export interface WarParticipant {
+  id: string;
+  war_id: string;
+  user_id: string;
+  side: WarSide;
+  is_leader: boolean;
+}
+
+export interface War {
+  id: string;
+  attacker_leader_id: string;
+  defender_leader_id: string;
+  status: 'active' | 'ended';
+  participants: WarParticipant[];
+  createdAt: string;
+}
+
+export enum NotificationType {
+  ACTION_FAILED = 'action_failed',
+  SYSTEM = 'system',
+  ADMIN = 'admin',
+}
+
+export enum NotificationSeverity {
+  INFO = 'info',
+  WARNING = 'warning',
+  ERROR = 'error',
+}
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  severity: NotificationSeverity;
+  title: string;
+  message: string;
+  is_read: boolean;
+  createdAt: string;
+}
+
+export interface Treaty {
+  id: string;
+  name: string;
+  proposer_id: string;
+  receiver_id: string;
+  kind: TreatyKind;
+  peace_scope: PeaceScope | null;
+  visibility: TreatyVisibility;
+  recurring: boolean;
+  status: TreatyStatus;
+  articles: TreatyArticle[];
+  note: string | null;
+  pending_turns: number;
+  view_only: boolean;
+  createdAt: string;
+  resolved_at: string | null;
+}
+
+// ── News Wall ───────────────────────────────────────────────────────────
+
+export interface NewsAgency {
+  id: string;
+  user_id: string;
+  name: string;
+  createdAt: string;
+}
+
+export interface NewsArticle {
+  id: string;
+  agency_id: string;
+  title: string;
+  /** Markdown body. */
+  content: string;
+  createdAt: string;
+}
+
+export interface MyNewsAgency {
+  agency: NewsAgency | null;
+  articlesToday: number;
+  remainingToday: number;
+}
+
+/** A player-facing Codex article (`GET /knowledge`) — see api/data/knowledge/*.md. */
+export interface KnowledgeArticle {
+  id: string;
+  key: string;
+  title: string;
+  category: string;
+  sortOrder: number;
+  /** Markdown body. */
+  content: string;
+}
+
+/** Metadata for an admin-uploaded icon (`GET /icons`) — building type / landscape / resource
+ *  art replacing the old emoji maps. No binary data here; the client builds the image URL
+ *  itself (`/icons/{kind}/{key}?v={hash}`), same convention as User.flagUrl. */
+export type GameIconKind = 'building' | 'landscape' | 'resource';
+
+export interface GameIconMeta {
+  id: string;
+  kind: GameIconKind;
+  key: string;
+  hash: string;
 }
 

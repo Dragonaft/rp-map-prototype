@@ -2,7 +2,7 @@ import { useAppDispatch, useAppSelector } from "../store/hooks.ts";
 import { selectSelectedProvince, updateProvinceById } from "../store/slices/provincesSlice.ts";
 import { setUser } from "../store/slices/userSlice.ts";
 import type { RootState } from "../store/store.ts";
-import { Button } from "@mui/material";
+import { Button, MenuItem, Select, TextField } from "@mui/material";
 import { useMutation, useQuery } from "../hooks/useApi.ts";
 import { provincesApi } from "../api/provinces.ts";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -10,19 +10,31 @@ import { buildingsApi } from "../api/buildings.ts";
 import { ActionType, Army, Building, ProvinceBuilding } from "../types.ts";
 import { actionsApi } from "../api/actions.ts";
 import { addAction, removeActionById } from "../store/slices/actionsSlice.ts";
-import { BUILDING_ICONS } from "../constants/buildingIcons.ts";
+import { GameIcon } from "./GameIcon.tsx";
 import { BuildMenuModal } from "./Modals/BuildMenuModal.tsx";
 import { BuildingActionsModal } from "./Modals/BuildingActionsModal.tsx";
 import { CancelActionModal } from "./Modals/CancelActionModal.tsx";
 import { DeleteBuildingModal } from "./Modals/DeleteBuildingModal.tsx";
+import { PlayerTreatiesModal } from "./Modals/PlayerTreatiesModal.tsx";
+import { DiplomacyModal } from "./Modals/DiplomacyModal.tsx";
+import { ModStocksModal } from "./Modals/ModStocksModal.tsx";
+import { modApi } from "../api/mod.ts";
+import { CountryFlag } from "./CountryFlag.tsx";
+import { getPendingGoodUsage, getPendingResourceUsage, provinceHasWaterNeighbor } from "../utils/mapModes.ts";
+import { ARMY_LOCK_LABELS, getArmyLocks } from "../utils/armyLocks.ts";
+import { calcArmyFoodUpkeep, SUPPLY_FREE_RADIUS } from "../utils/supply.ts";
+
+/** Must match OCCUPATION_CORE_THRESHOLD in api/src/diplomacy/types/diplomacy.types.ts */
+const OCCUPATION_CORE_THRESHOLD = 10;
 
 interface Props {
   onSelectArmy?: (armyId: string | null) => void;
   onCreateArmy?: () => void;
+  onManageArmies?: () => void;
   selectedArmyId?: string | null;
 }
 
-export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmyId }: Props) => {
+export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, onManageArmies, selectedArmyId }: Props) => {
   const dispatch = useAppDispatch();
   const selectedProvince = useAppSelector(selectSelectedProvince);
   const user = useAppSelector((state: RootState) => state.user);
@@ -33,14 +45,33 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
   const provinces = useAppSelector((state: RootState) => state.provinces.provinces);
   const { mutate } = useMutation(provincesApi.setupUser);
 
-  // Owner provinces from the provinces slice. The /users endpoint does not
-  // serialize the Province.buildings getter, so user.provinces[].buildings is
-  // empty — the provinces slice (from /provinces/state) has real buildings.
-  const ownedProvinces = useMemo(
-    () => provinces.filter(p => p.userId === user.id),
-    [provinces, user.id],
-  );
   const isUserOwner = user.id === selectedProvince?.userId;
+  const isOccupied = !!selectedProvince?.occupierId;
+  const isOccupier = user.id === selectedProvince?.occupierId;
+  // Owner is cut off from building while occupied; the occupier never gains build rights either.
+  const canBuildHere = isUserOwner && !isOccupied;
+  const [openPlayerTreaties, setOpenPlayerTreaties] = useState(false);
+  const [openDiplomacyModal, setOpenDiplomacyModal] = useState(false);
+
+  // Player's resource ledger (GET /resources/mine), keyed by resource key for
+  // quick lookup — already nets out everything currently built.
+  const myResources = useAppSelector((state: RootState) => state.resources.mine);
+  const myResourcesByKey = useMemo(
+    () => Object.fromEntries(myResources.map(h => [h.resource.key, h.quantity])),
+    [myResources],
+  );
+
+  // Player's goods ledger (GET /goods/mine), keyed by good id — Good has no
+  // natural key like Resource does.
+  const myGoods = useAppSelector((state: RootState) => state.goods.mine);
+  const myGoodsById = useMemo(
+    () => Object.fromEntries(myGoods.map(h => [h.good_id, h.quantity])),
+    [myGoods],
+  );
+  const myGoodNameById = useMemo(
+    () => Object.fromEntries(myGoods.map(h => [h.good_id, h.good.name])),
+    [myGoods],
+  );
 
   const [isOpenBuildMenu, setIsOpenBuildMenu] = useState(false);
   const [buildingsState, setBuildingsState] = useState<Building[]>([]);
@@ -50,6 +81,17 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [cancelPendingTarget, setCancelPendingTarget] = useState<{ id: string; type: string } | null>(null);
   const [isCancelling, setIsCancelling] = useState(false);
+
+  // --- Mod layer (instant god-mode tools, only rendered when the MOD switch is ON) ---
+  const modSwitchOn = useAppSelector((state: RootState) => state.mod.switchOn);
+  const troopTypes = useAppSelector((state: RootState) => state.armies.troopTypes);
+  const [modTargetUserId, setModTargetUserId] = useState('');
+  const [modBuildingId, setModBuildingId] = useState('');
+  const [modTroopTypeKey, setModTroopTypeKey] = useState('');
+  const [modTroopCount, setModTroopCount] = useState(100);
+  const [modBusy, setModBusy] = useState(false);
+  const [modError, setModError] = useState<string | null>(null);
+  const [openModStocks, setOpenModStocks] = useState(false);
 
   const fetchBuildings = useCallback(() => buildingsApi.getAll(), []);
   const { data: buildings, loading } = useQuery(fetchBuildings, []);
@@ -156,6 +198,14 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     return selectedProvince.neighbors.some(nId => userProvinceIds.has(nId));
   }, [selectedProvince, user.provinces]);
 
+  // Client-side hint only — the backend (BuildActionHandler) is the source of truth for
+  // whether a building requiring a neighboring water province can actually be built here.
+  const hasWaterNeighbor = useMemo(() => {
+    if (!selectedProvince) return false;
+    const provinceTypeById = new Map(provinces.map(p => [p.id, p.type]));
+    return provinceHasWaterNeighbor(selectedProvince, provinceTypeById);
+  }, [selectedProvince, provinces]);
+
   const pendingColonizeAction = useMemo(
     () => selectedProvince
       ? actions.find(a => a.actionType === ActionType.COLONIZE && a.actionData?.province_id === selectedProvince.id)
@@ -180,13 +230,16 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         provinces: response.user.provinces,
         completedResearch: [],
         researchPoints: response.user.researchPoints,
+        activeResearch: null,
         piety: 0,
         class: null,
         projectedIncome: response.user.projectedIncome,
         projectedPiety: response.user.projectedPiety,
         projectedResearch: response.user.projectedResearch,
         projectedTroops: response.user.projectedTroops,
-        resources: response.user.resources,
+        projectedFood: response.user.projectedFood,
+        flagUrl: null, // a freshly-set-up player has never had the chance to upload one
+        lore: null,
       }));
     }
     if (response?.province) {
@@ -269,6 +322,64 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     }
   };
 
+  // Every instant mod mutation reloads the page afterward — the same pattern already used
+  // for logout/turn-tick reloads/country-switch, and the simplest way to guarantee every
+  // dependent view (province state, ownership, army list) picks up the change.
+  const handleModSetOwner = async () => {
+    if (!selectedProvince) return;
+    setModBusy(true);
+    setModError(null);
+    try {
+      await modApi.setProvinceOwner(selectedProvince.id, modTargetUserId || null);
+      window.location.reload();
+    } catch (err: any) {
+      setModError(err.response?.data?.message || 'Failed to set province owner');
+      setModBusy(false);
+    }
+  };
+
+  const handleModPlaceBuilding = async () => {
+    if (!selectedProvince || !modBuildingId) return;
+    setModBusy(true);
+    setModError(null);
+    try {
+      await modApi.placeBuilding(selectedProvince.id, modBuildingId);
+      window.location.reload();
+    } catch (err: any) {
+      setModError(err.response?.data?.message || 'Failed to place building');
+      setModBusy(false);
+    }
+  };
+
+  const handleModRemoveBuilding = async (provinceBuildingInstanceId: string) => {
+    setModBusy(true);
+    setModError(null);
+    try {
+      await modApi.removeBuilding(provinceBuildingInstanceId);
+      window.location.reload();
+    } catch (err: any) {
+      setModError(err.response?.data?.message || 'Failed to remove building');
+      setModBusy(false);
+    }
+  };
+
+  const handleModSpawnArmy = async () => {
+    if (!selectedProvince || !modTargetUserId || !modTroopTypeKey || modTroopCount <= 0) return;
+    setModBusy(true);
+    setModError(null);
+    try {
+      await modApi.spawnArmy({
+        userId: modTargetUserId,
+        provinceId: selectedProvince.id,
+        units: [{ troop_type_key: modTroopTypeKey, count: modTroopCount }],
+      });
+      window.location.reload();
+    } catch (err: any) {
+      setModError(err.response?.data?.message || 'Failed to spawn army');
+      setModBusy(false);
+    }
+  };
+
   const handleBuiltBuildingClick = (b: ProvinceBuilding) => {
     if (!b.destructible) return;
 
@@ -303,20 +414,17 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     () => (selectedProvince?.buildings ?? []).some(b => b.canRecruit),
     [selectedProvince?.buildings],
   );
+  const canRecruitHere = (isUserOwner && !isOccupied) || isOccupier;
 
-  const pendingResourceUsage = useMemo(() => {
-    const used: Record<string, number> = {};
-    const templateById = new Map((buildings ?? []).map(b => [b.id, b]));
-    for (const action of actions) {
-      if (action.actionType !== ActionType.BUILD) continue;
-      const bid = action.actionData?.building_id ?? action.actionData?.buildingId;
-      const template = templateById.get(String(bid));
-      if (template?.requirementResource && template?.requirementResourceAmount) {
-        used[template.requirementResource] = (used[template.requirementResource] ?? 0) + template.requirementResourceAmount;
-      }
-    }
-    return used;
-  }, [actions, buildings]);
+  const pendingResourceUsage = useMemo(
+    () => getPendingResourceUsage(actions, buildings ?? []),
+    [actions, buildings],
+  );
+
+  const pendingGoodUsage = useMemo(
+    () => getPendingGoodUsage(actions, buildings ?? []),
+    [actions, buildings],
+  );
 
   const pendingCreateArmyActions = useMemo(() => {
     if (!selectedProvince) return [];
@@ -336,12 +444,20 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
     [actions],
   );
 
+  // Armies already committed to a pending move/merge/transfer this turn (see armyLocks.ts).
+  const armyLocks = useMemo(() => getArmyLocks(actions), [actions]);
+
   const armyTotalTroops = (army: Army) => army.units.reduce((s, u) => s + u.count, 0);
+
+  const ownArmiesInProvinceCount = useMemo(
+    () => armiesInProvince.filter((a) => a.user_id === user.id).length,
+    [armiesInProvince, user.id],
+  );
 
   if (!selectedProvince) return null;
 
   return (
-    <div className="w-60 bg-gray-400 rounded-lg border border-outline-variant/10 p-5 flex flex-col flex-1 absolute right-5 top-4 max-h-[90vh] overflow-y-auto">
+    <div className="w-60 bg-gray-300 rounded-lg border border-outline-variant/10 p-5 flex flex-col flex-1 absolute right-5 top-4 max-h-[90vh] overflow-y-auto">
 
       {/* New user — pick starting province */}
       {user.isNew && (
@@ -363,13 +479,36 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         </div>
       )}
 
-      {/* Non-owner view */}
-      {!user.isNew && !isUserOwner && (
+      {/* Non-owner, non-occupier view */}
+      {!user.isNew && !isUserOwner && !isOccupier && (
         <div className="flex flex-col gap-2">
           <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
           <p className="mb-0 mt-1">Landscape: {selectedProvince.landscape}</p>
           <p className="mb-0 mt-1">Resource: {selectedProvince.resourceType}</p>
-          {provinceOwner && <p className="mb-0 mt-1">Owner: {provinceOwner.countryName}</p>}
+          {provinceOwner && (
+            <p className="mb-0 mt-1 flex items-center gap-1.5">
+              {provinceOwner.flagUrl && (
+                <CountryFlag flagUrl={provinceOwner.flagUrl} color={provinceOwner.color} countryName={provinceOwner.countryName} />
+              )}
+              Owner: {provinceOwner.countryName}
+            </p>
+          )}
+          {isOccupied && (
+            <p className="mb-0 mt-1 text-xs bg-red-900/60 border border-red-500 rounded px-2 py-1.5 text-red-200">
+              Occupied by {otherUsers.find(u => u.id === selectedProvince.occupierId)?.countryName ?? 'another player'}
+              {' '}— cores in {Math.max(0, OCCUPATION_CORE_THRESHOLD - selectedProvince.occupationTurns)} turn(s)
+            </p>
+          )}
+          {selectedProvince.userId && (
+            <div className="flex gap-2">
+              <Button size="small" variant="outlined" onClick={() => setOpenPlayerTreaties(true)}>
+                Player Treaties
+              </Button>
+              <Button size="small" variant="outlined" onClick={() => setOpenDiplomacyModal(true)}>
+                Diplomacy
+              </Button>
+            </div>
+          )}
           {builtInProvince.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1">
               {builtInProvince.map((b) => (
@@ -378,7 +517,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
                   className="w-10 h-10 text-lg border border-gray-400 rounded bg-gray-200/40 flex items-center justify-center cursor-default"
                   title={b.name}
                 >
-                  {BUILDING_ICONS[b.type] ?? '🏗️'}
+                  <GameIcon kind="building" iconKey={b.type} className="w-6 h-6" />
                 </div>
               ))}
             </div>
@@ -434,6 +573,67 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         </div>
       )}
 
+      {/* Occupier view — you control this province militarily but don't own
+          it; you can recruit/defend at its fort but cannot build. */}
+      {!user.isNew && isOccupier && (
+        <div className="flex flex-col gap-2">
+          <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
+          <p className="mb-0 mt-1">Landscape: {selectedProvince.landscape}</p>
+          <p className="mb-0 mt-1">Resource: {selectedProvince.resourceType}</p>
+          {provinceOwner && (
+            <p className="mb-0 mt-1 flex items-center gap-1.5">
+              {provinceOwner.flagUrl && (
+                <CountryFlag flagUrl={provinceOwner.flagUrl} color={provinceOwner.color} countryName={provinceOwner.countryName} />
+              )}
+              Core owner: {provinceOwner.countryName}
+            </p>
+          )}
+          <p className="mb-0 mt-1 text-xs bg-amber-900/60 border border-amber-500 rounded px-2 py-1.5 text-amber-200">
+            Occupied by you — cores to you in {Math.max(0, OCCUPATION_CORE_THRESHOLD - selectedProvince.occupationTurns)} turn(s)
+          </p>
+          {builtInProvince.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1">
+              {builtInProvince.map((b) => (
+                <div
+                  key={b.instanceId}
+                  className="w-10 h-10 text-lg border border-gray-400 rounded bg-gray-200/40 flex items-center justify-center cursor-default"
+                  title={b.name}
+                >
+                  <GameIcon kind="building" iconKey={b.type} className="w-6 h-6" />
+                </div>
+              ))}
+            </div>
+          )}
+          {armiesInProvince.length > 0 && (
+            <div className="flex flex-col gap-1 mt-2">
+              <h3 className="text-xs font-bold uppercase text-gray-600 tracking-wide">Armies</h3>
+              {armiesInProvince.map((army) => {
+                const total = armyTotalTroops(army);
+                const isSelected = selectedArmyId === army.id;
+                return (
+                  <button
+                    key={army.id}
+                    className={`w-full text-left text-xs px-2 py-1.5 rounded border flex items-center justify-between transition-colors ${
+                      isSelected ? 'bg-blue-200 border-blue-500' : 'bg-gray-200 border-gray-400 hover:bg-gray-300'
+                    }`}
+                    onClick={() => onSelectArmy?.(isSelected ? null : army.id)}
+                    title="Click to manage army"
+                  >
+                    <span className="font-medium truncate">{army.name ?? 'Unnamed Army'}</span>
+                    <span className="font-bold tabular-nums ml-2 shrink-0">{total}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {canRecruitHere && hasRecruitBuilding && (
+            <Button variant="contained" color="primary" size="small" onClick={() => onCreateArmy?.()}>
+              Create Army
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Owner view */}
       {!user.isNew && isUserOwner && (
         <div className="flex flex-col gap-2">
@@ -442,31 +642,39 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
               <h2 className="font-headline text-sm font-bold tracking-widest text-on-surface uppercase text-center">Province Data</h2>
               <p>Landscape: {selectedProvince.landscape}</p>
               <p>Resource: {selectedProvince.resourceType}</p>
+              {isOccupied && (
+                <p className="mb-0 mt-1 text-xs bg-red-900/60 border border-red-500 rounded px-2 py-1.5 text-red-200">
+                  Occupied by {otherUsers.find(u => u.id === selectedProvince.occupierId)?.countryName ?? 'another player'}
+                  {' '}— cores to them in {Math.max(0, OCCUPATION_CORE_THRESHOLD - selectedProvince.occupationTurns)} turn(s). You cannot build here until it's retaken.
+                </p>
+              )}
               <div className="flex flex-wrap gap-1 mt-2">
                 {builtInProvince.map((b) => {
                   const hasPendingRemove = pendingRemoveBuildingIds.has(b.instanceId);
                   const hasPendingUpgrade = pendingUpgradeBuildingIds.has(b.instanceId);
                   let slotClass = 'border-gray-600 bg-gray-200 hover:bg-red-100 cursor-pointer';
-                  if (!b.destructible) {
+                  if (!canBuildHere || !b.destructible) {
                     slotClass = 'border-gray-600 bg-gray-200 cursor-default';
                   } else if (hasPendingRemove) {
                     slotClass = 'border-red-500 bg-red-200/50 hover:bg-red-300/50 cursor-pointer';
                   } else if (hasPendingUpgrade) {
                     slotClass = 'border-blue-500 bg-blue-200/50 hover:bg-blue-300/50 cursor-pointer';
                   }
-                  const title = hasPendingRemove
-                    ? 'Queued for removal — click to cancel'
-                    : hasPendingUpgrade
-                      ? 'Queued for upgrade — click to cancel'
-                      : b.name;
+                  const title = !canBuildHere
+                    ? 'Occupied — cannot manage buildings'
+                    : hasPendingRemove
+                      ? 'Queued for removal — click to cancel'
+                      : hasPendingUpgrade
+                        ? 'Queued for upgrade — click to cancel'
+                        : b.name;
                   return (
                     <button
                       key={b.instanceId}
                       className={`w-10 h-10 text-lg border rounded flex items-center justify-center ${slotClass}`}
-                      onClick={() => handleBuiltBuildingClick(b)}
+                      onClick={() => canBuildHere && handleBuiltBuildingClick(b)}
                       title={title}
                     >
-                      {BUILDING_ICONS[b.type] ?? '🏗️'}
+                      <GameIcon kind="building" iconKey={b.type} className="w-6 h-6" />
                     </button>
                   );
                 })}
@@ -477,10 +685,10 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
                     onClick={() => setCancelPendingTarget(a)}
                     title="Pending — click to cancel"
                   >
-                    {BUILDING_ICONS[a.type] ?? '🏗️'}
+                    <GameIcon kind="building" iconKey={a.type} className="w-6 h-6" />
                   </button>
                 ))}
-                {Array.from({ length: emptySlotCount }).map((_, i) => (
+                {canBuildHere && Array.from({ length: emptySlotCount }).map((_, i) => (
                   <button
                     key={`empty-${i}`}
                     className="w-10 h-10 text-lg border border-dashed border-gray-500 rounded bg-gray-100 hover:bg-gray-200 flex items-center justify-center"
@@ -499,6 +707,11 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
                   const total = armyTotalTroops(army);
                   const isSelected = selectedArmyId === army.id;
                   const isDisbanding = pendingDisbandArmyIds.has(army.id);
+                  const lock = armyLocks.get(army.id);
+                  const isOwnArmy = army.user_id === user.id;
+                  const unsupplied = isOwnArmy
+                    && calcArmyFoodUpkeep(army) > 0
+                    && (army.supply_distance === null || army.supply_distance > SUPPLY_FREE_RADIUS);
                   return (
                     <button
                       key={army.id}
@@ -507,12 +720,26 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
                           ? 'bg-blue-200 border-blue-500'
                           : isDisbanding
                             ? 'bg-red-100 border-red-400 opacity-70'
-                            : 'bg-gray-200 border-gray-400 hover:bg-gray-300'
+                            : lock
+                              ? 'bg-yellow-100 border-yellow-500 opacity-80'
+                              : 'bg-gray-200 border-gray-400 hover:bg-gray-300'
                       }`}
                       onClick={() => onSelectArmy?.(isSelected ? null : army.id)}
-                      title={isDisbanding ? 'Disbanding queued' : 'Click to manage army'}
+                      title={
+                        isDisbanding
+                          ? 'Disbanding queued'
+                          : lock
+                            ? `${ARMY_LOCK_LABELS[lock.kind]} queued — open this army to cancel`
+                            : unsupplied
+                              ? `Out of supply range (${army.supply_distance === null ? 'unreachable' : `${army.supply_distance} tiles`} from a Fort/Castle/Capital) — losing troops to attrition`
+                              : 'Click to manage army'
+                      }
                     >
-                      <span className="font-medium truncate">{army.name ?? 'Unnamed Army'}</span>
+                      <span className="font-medium truncate">
+                        {army.name ?? 'Unnamed Army'}
+                        {lock && <span className="ml-1 text-yellow-700">⏳ {ARMY_LOCK_LABELS[lock.kind]}</span>}
+                        {!lock && unsupplied && <span className="ml-1 text-red-700">🚚 Unsupplied</span>}
+                      </span>
                       <span className="font-bold tabular-nums ml-2 shrink-0">{total}</span>
                     </button>
                   );
@@ -534,7 +761,7 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
               </div>
             )}
 
-            {hasRecruitBuilding && (
+            {canRecruitHere && hasRecruitBuilding && (
               <div className="flex flex-col gap-2 mt-2">
                 <Button variant="contained" color="primary" size="small" onClick={() => onCreateArmy?.()}>
                   Create Army
@@ -545,19 +772,146 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         </div>
       )}
 
+      {/* Manage Armies — available on any province (owned, occupied, or merely
+          transited/co-located, e.g. water or a troops-pass province) as long as the
+          player has 2+ of their own armies stationed here; not gated on ownership. */}
+      {!user.isNew && ownArmiesInProvinceCount >= 2 && (
+        <div className="flex flex-col gap-2 mt-2">
+          <Button variant="outlined" color="primary" size="small" onClick={() => onManageArmies?.()}>
+            Manage Armies
+          </Button>
+        </div>
+      )}
+
+      {/* Mod Tools — instant god-mode, only visible while the TopBar MOD switch is ON.
+          Unlike the views above, this isn't gated on ownership: a DM needs to act on any
+          selected province regardless of who currently controls it. */}
+      {modSwitchOn && (
+        <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-dashed border-gray-600">
+          <h3 className="text-xs font-bold uppercase text-purple-700 tracking-wide">Mod Tools</h3>
+
+          <Select
+            size="small"
+            displayEmpty
+            value={modTargetUserId}
+            onChange={(e) => setModTargetUserId(e.target.value)}
+            disabled={modBusy}
+          >
+            <MenuItem value="">— Unclaimed / no target —</MenuItem>
+            {otherUsers.map((u) => (
+              <MenuItem key={u.id} value={u.id}>{u.countryName}</MenuItem>
+            ))}
+          </Select>
+
+          <Button size="small" variant="outlined" disabled={modBusy} onClick={() => void handleModSetOwner()}>
+            Set Province Owner
+          </Button>
+
+          <div className="flex gap-1">
+            <Select
+              size="small"
+              displayEmpty
+              value={modBuildingId}
+              onChange={(e) => setModBuildingId(e.target.value)}
+              disabled={modBusy}
+              sx={{ flex: 1 }}
+            >
+              <MenuItem value="">— Building —</MenuItem>
+              {(buildings ?? []).map((b) => (
+                <MenuItem key={b.id} value={b.id}>{b.name}</MenuItem>
+              ))}
+            </Select>
+            <Button size="small" variant="outlined" disabled={modBusy || !modBuildingId} onClick={() => void handleModPlaceBuilding()}>
+              Place
+            </Button>
+          </div>
+
+          {builtInProvince.length > 0 && (
+            <div className="flex flex-col gap-1">
+              {builtInProvince.map((b) => (
+                <div
+                  key={b.instanceId}
+                  className="flex items-center justify-between text-xs px-2 py-1 rounded border border-gray-500 bg-gray-200/40"
+                >
+                  <span className="truncate inline-flex items-center gap-1">
+                    <GameIcon kind="building" iconKey={b.type} className="w-4 h-4" /> {b.name}
+                  </span>
+                  <button
+                    className="text-red-600 font-bold px-1 disabled:opacity-40"
+                    disabled={modBusy}
+                    title="Remove instantly"
+                    onClick={() => void handleModRemoveBuilding(b.instanceId)}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="flex gap-1">
+            <Select
+              size="small"
+              displayEmpty
+              value={modTroopTypeKey}
+              onChange={(e) => setModTroopTypeKey(e.target.value)}
+              disabled={modBusy}
+              sx={{ flex: 1 }}
+            >
+              <MenuItem value="">— Troop type —</MenuItem>
+              {troopTypes.map((t) => (
+                <MenuItem key={t.key} value={t.key}>{t.name}</MenuItem>
+              ))}
+            </Select>
+            <TextField
+              size="small"
+              type="number"
+              value={modTroopCount}
+              onChange={(e) => setModTroopCount(Number(e.target.value))}
+              disabled={modBusy}
+              sx={{ width: 80 }}
+            />
+          </div>
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={modBusy || !modTargetUserId || !modTroopTypeKey}
+            title={!modTargetUserId ? 'Pick a target country above first' : undefined}
+            onClick={() => void handleModSpawnArmy()}
+          >
+            Spawn Army
+          </Button>
+
+          <Button
+            size="small"
+            variant="outlined"
+            disabled={!modTargetUserId}
+            title={!modTargetUserId ? 'Pick a target country above first' : undefined}
+            onClick={() => setOpenModStocks(true)}
+          >
+            Edit Stocks
+          </Button>
+
+          {modError && <p className="text-xs text-red-500">{modError}</p>}
+        </div>
+      )}
+
       <BuildMenuModal
         open={isOpenBuildMenu}
         onClose={() => setIsOpenBuildMenu(false)}
         loading={loading}
         buildings={directlyBuildableBuildings}
+        hasWaterNeighbor={hasWaterNeighbor}
         provinceResourceType={selectedProvince.resourceType}
         userMoney={user.money}
         userCompletedResearch={user.completedResearch}
         pendingBuildTypes={pendingBuildTypesInProvince}
         techs={techs}
-        userResources={user.resources}
-        userProvinces={ownedProvinces}
+        userResourcesByKey={myResourcesByKey}
         pendingResourceUsage={pendingResourceUsage}
+        userGoodsById={myGoodsById}
+        pendingGoodUsage={pendingGoodUsage}
+        goodNameById={myGoodNameById}
         builtTypesInProvince={new Set(builtInProvince.map(b => b.type))}
         onBuild={(id) => { void handleBuildAction(id); setIsOpenBuildMenu(false); }}
       />
@@ -586,6 +940,32 @@ export const SelectedProvinceHover = ({ onSelectArmy, onCreateArmy, selectedArmy
         isDeleting={isDeleting}
         onConfirm={handleDeleteAction}
       />
+
+      {selectedProvince.userId && (
+        <PlayerTreatiesModal
+          open={openPlayerTreaties}
+          onClose={() => setOpenPlayerTreaties(false)}
+          userId={selectedProvince.userId}
+          userName={provinceOwner?.countryName ?? 'This player'}
+        />
+      )}
+
+      {selectedProvince.userId && (
+        <DiplomacyModal
+          open={openDiplomacyModal}
+          onClose={() => setOpenDiplomacyModal(false)}
+          initialSearchQuery={provinceOwner?.countryName}
+        />
+      )}
+
+      {modTargetUserId && (
+        <ModStocksModal
+          open={openModStocks}
+          onClose={() => setOpenModStocks(false)}
+          userId={modTargetUserId}
+          userName={otherUsers.find(u => u.id === modTargetUserId)?.countryName ?? 'this country'}
+        />
+      )}
     </div>
   );
 };

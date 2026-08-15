@@ -13,9 +13,20 @@ const LOG_CTX = 'ResetGameData';
 
 // Tables whose rows must survive a map reset. Everything else is wiped and then
 // repopulated by the seed scripts (buildings / techs / troop-types). `provinces`
-// is preserved because the import-provinces script manages it directly, and
-// `migrations` must never be touched or TypeORM would replay every migration.
-const KEEP_TABLES = new Set(['users', 'provinces', 'migrations']);
+// is preserved because the import-provinces script manages it directly,
+// `migrations` must never be touched or TypeORM would replay every migration,
+// `knowledge_articles`/`game_icons` (the Codex and admin-uploaded icon art) are reference
+// content unrelated to game/map state — like knowledge_articles, game_icons has no reseed step
+// in the RESET branch of the deploy workflow, so wiping it here would blank every building/
+// landscape/resource icon (back to the placeholder) after a map reset — and `game_settings` is
+// server config, not game-world state: deploy.yml always runs `import:provinces` (which writes
+// the map's checksum into this singleton row) *before* `reset:game`, so wiping it here would
+// destroy that checksum the instant after it's written, silently breaking the web client's
+// layout-cache invalidation on the very next full reset (a client whose cache also reads the
+// resulting `map_checksum: null` would then see a false "still valid" match and keep a stale
+// layout referencing province IDs that no longer exist). It would also reset `is_paused`/
+// `turns_enabled` to their defaults on every full reset, which is never intended.
+const KEEP_TABLES = new Set(['users', 'provinces', 'migrations', 'knowledge_articles', 'game_icons', 'game_settings']);
 
 async function resetGameData() {
   logger.log('Connecting to database...', LOG_CTX);

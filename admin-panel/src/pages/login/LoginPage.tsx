@@ -6,12 +6,12 @@ import { useAuth } from '../../context/AuthContext';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { login, isAuthenticated, isAdmin } = useAuth();
+  const { login, isAuthenticated, canAccessPanel } = useAuth();
   const [credentials, setCredentials] = useState({ login: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  if (isAuthenticated && isAdmin) {
+  if (isAuthenticated && canAccessPanel) {
     navigate('/', { replace: true });
     return null;
   }
@@ -23,9 +23,9 @@ export const LoginPage = () => {
     try {
       await authApi.login(credentials.login, credentials.password);
       const meRes = await authApi.getMe();
-      if (meRes.data.role !== 'ADMIN') {
+      if (meRes.data.role !== 'ADMIN' && meRes.data.role !== 'MODERATOR') {
         await authApi.logout();
-        setError('Access denied. Admin role required.');
+        setError('Access denied. Admin or Moderator role required.');
         return;
       }
       login(meRes.data);
@@ -51,7 +51,7 @@ export const LoginPage = () => {
           Admin Panel
         </Typography>
         <Typography variant="body2" color="text.secondary" mb={3} textAlign="center">
-          Admin accounts only
+          Admin and Moderator accounts only
         </Typography>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <form onSubmit={handleSubmit}>

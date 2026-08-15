@@ -15,6 +15,7 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules ./node_modules
 COPY package*.json ./
 COPY data/ ./data/
+COPY scripts/ ./scripts/
 
 EXPOSE 3000
 CMD ["node", "dist/main.js"]

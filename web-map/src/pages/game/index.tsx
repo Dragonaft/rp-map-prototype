@@ -4,7 +4,7 @@ import { MapView } from "../../components/MapView.tsx";
 import { useAuth } from "../../context/AuthContext.tsx";
 import { useQuery } from "../../hooks/useApi.ts";
 import { usersApi } from "../../api/users.ts";
-import { useAppDispatch } from "../../store/hooks.ts";
+import { useAppDispatch, useAppSelector } from "../../store/hooks.ts";
 import { setUser } from "../../store/slices/userSlice.ts";
 import { provincesApi } from "../../api/provinces.ts";
 import { setProvinces } from "../../store/slices/provincesSlice.ts";
@@ -19,6 +19,16 @@ import { techsApi } from "../../api/techs.ts";
 import { setTechs } from "../../store/slices/techsSlice.ts";
 import { armiesApi } from "../../api/armies.ts";
 import { setArmies, setTroopTypes } from "../../store/slices/armiesSlice.ts";
+import { resourcesApi } from "../../api/resources.ts";
+import { setResources, setMyResources } from "../../store/slices/resourcesSlice.ts";
+import { iconsApi } from "../../api/icons.ts";
+import { setIcons } from "../../store/slices/iconsSlice.ts";
+import { goodsApi } from "../../api/goods.ts";
+import { setMyGoods } from "../../store/slices/goodsSlice.ts";
+import { diplomacyApi } from "../../api/diplomacy.ts";
+import { setRelations, setTreaties, setWars } from "../../store/slices/diplomacySlice.ts";
+import { notificationsApi } from "../../api/notifications.ts";
+import { setNotifications } from "../../store/slices/notificationsSlice.ts";
 
 
 const style = {
@@ -40,22 +50,29 @@ export const GamePage: React.FC = () => {
   useActionExecutionReload();
   const [openIsNewModal, setOpenIsNewModal] = useState(false);
 
-  const userId = authUser?.id || "";
+  // Mod layer: while "playing" an NPC country, load that country's state instead of the
+  // mod's own — the X-Act-As-User header (api/config.ts) makes every other request already
+  // act as the NPC server-side, but /users/:id specifically compares the path id against the
+  // requester's own id to decide full-vs-partial state, so the id itself must switch too.
+  const actingAsUserId = useAppSelector(state => state.mod.actingAsUserId);
+  const userId = actingAsUserId || authUser?.id || "";
   const fetchUser = useCallback(() => usersApi.getOne(userId), [userId]);
   const { data: userData } = useQuery(fetchUser);
   const fetchOtherUsers = useCallback(() => usersApi.getAll(), []);
   const { data: otherUsersData } = useQuery(fetchOtherUsers);
-  // Fetch static layout (localStorage-cached) and dynamic state in parallel.
-  // Layout data never changes after map import; state changes only at turn end.
-  // For new users the cache is always bypassed so they receive the latest layout.
+  // Fetch static layout (localStorage-cached, checksum-validated against
+  // game_settings.map_checksum — see provincesApi.getLayoutCached) and dynamic state in
+  // parallel. Layout data never changes after map import except when an admin re-imports
+  // provinces.json, which the checksum check detects and refetches on its own — no
+  // per-user special-casing needed here.
   const fetchProvinces = useCallback(async () => {
     const [layout, state] = await Promise.all([
-      provincesApi.getLayoutCached(userData?.isNew === true),
+      provincesApi.getLayoutCached(),
       provincesApi.getState(),
     ]);
     const stateById = Object.fromEntries(state.map(s => [s.id, s]));
     return layout.map(l => ({ ...l, ...(stateById[l.id] ?? {}) }));
-  }, [userData?.isNew]);
+  }, []);
   const { data: provinces, loading, error } = useQuery(fetchProvinces, []);
   const fetchUserActions = useCallback(() => actionsApi.getUserActions(), []);
   const { data: actions } = useQuery(fetchUserActions, []);
@@ -67,6 +84,22 @@ export const GamePage: React.FC = () => {
   const { data: armiesData } = useQuery(fetchArmies, []);
   const fetchTroopTypes = useCallback(() => armiesApi.getTroopTypes(), []);
   const { data: troopTypesData } = useQuery(fetchTroopTypes, []);
+  const fetchResources = useCallback(() => resourcesApi.getAll(), []);
+  const { data: resourcesData } = useQuery(fetchResources, []);
+  const fetchIcons = useCallback(() => iconsApi.getAll(), []);
+  const { data: iconsData } = useQuery(fetchIcons, []);
+  const fetchMyResources = useCallback(() => resourcesApi.getMine(), []);
+  const { data: myResourcesData } = useQuery(fetchMyResources, []);
+  const fetchMyGoods = useCallback(() => goodsApi.getMine(), []);
+  const { data: myGoodsData } = useQuery(fetchMyGoods, []);
+  const fetchRelations = useCallback(() => diplomacyApi.getRelations(), []);
+  const { data: relationsData } = useQuery(fetchRelations, []);
+  const fetchWars = useCallback(() => diplomacyApi.getWars(), []);
+  const { data: warsData } = useQuery(fetchWars, []);
+  const fetchTreaties = useCallback(() => diplomacyApi.getTreaties(), []);
+  const { data: treatiesData } = useQuery(fetchTreaties, []);
+  const fetchNotifications = useCallback(() => notificationsApi.getMine(), []);
+  const { data: notificationsData } = useQuery(fetchNotifications, []);
 
   useEffect(() => {
     if (!userData) return;
@@ -108,6 +141,46 @@ export const GamePage: React.FC = () => {
     if (!troopTypesData) return;
     dispatch(setTroopTypes(troopTypesData));
   }, [troopTypesData, dispatch]);
+
+  useEffect(() => {
+    if (!resourcesData) return;
+    dispatch(setResources(resourcesData));
+  }, [resourcesData, dispatch]);
+
+  useEffect(() => {
+    if (!iconsData) return;
+    dispatch(setIcons(iconsData));
+  }, [iconsData, dispatch]);
+
+  useEffect(() => {
+    if (!myResourcesData) return;
+    dispatch(setMyResources(myResourcesData));
+  }, [myResourcesData, dispatch]);
+
+  useEffect(() => {
+    if (!myGoodsData) return;
+    dispatch(setMyGoods(myGoodsData));
+  }, [myGoodsData, dispatch]);
+
+  useEffect(() => {
+    if (!relationsData) return;
+    dispatch(setRelations(relationsData));
+  }, [relationsData, dispatch]);
+
+  useEffect(() => {
+    if (!warsData) return;
+    dispatch(setWars(warsData));
+  }, [warsData, dispatch]);
+
+  useEffect(() => {
+    if (!treatiesData) return;
+    dispatch(setTreaties(treatiesData));
+  }, [treatiesData, dispatch]);
+
+  useEffect(() => {
+    if (!notificationsData) return;
+    dispatch(setNotifications(notificationsData));
+  }, [notificationsData, dispatch]);
 
   // Prevent browser zoom when Ctrl+wheel anywhere on the page
   useEffect(() => {

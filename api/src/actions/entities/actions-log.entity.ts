@@ -12,6 +12,8 @@ export interface ExecutedAction {
   actionType: string;
   actionData: any;
   status: string;
+  /** Only set when status is FAILED — why the action didn't go through. */
+  failureReason?: string;
   order: number;
   executedAt: Date;
 }

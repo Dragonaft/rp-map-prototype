@@ -4,6 +4,7 @@ import { AppDataSource as AppDataSourceDev } from '../db/data-source';
 import { AppDataSource as AppDataSourceProd } from '../db/data-source.prod';
 import { Building } from '../buildings/entities/building.entity';
 import { BuildingTypes } from '../buildings/types/building.types';
+import { Good } from '../goods/entities/good.entity';
 import { colors, logger } from '../utils/logger';
 
 const env = process.env.NODE_ENV;
@@ -29,11 +30,32 @@ interface BuildingSeedRow {
   buildable?: boolean;
   destructible?: boolean;
   unique_per_province?: boolean;
+  /** True if this building can only be built in a province with at least one neighboring water province (e.g. Port). */
+  requires_neighbor_water?: boolean;
+  /** True if this building acts as an army supply source for SupplyActionService's BFS. */
+  supply_building?: boolean;
   allowed_province_resources?: string[] | null;
   requirement_resource?: string | null;
   requirement_resource_amount?: number | null;
   visible?: boolean;
   can_recruit?: boolean;
+  isProduction?: boolean;
+  /** Good.name to resolve to production_good_id at seed time — Good has no natural key like Resource does. */
+  production_good_name?: string | null;
+  production_requirement_resource?: string | null;
+  production_requirement_resource_amount?: number | null;
+  production_amount?: number | null;
+  /** Per-turn amount of the province's resource credited to the ledger — MINE/FORESTRY. */
+  resource_production_amount?: number | null;
+  /** Overrides which resource key resource_production_amount credits instead of the province's
+   *  own resource (e.g. PORT sits on land but produces fish). Null = province's own resource. */
+  resource_production_key?: string | null;
+  /** Good.name to resolve to requirement_good_id at seed time — a one-time BUILD cost, like requirement_resource but for goods. */
+  requirement_good_name?: string | null;
+  requirement_good_amount?: number | null;
+  /** A second, independent one-time goods cost — same resolution as requirement_good_name. */
+  requirement_good_2_name?: string | null;
+  requirement_good_2_amount?: number | null;
 }
 
 const BUILDING_TYPE_VALUES = new Set<string>(Object.values(BuildingTypes));
@@ -118,10 +140,50 @@ async function seedBuildings() {
   }
 
   const repo = AppDataSource.getRepository(Building);
+  const goodRepo = AppDataSource.getRepository(Good);
   let created = 0;
   let updated = 0;
 
   for (const row of rows) {
+    let production_good_id: string | null = null;
+    if (row.production_good_name) {
+      const good = await goodRepo.findOne({ where: { name: row.production_good_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.type}: production_good_name "${row.production_good_name}" not found — run seed:goods before seed:buildings`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      production_good_id = good.id;
+    }
+
+    let requirement_good_id: string | null = null;
+    if (row.requirement_good_name) {
+      const good = await goodRepo.findOne({ where: { name: row.requirement_good_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.type}: requirement_good_name "${row.requirement_good_name}" not found — run seed:goods before seed:buildings`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      requirement_good_id = good.id;
+    }
+
+    let requirement_good_2_id: string | null = null;
+    if (row.requirement_good_2_name) {
+      const good = await goodRepo.findOne({ where: { name: row.requirement_good_2_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.type}: requirement_good_2_name "${row.requirement_good_2_name}" not found — run seed:goods before seed:buildings`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      requirement_good_2_id = good.id;
+    }
+
     const patch = {
       name: row.name,
       description: row.description,
@@ -135,11 +197,24 @@ async function seedBuildings() {
       buildable: row.buildable ?? true,
       destructible: row.destructible ?? true,
       unique_per_province: row.unique_per_province ?? false,
+      requires_neighbor_water: row.requires_neighbor_water ?? false,
+      supply_building: row.supply_building ?? false,
       allowed_province_resources: row.allowed_province_resources ?? null,
       requirement_resource: row.requirement_resource ?? null,
       requirement_resource_amount: row.requirement_resource_amount ?? null,
       visible: row.visible ?? false,
       can_recruit: row.can_recruit ?? false,
+      isProduction: row.isProduction ?? false,
+      production_good_id,
+      production_requirement_resource: row.production_requirement_resource ?? null,
+      production_requirement_resource_amount: row.production_requirement_resource_amount ?? null,
+      production_amount: row.production_amount ?? null,
+      resource_production_amount: row.resource_production_amount ?? null,
+      resource_production_key: row.resource_production_key ?? null,
+      requirement_good_id,
+      requirement_good_amount: row.requirement_good_amount ?? null,
+      requirement_good_2_id,
+      requirement_good_2_amount: row.requirement_good_2_amount ?? null,
     };
 
     const existing = await repo.find({

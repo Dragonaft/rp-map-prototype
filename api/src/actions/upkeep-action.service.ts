@@ -1,26 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { EntityManager, In } from 'typeorm';
-import { BuildingTypes } from '../buildings/types/building.types';
 import { User } from '../users/entities/user.entity';
 import { Army } from '../armies/entities/army.entity';
 import { UserGameState } from './user-state-loader.service';
-import { UPKEEP_RESEARCH_EFFECTS } from '../techs/research-effects';
+import { TechEffectsService } from '../techs/tech-effects.service';
 
 function parseUpkeep(upkeep: string | null | undefined): number {
   const n = Number(upkeep);
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
-const ARMY_UPKEEP_BUILDINGS = new Set<string>([
-  BuildingTypes.FORT,
-  BuildingTypes.BARRACKS,
-  BuildingTypes.ARMORY,
-]);
-
 /** Runs once per scheduled queue tick before any queued player actions. */
 @Injectable()
 export class UpkeepActionService {
   private readonly logger = new Logger(UpkeepActionService.name);
+
+  constructor(private readonly techEffects: TechEffectsService) {}
 
   async execute(state: UserGameState, manager: EntityManager): Promise<void> {
     const { users, provincesByUser } = state;
@@ -44,14 +39,16 @@ export class UpkeepActionService {
       const userProvinces = provincesByUser.get(user.id) ?? [];
       const userArmies = armiesByUser.get(user.id) ?? [];
 
-      // Building upkeep (FORT, BARRACKS, ARMORY)
+      // Building upkeep — every building's seeded upkeep is charged, not just a fixed
+      // FORT/BARRACKS/ARMORY whitelist (that whitelist meant 13 of 20 buildings were
+      // effectively free, and let CASTLE strictly dominate FORT: better defense modifier,
+      // +100 income, and its 150 upkeep was never billed while FORT's 80 was).
       let buildingUpkeep = 0;
       for (const province of userProvinces) {
+        if (province.occupier_id) continue; // occupied: owner gets no benefit, pays no upkeep either
         if (!province.buildings?.length) continue;
         for (const b of province.buildings) {
-          if (ARMY_UPKEEP_BUILDINGS.has(b.type)) {
-            buildingUpkeep += parseUpkeep(b.upkeep as any);
-          }
+          buildingUpkeep += parseUpkeep(b.upkeep as any);
         }
       }
 
@@ -72,11 +69,14 @@ export class UpkeepActionService {
         }
       }
 
-      const upkeepCtx = { totalUpkeep: buildingUpkeep + armyUpkeep };
-      for (const techKey of (user.completed_research ?? [])) {
-        UPKEEP_RESEARCH_EFFECTS[techKey]?.(upkeepCtx);
-      }
-      user.money = Math.max(0, Number(user.money ?? 0) - upkeepCtx.totalUpkeep);
+      const totalUpkeep = this.techEffects.apply(
+        'upkeep',
+        buildingUpkeep + armyUpkeep,
+        {},
+        user.completed_research ?? [],
+      );
+      // Money is allowed to go negative here — unpaid upkeep is the primary path into debt/bankruptcy (see BankruptcyService).
+      user.money = Number(user.money ?? 0) - totalUpkeep;
       user.piety = Math.max(0, Number(user.piety ?? 0) - pietyUpkeep);
     }
 

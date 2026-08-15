@@ -3,6 +3,7 @@ import * as path from 'path';
 import { AppDataSource as AppDataSourceDev } from '../db/data-source';
 import { AppDataSource as AppDataSourceProd } from '../db/data-source.prod';
 import { TroopType, TroopCategory } from '../armies/entities/troop-type.entity';
+import { Good } from '../goods/entities/good.entity';
 import { colors, logger } from '../utils/logger';
 
 const env = process.env.NODE_ENV;
@@ -22,9 +23,23 @@ interface TroopTypeSeedRow {
   cost_per_100: number;
   attack: number;
   defense: number;
+  /** Power multiplier applied while fighting on water (default 1.0 = no penalty). */
+  water_combat_modifier?: number;
   upkeep_per_100: number;
   tech_requirement: string | null;
   building_requirement: string | null;
+  /** Good.name to resolve to required_goods at seed time — one-time cost per 100 troops, like cost_per_100 but paid in goods. */
+  required_goods_name?: string | null;
+  goods_amount?: number | null;
+  /** A second, independent one-time recruitment goods cost — same resolution as required_goods_name. */
+  required_goods_2_name?: string | null;
+  goods_amount_2?: number | null;
+  /** Good.name to resolve to supply_good_id at seed time — per-turn food cost per 100 troops, scaled by SupplyActionService's distance multiplier. */
+  supply_good_name?: string | null;
+  supply_per_100?: number | null;
+  /** A second, independent per-turn supply good — the class elite units' permanent partner-good dependency. */
+  supply_good_2_name?: string | null;
+  supply_per_100_2?: number | null;
 }
 
 const VALID_CATEGORIES = new Set<string>(Object.values(TroopCategory));
@@ -111,10 +126,63 @@ async function seedTroopTypes() {
   }
 
   const repo = AppDataSource.getRepository(TroopType);
+  const goodRepo = AppDataSource.getRepository(Good);
   let created = 0;
   let updated = 0;
 
   for (const row of rows) {
+    let required_goods: string | null = null;
+    if (row.required_goods_name) {
+      const good = await goodRepo.findOne({ where: { name: row.required_goods_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.key}: required_goods_name "${row.required_goods_name}" not found — run seed:goods before seed:troop-types`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      required_goods = good.id;
+    }
+
+    let required_goods_2: string | null = null;
+    if (row.required_goods_2_name) {
+      const good = await goodRepo.findOne({ where: { name: row.required_goods_2_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.key}: required_goods_2_name "${row.required_goods_2_name}" not found — run seed:goods before seed:troop-types`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      required_goods_2 = good.id;
+    }
+
+    let supply_good_id: string | null = null;
+    if (row.supply_good_name) {
+      const good = await goodRepo.findOne({ where: { name: row.supply_good_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.key}: supply_good_name "${row.supply_good_name}" not found — run seed:goods before seed:troop-types`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      supply_good_id = good.id;
+    }
+
+    let supply_good_2_id: string | null = null;
+    if (row.supply_good_2_name) {
+      const good = await goodRepo.findOne({ where: { name: row.supply_good_2_name } });
+      if (!good) {
+        logger.error(
+          `Row for ${row.key}: supply_good_2_name "${row.supply_good_2_name}" not found — run seed:goods before seed:troop-types`,
+          LOG_CTX,
+        );
+        process.exit(1);
+      }
+      supply_good_2_id = good.id;
+    }
+
     const patch = {
       name: row.name,
       description: row.description,
@@ -122,9 +190,18 @@ async function seedTroopTypes() {
       cost_per_100: row.cost_per_100,
       attack: row.attack,
       defense: row.defense,
+      water_combat_modifier: row.water_combat_modifier ?? 1.0,
       upkeep_per_100: row.upkeep_per_100,
       tech_requirement: row.tech_requirement ?? null,
       building_requirement: row.building_requirement ?? null,
+      required_goods,
+      goods_amount: row.goods_amount ?? null,
+      required_goods_2,
+      goods_amount_2: row.goods_amount_2 ?? null,
+      supply_good_id,
+      supply_per_100: row.supply_per_100 ?? null,
+      supply_good_2_id,
+      supply_per_100_2: row.supply_per_100_2 ?? null,
     };
 
     const existing = await repo.findOne({ where: { key: row.key } });

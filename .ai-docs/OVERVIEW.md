@@ -60,17 +60,22 @@ Cron fires (13:00 & 20:00 Kyiv time prod; every 2min AND 5min dev)
   │
   ├─ Acquire distributed lock (ExecutionLock entity)
   ├─ Income phase: credit money/troops/piety/research from buildings
+  ├─ Production phase: credit goods from production buildings
   ├─ Upkeep phase: deduct building + army costs
+  ├─ Supply phase: charge army food upkeep by distance from a Fort/Castle/Capital; unfed armies take attrition
+  ├─ Recurring trade: settle accepted recurring trade treaties
   ├─ Action execution: process queued actions in order
   ├─ Post-processing:
   │   ├─ Disband armies < 100 troops
-  │   ├─ Resolve multi-faction combat in same province
-  │   └─ Sync province ownership with army presence
+  │   ├─ Resolve multi-faction combat in same province (occupies, not annexes)
+  │   └─ Sync province control with army presence (diplomacy-gated)
+  ├─ Diplomacy tick: occupation counters, treaty expiry (4 turns), peace-truce decay (4 turns),
+  │                  army water-residency (lost at sea past the tech-adjusted allowance)
   ├─ Cleanup executed actions, write log
   └─ SSE broadcast → frontends auto-reload
 ```
 
-During execution, the API returns **503** on most endpoints (ActionExecutionBlockMiddleware). Whitelisted: exactly five exact-match paths — `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`. Note: `/auth/me` is **not** whitelisted (blocked during processing).
+During execution, the API returns **503** on most endpoints (ActionExecutionBlockMiddleware). Whitelisted: exactly six exact-match paths — `/actions/execution-stream`, `/auth/login`, `/auth/register`, `/auth/refresh`, `/auth/logout`, `/game-settings`. Note: `/auth/me` is **not** whitelisted (blocked during processing).
 
 ## Key Files to Read First
 
@@ -79,11 +84,16 @@ During execution, the API returns **503** on most endpoints (ActionExecutionBloc
 | API bootstrap            | `api/src/main.ts`                                 |
 | Root module              | `api/src/app.module.ts`                           |
 | Turn scheduler           | `api/src/actions/action-scheduler.service.ts`     |
-| Action handlers (12)     | `api/src/actions/action-executor.service.ts`      |
+| Action handlers (11)     | `api/src/actions/action-executor.service.ts`      |
 | Combat calculator        | `api/src/actions/combat-calculator.ts`            |
 | Income logic             | `api/src/actions/income-action.service.ts`        |
+| Army food supply logic   | `api/src/actions/supply-action.service.ts`, `supply-utils.ts` |
 | Upkeep logic             | `api/src/actions/upkeep-action.service.ts`        |
-| Research effect modifiers| `api/src/techs/research-effects.ts`               |
+| Tech effect engine       | `api/src/techs/tech-effects.service.ts`, `effect-types.ts` |
+| Research progress accrual| `api/src/techs/user-tech-progress.service.ts`     |
+| Diplomacy/wars/treaties  | `api/src/diplomacy/diplomacy.service.ts`, `treaty.service.ts` |
+| Occupation control logic | `api/src/diplomacy/occupation.service.ts`         |
+| Player classes (DB-driven, gates tech branches) | `api/src/classes/classes.service.ts` |
 | Map rendering            | `web-map/src/components/MapView.tsx`              |
 | Province rendering       | `web-map/src/components/ProvinceShape.tsx`        |
 | Redux store              | `web-map/src/store/store.ts`                      |
@@ -99,3 +109,12 @@ During execution, the API returns **503** on most endpoints (ActionExecutionBloc
 - [GAME-MECHANICS.md](GAME-MECHANICS.md) — Turn system, combat, economy, tech tree
 - [DOCKER.md](DOCKER.md) — Container orchestration, env vars, networking
 - [DATABASE.md](DATABASE.md) — Entity schemas and relationships
+- [DESIGN.md](DESIGN.md) — Visual identity, terminology, and copy source of
+  truth for any UI/design work (colors, type, spacing, component patterns,
+  closed game vocabulary). See [WEB-MAP.md](WEB-MAP.md#styling) for Tailwind/MUI
+  pitfalls specific to this frontend.
+
+## Note
+- Don't push or commit any changes to git.
+- Add comments only to complex logic.
+- Prefer arrow functions over the `function` keyword where practical (e.g. `const foo = () => {}` instead of `function foo() {}`), matching most of the existing codebase (services still use `class` methods, which are unaffected by this).

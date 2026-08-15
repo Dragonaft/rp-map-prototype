@@ -24,6 +24,13 @@ export class ActionsService {
     actionType: ActionType,
     actionData: any,
   ): Promise<any> {
+    // RESEARCH is no longer a queued/turn-delayed action — selecting a tech applies
+    // immediately via POST /techs/select, so its progress starts accruing the very next
+    // income tick instead of waiting for this queue to be processed first.
+    if (actionType === ActionType.RESEARCH) {
+      throw new BadRequestException('RESEARCH is no longer queued — use POST /techs/select instead');
+    }
+
     // 1) Reject malformed payloads up front (cheap, clear 400s instead of
     //    obscure failures deep in the turn executor).
     this.validateActionPayload(actionType, actionData);
@@ -80,10 +87,6 @@ export class ActionsService {
         this.requireString(actionData, 'province_id');
         break;
 
-      case ActionType.RESEARCH:
-        this.requireString(actionData, 'tech_key');
-        break;
-
       case ActionType.ARMY_MOVE:
         this.requireString(actionData, 'army_id');
         this.requireString(actionData, 'to_province_id');
@@ -107,6 +110,15 @@ export class ActionsService {
         }
         break;
 
+      case ActionType.ARMY_TRANSFER:
+        this.requireString(actionData, 'army_a_id');
+        this.requireString(actionData, 'army_b_id');
+        if (actionData.army_a_id === actionData.army_b_id) {
+          throw new BadRequestException('army_a_id and army_b_id must be different');
+        }
+        this.validateTransfers(actionData.transfers, actionData.army_a_id, actionData.army_b_id);
+        break;
+
       case ActionType.ARMY_CREATE:
         this.requireString(actionData, 'province_id');
         if (actionData.name != null && typeof actionData.name !== 'string') {
@@ -120,8 +132,9 @@ export class ActionsService {
         this.validateUnits(actionData.units);
         break;
 
-      // TRANSFER_TROOPS / DISBAND are legacy/unimplemented stubs with no payload
-      // contract and nothing queues them, so no shape is enforced here.
+      // DISBAND is a legacy/unimplemented stub with no payload contract and nothing
+      // queues it, so no shape is enforced here. RESEARCH is rejected earlier in
+      // createAction (see the guard above) and never reaches here.
       default:
         break;
     }
@@ -160,31 +173,86 @@ export class ActionsService {
     }
   }
 
+  private validateTransfers(transfers: any, armyAId: string, armyBId: string): void {
+    if (!Array.isArray(transfers) || transfers.length === 0) {
+      throw new BadRequestException('transfers must be a non-empty array');
+    }
+    const validArmyIds = new Set([armyAId, armyBId]);
+    for (const t of transfers) {
+      if (t === null || typeof t !== 'object') {
+        throw new BadRequestException('each transfer must be an object');
+      }
+      this.requireString(t, 'troop_type_key');
+      this.requireString(t, 'from_army_id');
+      this.requireString(t, 'to_army_id');
+      this.requireCount(t.count, 'count');
+      if (
+        t.from_army_id === t.to_army_id ||
+        !validArmyIds.has(t.from_army_id) ||
+        !validArmyIds.has(t.to_army_id)
+      ) {
+        throw new BadRequestException('each transfer must move between army_a_id and army_b_id');
+      }
+    }
+  }
+
+  /** Action types that each commit one or more armies to a single per-turn slot (see below). */
+  private static readonly ARMY_LOCKING_ACTION_TYPES: ActionType[] = [
+    ActionType.ARMY_MOVE,
+    ActionType.ARMY_MERGE,
+    ActionType.ARMY_TRANSFER,
+  ];
+
+  /** Every army id a given ARMY_MOVE/ARMY_MERGE/ARMY_TRANSFER payload references. */
+  private static extractLockedArmyIds(actionType: ActionType, actionData: any): string[] {
+    switch (actionType) {
+      case ActionType.ARMY_MOVE:
+        return actionData?.army_id ? [actionData.army_id] : [];
+      case ActionType.ARMY_MERGE:
+        return [actionData?.source_army_id, actionData?.target_army_id].filter(Boolean);
+      case ActionType.ARMY_TRANSFER:
+        return [actionData?.army_a_id, actionData?.army_b_id].filter(Boolean);
+      default:
+        return [];
+    }
+  }
+
   /**
    * Rejects duplicate pending actions that are one-per-turn or idempotent. The
    * executor still enforces these at runtime; this just gives immediate feedback.
+   *
+   * ARMY_MOVE / ARMY_MERGE / ARMY_TRANSFER mutually lock the armies they reference —
+   * an army can have at most one of {move, merge, transfer} pending at a time, so a
+   * pending merge/transfer blocks queuing a move for that army and vice versa.
    */
   private async assertNotDuplicate(
     userId: string,
     actionType: ActionType,
     actionData: any,
   ): Promise<void> {
-    if (actionType === ActionType.ARMY_MOVE) {
-      const pending = await this.actionQueueRepo.find({
-        where: { userId, actionType: ActionType.ARMY_MOVE, status: ActionStatus.PENDING },
-      });
-      if (pending.some((a) => a.actionData?.army_id === actionData.army_id)) {
-        throw new BadRequestException('This army already has a pending move this turn');
+    const newArmyIds = ActionsService.extractLockedArmyIds(actionType, actionData);
+    if (!newArmyIds.length) return;
+
+    const pending = await this.actionQueueRepo.find({
+      where: {
+        userId,
+        actionType: In(ActionsService.ARMY_LOCKING_ACTION_TYPES),
+        status: ActionStatus.PENDING,
+      },
+    });
+
+    const lockedArmyIds = new Set<string>();
+    for (const p of pending) {
+      for (const id of ActionsService.extractLockedArmyIds(p.actionType, p.actionData)) {
+        lockedArmyIds.add(id);
       }
     }
 
-    if (actionType === ActionType.RESEARCH) {
-      const pending = await this.actionQueueRepo.find({
-        where: { userId, actionType: ActionType.RESEARCH, status: ActionStatus.PENDING },
-      });
-      if (pending.some((a) => a.actionData?.tech_key === actionData.tech_key)) {
-        throw new BadRequestException('This technology is already queued for research');
-      }
+    const conflict = newArmyIds.find((id) => lockedArmyIds.has(id));
+    if (conflict) {
+      throw new BadRequestException(
+        `Army ${conflict} already has a pending move/merge/transfer this turn`,
+      );
     }
   }
 
@@ -200,30 +268,6 @@ export class ActionsService {
       where: { userId, status: ActionStatus.PENDING },
       order: { order: 'ASC' },
     });
-  }
-
-  /**
-   * Total troops committed in pending/processing TRANSFER_TROOPS actions,
-   * grouped by source province id (for adjusting displayed local_troops).
-   */
-  async getReservedTroopMovesByFromProvince(userId: string): Promise<Map<string, number>> {
-    const actions = await this.actionQueueRepo.find({
-      where: {
-        userId,
-        status: In([ActionStatus.PENDING, ActionStatus.PROCESSING]),
-        actionType: ActionType.TRANSFER_TROOPS,
-      },
-    });
-
-    const byFrom = new Map<string, number>();
-    for (const action of actions) {
-      const fromId = action.actionData?.from_province_id as string | undefined;
-      const n = action.actionData?.troops_number;
-      if (fromId && typeof n === 'number' && n > 0) {
-        byFrom.set(fromId, (byFrom.get(fromId) ?? 0) + n);
-      }
-    }
-    return byFrom;
   }
 
   async retractAction(userId: string, actionId: string): Promise<any> {

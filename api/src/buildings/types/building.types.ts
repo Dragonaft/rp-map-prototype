@@ -16,4 +16,14 @@ export enum BuildingTypes {
   CATHEDRAL = 'CATHEDRAL',
   TRADE_HOUSE = 'TRADE_HOUSE',
   CASTLE = 'CASTLE',
+  SAWMILL = 'SAWMILL',
+  BRICKYARD = 'BRICKYARD',
+  BARN = 'BARN',
+  PORT = 'PORT',
+  /** NOBLE-only prestige building — produces Warhorses from grain. Plains only. */
+  STUD_FARM = 'STUD_FARM',
+  /** HOLY-only prestige building — produces Relics from gold. Requires TEMPLE. */
+  RELIQUARY = 'RELIQUARY',
+  /** GUILD-only prestige building — produces Spices from fish. Requires PORT. */
+  SPICE_WHARF = 'SPICE_WHARF',
 }
