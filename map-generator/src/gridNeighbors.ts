@@ -15,17 +15,17 @@ const DIRS: ReadonlyArray<readonly [number, number]> = [
 ];
 
 /**
- * Region ids of the cells adjacent to (r, c) on a rows×cols grid.
+ * Cell coordinates adjacent to (r, c) on a rows×cols grid.
  * When wrapX is true, column indices wrap modulo cols.
  */
-export function gridNeighborRegions(
+export function gridNeighborCells(
   r: number,
   c: number,
   rows: number,
   cols: number,
   wrapX: boolean,
-): string[] {
-  const neighbors: string[] = [];
+): { r: number; c: number }[] {
+  const neighbors: { r: number; c: number }[] = [];
   for (const [dr, dc] of DIRS) {
     const nr = r + dr;
     let nc = c + dc;
@@ -36,9 +36,45 @@ export function gridNeighborRegions(
       continue;
     }
     if (nr === r && nc === c) continue; // guard against cols === 1 self-link
-    neighbors.push(`prov-${nr}-${nc}`);
+    neighbors.push({ r: nr, c: nc });
   }
   return neighbors;
+}
+
+/**
+ * Region ids of the cells adjacent to (r, c) on a rows×cols grid.
+ * When wrapX is true, column indices wrap modulo cols.
+ */
+export function gridNeighborRegions(
+  r: number,
+  c: number,
+  rows: number,
+  cols: number,
+  wrapX: boolean,
+): string[] {
+  return gridNeighborCells(r, c, rows, cols, wrapX).map(({ r: nr, c: nc }) => `prov-${nr}-${nc}`);
+}
+
+/**
+ * Grid distance between two cells, accounting for east-west wrap: the column
+ * delta takes the shorter of the direct and wrapped-around paths. Rows never
+ * wrap (poles are hard edges). Used to size water channels between continents
+ * and to place continent seeds well spread out on the cylinder.
+ */
+export function toroidalDistance(
+  r1: number,
+  c1: number,
+  r2: number,
+  c2: number,
+  cols: number,
+  wrapX: boolean,
+): number {
+  const dr = r1 - r2;
+  let dc = Math.abs(c1 - c2);
+  if (wrapX) {
+    dc = Math.min(dc, cols - dc);
+  }
+  return Math.sqrt(dr * dr + dc * dc);
 }
 
 /** Parsed `prov-<row>-<col>` coordinates, or null if the id isn't grid-shaped. */
