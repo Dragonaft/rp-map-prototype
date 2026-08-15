@@ -42,8 +42,8 @@ export const IconsTab = () => {
       adminApi.getResources(),
     ]);
     setIcons(iconsRes.data);
-    setBuildingTypes([...new Set(buildingsRes.data.map((b: any) => b.type as string))].sort());
-    setResourceKeys([...new Set(resourcesRes.data.map((r: any) => r.key as string))].sort());
+    setBuildingTypes([...new Set<string>(buildingsRes.data.map((b: any) => b.type as string))].sort());
+    setResourceKeys([...new Set<string>(resourcesRes.data.map((r: any) => r.key as string))].sort());
     setLoading(false);
   };
 
