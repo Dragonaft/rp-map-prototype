@@ -123,6 +123,10 @@ jobs:
           # GitHub interpolates these ${{ }} values before sending the script.
           script: |
             set -e
+            # A killed process (exit 137 from docker compose exec) previously took real
+            # investigation to diagnose as an OOM kill. Dump memory state on any failure so
+            # the next one is a one-look diagnosis instead.
+            trap 'echo "==> DEPLOY FAILED — memory state:"; free -h; echo "==> Recent kernel OOM activity:"; dmesg -T 2>/dev/null | grep -i -E "oom|killed process" | tail -30 || true' ERR
             export COMPOSE_FILE=docker-compose.yml:docker-compose.prod.yml
             export IMAGE_API="${{ needs.build.outputs.image_api }}"
             export IMAGE_WEB="${{ needs.build.outputs.image_web }}"
@@ -143,6 +147,9 @@ jobs:
 
             echo "==> Starting containers"
             docker compose up -d --wait
+
+            echo "==> Memory before migrations"
+            free -h
 
             echo "==> Running database migrations"
             docker compose exec -T api npm run migration:run

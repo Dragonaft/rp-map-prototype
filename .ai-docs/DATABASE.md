@@ -518,3 +518,13 @@ npm run migration:fresh                          # Drop schema + re-run all
 ```
 
 Migration files: `api/src/db/migrations/` (timestamped TypeScript files)
+
+**Once a migration has run anywhere but a local dev DB, its filename timestamp and exported
+class name are frozen.** TypeORM's `migrations` table records the class name as the applied
+key — renaming the file or the class after deploy makes that row look like a *different*,
+still-pending migration on every environment that already ran it, so the next `migration:run`
+there tries to re-apply it against objects that already exist and fails (or, worse, silently
+diverges if the file's contents changed too). This bit prod on 2026-08-15: two migrations had
+been renamed post-deploy, requiring a full `migration:fresh` rebuild to recover. Need to change
+an already-deployed migration's behavior? Ship a new migration that alters what the old one did
+— never edit or rename the old file.
